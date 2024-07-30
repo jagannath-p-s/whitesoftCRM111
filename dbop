@@ -1,0 +1,52 @@
+create table
+  public.users (
+    id serial,
+    username character varying(50) not null,
+    useremail character varying(100) not null,
+    password character varying(255) not null,
+    role character varying(50) not null,
+    datetime timestamp without time zone null default current_timestamp,
+    mobile_number character varying(50) null,
+  
+    constraint users_pkey primary key (id),
+    constraint users_useremail_key unique (useremail)
+  ) tablespace pg_default;
+ 
+
+ was th users table im going to run the command -- Remove columns
+ALTER TABLE public.users
+DROP COLUMN phone_number,
+DROP COLUMN address;
+
+-- Add new columns
+ALTER TABLE public.users
+ADD COLUMN can_edit_staff BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_pipeline BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_product BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_files BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_enquiries BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_stock BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_product_enquiry BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_service_enquiry BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_edit_sales BOOLEAN NULL DEFAULT false,
+ADD COLUMN can_see_performance BOOLEAN NULL DEFAULT false,
+ADD COLUMN is_admin BOOLEAN NULL DEFAULT false,
+ADD COLUMN employee_code TEXT NULL;
+
+
+create view
+  public.uploaded_files_view as
+select
+  uf.file_id,
+  uf.file_name,
+  uf.file_path,
+  uf.uploaded_by,
+  uf.upload_date,
+  uf.staff_access,
+  uf.manager_access,
+  uf.service_access,
+  u.username as uploaded_by_username,
+  u.useremail as uploaded_by_email
+from
+  uploaded_files uf
+  join users u on uf.uploaded_by = u.id;

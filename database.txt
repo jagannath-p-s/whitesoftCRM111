@@ -1,0 +1,81 @@
+create table
+  public.pipelines (
+    pipeline_id serial,
+    pipeline_name character varying(255) not null,
+    created_at timestamp without time zone null default current_timestamp,
+    constraint pipelines_pkey primary key (pipeline_id)
+  ) tablespace pg_default;
+
+
+  create table
+  public.pipeline_stages (
+    stage_id serial,
+    pipeline_id integer null,
+    stage_name character varying(255) not null,
+    created_at timestamp without time zone null default current_timestamp,
+    constraint pipeline_stages_pkey primary key (stage_id),
+    constraint pipeline_stages_pipeline_id_fkey foreign key (pipeline_id) references pipelines (pipeline_id)
+  ) tablespace pg_default;
+
+  create table
+  public.pipeline_fields (
+    field_id serial,
+    stage_id integer null,
+    field_name character varying(255) not null,
+    field_type character varying(50) not null,
+    created_at timestamp without time zone null default current_timestamp,
+    constraint pipeline_fields_pkey primary key (field_id),
+    constraint pipeline_fields_stage_id_fkey foreign key (stage_id) references pipeline_stages (stage_id),
+    constraint pipeline_fields_field_type_check check (
+      (
+        (field_type)::text = any (
+          (
+            array[
+              'checkbox'::character varying,
+              'textfield'::character varying,
+              'file'::character varying
+            ]
+          )::text[]
+        )
+      )
+    )
+  ) tablespace pg_default;
+
+create table
+  public.pipeline_data_json (
+    enquiry_id uuid not null,
+    pipeline_id integer not null,
+    stage_id integer not null,
+    data jsonb not null,
+    constraint pipeline_data_json_pkey primary key (enquiry_id, pipeline_id, stage_id),
+    constraint pipeline_data_json_enquiry_id_fkey foreign key (enquiry_id) references enquiries (id),
+    constraint pipeline_data_json_pipeline_id_fkey foreign key (pipeline_id) references pipelines (pipeline_id),
+    constraint pipeline_data_json_stage_id_fkey foreign key (stage_id) references pipeline_stages (stage_id)
+  ) tablespace pg_default;
+
+
+create table
+  public.enquiries (
+    id uuid not null default uuid_generate_v4 (),
+    name text not null,
+    mobilenumber1 text not null,
+    mobilenumber2 text null,
+    address text null,
+    location text null,
+    stage text not null,
+    mailid text null,
+    leadsource text null,
+    assignedto integer null,
+    remarks text null,
+    priority text not null,
+    invoiced boolean not null default false,
+    collected boolean not null default false,
+    products jsonb null,
+    created_at timestamp with time zone null default now(),
+    salesflow_code text null,
+    won_date timestamp with time zone null,
+    pipeline_id integer null,
+    current_stage_id integer null,
+    constraint enquiries_pkey primary key (id),
+    constraint enquiries_pipeline_id_fkey foreign key (pipeline_id) references pipelines (pipeline_id)
+  ) tablespace pg_default;
