@@ -28,8 +28,6 @@ import {
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import PrintIcon from '@mui/icons-material/Print';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import ContactCard from './ContactCard';
 
 const Dash = () => {
@@ -115,16 +113,6 @@ const Dash = () => {
     doc.save('printed_bills_report.pdf');
   };
 
-  const handleShowEnquiry = async (enquiryId) => {
-    const { data, error } = await supabase.from('enquiries').select('*').eq('id', enquiryId).single();
-    if (error) {
-      setSnackbar({ open: true, message: 'Error fetching enquiry', severity: 'error' });
-    } else {
-      setSelectedEnquiry(data);
-      setShowEnquiryDialog(true);
-    }
-  };
-
   const handlePrint = (bill) => {
     const doc = new jsPDF();
     doc.text("Haritha Agritech", 20, 20);
@@ -157,20 +145,6 @@ const Dash = () => {
     doc.text(new Date().toLocaleString(), 20, doc.autoTable.previous.finalY + 40);
 
     doc.save(`bill_${bill.customer_name}.pdf`);
-  };
-
-  const handleEdit = async (bill) => {
-    // Implement edit functionality here
-    const { data, error } = await supabase
-      .from('printed_bills')
-      .update({ job_card_number: prompt("Enter new Job Card Number", bill.job_card_number) })
-      .eq('id', bill.id);
-    if (error) {
-      setSnackbar({ open: true, message: 'Error updating bill', severity: 'error' });
-    } else {
-      setSnackbar({ open: true, message: 'Bill updated successfully', severity: 'success' });
-      fetchBills();
-    }
   };
 
   return (
@@ -222,8 +196,8 @@ const Dash = () => {
               <TableCell>Pipeline Name</TableCell>
               <TableCell>Invoiced</TableCell>
               <TableCell>Collected</TableCell>
-              <TableCell>Last Updated</TableCell>
-              <TableCell>Actions</TableCell>
+              {/* <TableCell>Last Updated</TableCell> */}
+              {/* <TableCell>Actions</TableCell> */}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -278,24 +252,14 @@ const Dash = () => {
                     </Select>
                   </FormControl>
                 </TableCell>
-                <TableCell>{new Date(bill.last_updated).toLocaleDateString()}</TableCell>
-                <TableCell>
+                {/* <TableCell>{new Date(bill.last_updated).toLocaleDateString()}</TableCell> */}
+                {/* <TableCell>
                   <Tooltip title="Print">
                     <IconButton onClick={() => handlePrint(bill)}>
                       <PrintIcon />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Edit">
-                    <IconButton onClick={() => handleEdit(bill)}>
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Show Enquiry">
-                    <IconButton onClick={() => handleShowEnquiry(bill.customer_id)}>
-                      <VisibilityIcon />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
+                </TableCell> */}
               </TableRow>
             ))}
           </TableBody>
