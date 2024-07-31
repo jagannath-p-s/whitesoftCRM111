@@ -26,7 +26,7 @@ import {
   Tooltip,
   Divider,
 } from '@mui/material';
-import { Delete, Edit, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile } from '@mui/icons-material';
+import { Delete, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile, Edit } from '@mui/icons-material';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
@@ -217,11 +217,6 @@ const Pipelines = () => {
           {pipeline.pipeline_name}
         </Typography>
         <Box>
-          <Tooltip title="Edit Pipeline">
-            <IconButton onClick={(e) => { e.stopPropagation(); handleOpenDialog('pipeline', pipeline); }} size="small">
-              <Edit />
-            </IconButton>
-          </Tooltip>
           <Tooltip title="Delete Pipeline">
             <IconButton onClick={(e) => { e.stopPropagation(); handleDelete('pipeline', pipeline); }} size="small">
               <Delete />
@@ -238,9 +233,7 @@ const Pipelines = () => {
   );
 
   const renderStageListItem = (stage) => (
-    <StyledListItem
-      key={stage.stage_id}
-    >
+    <StyledListItem key={stage.stage_id}>
       <ListItemText
         primary={
           <Typography variant="subtitle1" fontWeight="bold" onClick={() => setCurrentStage(currentStage?.stage_id === stage.stage_id ? null : stage)}>
@@ -249,11 +242,6 @@ const Pipelines = () => {
         }
       />
       <ListItemSecondaryAction>
-        <Tooltip title="Edit Stage">
-          <StyledIconButton onClick={(e) => { e.stopPropagation(); handleOpenDialog('stage', stage); }} size="small">
-            <Edit />
-          </StyledIconButton>
-        </Tooltip>
         <Tooltip title="Delete Stage">
           <StyledIconButton onClick={(e) => { e.stopPropagation(); handleDelete('stage', stage); }} size="small">
             <Delete />
@@ -319,18 +307,20 @@ const Pipelines = () => {
 
       <Container maxWidth="md" className="flex-grow p-4 space-x-4 overflow-x-auto">
         <StyledPaper>
-          <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
-            <Link underline="hover" color="inherit" onClick={() => { setCurrentStage(null); setCurrentPipeline(null); }}>
-              Pipelines
-            </Link>
-            {currentPipeline && (
-              <Link underline="hover" color="inherit" onClick={() => setCurrentStage(null)}>
-                {currentPipeline.pipeline_name}
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
+              <Link underline="hover" color="inherit" onClick={() => { setCurrentStage(null); setCurrentPipeline(null); }}>
+                Pipelines
               </Link>
-            )}
-            {currentStage && <Typography variant="h6" fontWeight="bold" color="textPrimary">{currentStage.stage_name}</Typography>}
-          </Breadcrumbs>
-          <Divider sx={{ mb: 3 }} />
+              {currentPipeline && (
+                <Link underline="hover" color="inherit" onClick={() => setCurrentStage(null)}>
+                  {currentPipeline.pipeline_name}
+                </Link>
+              )}
+              {currentStage && <Link underline="hover" color="inherit">{currentStage.stage_name}</Link>}
+            </Breadcrumbs>
+            <Divider sx={{ mb: 3 }} />
+          </Box>
           {!currentPipeline && (
             <List>
               {pipelines.map((pipeline) => renderPipelineCard(pipeline))}
@@ -393,7 +383,7 @@ const Pipelines = () => {
         </StyledPaper>
 
         <Dialog open={openDialog} onClose={handleCloseDialog}>
-          <DialogTitle>{currentField ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
+          <DialogTitle>{(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
           <DialogContent>
             <TextField
               label="Name"
@@ -419,7 +409,7 @@ const Pipelines = () => {
           <DialogActions>
             <Button onClick={handleCloseDialog}>Cancel</Button>
             <Button onClick={handleFormSubmit} variant="contained" color="primary">
-              {currentField ? 'Update' : 'Submit'}
+              {(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') ? 'Update' : 'Submit'}
             </Button>
           </DialogActions>
         </Dialog>

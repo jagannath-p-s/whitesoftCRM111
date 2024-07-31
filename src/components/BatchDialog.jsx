@@ -14,10 +14,22 @@ import {
   Typography,
   InputAdornment,
   IconButton,
-  ListSubheader
+  Checkbox,
+  FormControlLabel,
+  Grid,
+  Paper,
+  ListSubheader,
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ClearIcon from '@mui/icons-material/Clear';
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  marginBottom: theme.spacing(2),
+  position: 'relative',
+}));
 
 const BatchDialog = ({ open, onClose, onSave, products }) => {
   const [batchCode, setBatchCode] = useState('');
@@ -27,13 +39,13 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
   useEffect(() => {
     if (open) {
       setBatchCode('');
-      setBatchesToAdd([{ productId: '', expiryDate: '', currentStock: '' }]);
+      setBatchesToAdd([{ productId: '', expiryDate: '', currentStock: '', hasExpiryDate: false }]);
       setSearchTerms(['']);
     }
   }, [open]);
 
   const handleAddBatch = () => {
-    setBatchesToAdd([...batchesToAdd, { productId: '', expiryDate: '', currentStock: '' }]);
+    setBatchesToAdd([...batchesToAdd, { productId: '', expiryDate: '', currentStock: '', hasExpiryDate: false }]);
     setSearchTerms([...searchTerms, '']);
   };
 
@@ -66,7 +78,7 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
 
     onSave(batchCode, batchesToAdd.map(batch => ({
       ...batch,
-      expiryDate: batch.expiryDate || null
+      expiryDate: batch.hasExpiryDate ? batch.expiryDate : null
     })));
     onClose();
   };
@@ -85,81 +97,110 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Add Batch</DialogTitle>
       <DialogContent>
         <TextField
           label="Batch Code"
           variant="outlined"
           fullWidth
-          margin="dense"
+          margin="normal"
           value={batchCode}
           onChange={(e) => setBatchCode(e.target.value)}
         />
         {batchesToAdd.map((batch, index) => (
-          <Box key={index} sx={{ mt: 2, mb: 2, border: '1px solid gray', padding: '16px', position: 'relative' }}>
-            <Typography variant="subtitle1" gutterBottom>Product {index + 1}</Typography>
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Product</InputLabel>
-              <Select
-                value={batch.productId}
-                onChange={(e) => handleBatchChange(index, 'productId', e.target.value)}
-                label="Product"
-                MenuProps={{
-                  PaperProps: {
-                    style: {
-                      maxHeight: 300,
-                    },
-                  },
-                }}
-              >
-                <ListSubheader>
+          <StyledPaper key={index} elevation={3}>
+            <Typography variant="h6" gutterBottom>Product {index + 1}</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Product</InputLabel>
+                  <Select
+                    value={batch.productId}
+                    onChange={(e) => handleBatchChange(index, 'productId', e.target.value)}
+                    label="Product"
+                    MenuProps={{
+                      PaperProps: { style: { maxHeight: 300 } },
+                    }}
+                  >
+                    <ListSubheader>
+                      <TextField
+                        size="small"
+                        autoFocus
+                        placeholder="Type to search..."
+                        fullWidth
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <SearchIcon />
+                            </InputAdornment>
+                          ),
+                        }}
+                        onChange={(e) => handleSearchChange(index, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Escape') {
+                            e.stopPropagation();
+                          }
+                        }}
+                      />
+                    </ListSubheader>
+                    {filteredProducts(index).map((product) => (
+                      <MenuItem key={product.product_id} value={product.product_id}>
+                        {product.product_name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Number of Units"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  type="number"
+                  value={batch.currentStock}
+                  onChange={(e) => handleBatchChange(index, 'currentStock', e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={batch.hasExpiryDate}
+                      onChange={(e) => handleBatchChange(index, 'hasExpiryDate', e.target.checked)}
+                    />
+                  }
+                  label="Has Expiry Date"
+                />
+              </Grid>
+              {batch.hasExpiryDate && (
+                <Grid item xs={12} md={6}>
                   <TextField
-                    size="small"
-                    autoFocus
-                    placeholder="Type to search..."
+                    label="Expiry Date"
+                    variant="outlined"
                     fullWidth
+                    margin="normal"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={batch.expiryDate}
+                    onChange={(e) => handleBatchChange(index, 'expiryDate', e.target.value)}
                     InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon />
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => handleBatchChange(index, 'expiryDate', '')}
+                            edge="end"
+                          >
+                            <ClearIcon />
+                          </IconButton>
                         </InputAdornment>
                       ),
                     }}
-                    onChange={(e) => handleSearchChange(index, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Escape') {
-                        e.stopPropagation();
-                      }
-                    }}
                   />
-                </ListSubheader>
-                {filteredProducts(index).map((product) => (
-                  <MenuItem key={product.product_id} value={product.product_id}>
-                    {product.product_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Expiry Date"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="date"
-              InputLabelProps={{ shrink: true }}
-              value={batch.expiryDate}
-              onChange={(e) => handleBatchChange(index, 'expiryDate', e.target.value)}
-            />
-            <TextField
-              label="Number of Units"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={batch.currentStock}
-              onChange={(e) => handleBatchChange(index, 'currentStock', e.target.value)}
-            />
+                </Grid>
+              )}
+            </Grid>
             <IconButton
               onClick={() => handleRemoveBatch(index)}
               color="secondary"
@@ -167,17 +208,17 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
             >
               <DeleteIcon />
             </IconButton>
-          </Box>
+          </StyledPaper>
         ))}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleAddBatch} color="primary">
+        <Button onClick={handleAddBatch} color="primary" variant="outlined">
           Add Another Product
         </Button>
-        <Button onClick={handleSaveBatches} color="primary">
+        <Button onClick={handleSaveBatches} color="primary" variant="contained">
           Save All Batches
         </Button>
-        <Button onClick={onClose} color="primary">
+        <Button onClick={onClose} color="secondary" variant="outlined">
           Cancel
         </Button>
       </DialogActions>
