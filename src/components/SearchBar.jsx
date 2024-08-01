@@ -17,6 +17,8 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   const [totalEstimate, setTotalEstimate] = useState(0);
   const [users, setUsers] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
   const [enquiryData, setEnquiryData] = useState({
     name: '',
     mobilenumber1: '',
@@ -34,9 +36,10 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     created_at: new Date().toISOString(),
     salesflow_code: '',
     won_date: null,
+    expected_completion_date: '',
+    state: '',
+    district: '',
   });
-
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const ITEMS_PER_PAGE = 10;
 
@@ -125,6 +128,9 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       created_at: new Date().toISOString(),
       salesflow_code: '',
       won_date: null,
+      expected_completion_date: '',
+      state: '',
+      district: '',
     }));
   };
 
@@ -161,40 +167,82 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     setTotalEstimate(total);
   };
 
-  const handleEnquiryDataChange = (e) => {
-    const { name, value } = e.target;
-    setEnquiryData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleFormSubmit = async () => {
+  const handleFormSubmit = async (formData) => {
     try {
-      // Create a deep copy of enquiryData to avoid circular structure issues
-      let salesflow_code = enquiryData.salesflow_code ? `${enquiryData.salesflow_code}-${enquiryData.assignedto}` : `${enquiryData.assignedto}`;
-      
-      const enquiryToSave = JSON.parse(JSON.stringify({
-        ...enquiryData,
-        products: dialogType === 'product' ? selectedProducts : null,
-        salesflow_code, // Set the updated salesflow_code
+      console.log('Form data before submission:', formData);
+
+      // Ensure dates are correctly formatted and not empty
+      const formattedDate = formData.date ? formData.date.toISOString() : null;
+      const formattedRepairDate = formData.repairDate ? formData.repairDate.toISOString() : null;
+      const formattedExpectedCompletionDate = formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null;
+
+      // Convert complaints array to a JSON string
+      const complaintsJson = JSON.stringify(formData.complaints);
+
+      // Convert machine_type array to a JSON string
+      const machineTypeJson = JSON.stringify(formData.machineType);
+
+      // Convert charges object to a JSON string
+      const chargesJson = JSON.stringify(formData.charges);
+
+      // Convert technicians array to a JSON string
+      const techniciansJson = JSON.stringify(formData.technicians);
+
+      // Prepare the service enquiry data
+      const serviceEnquiryData = {
+        date: formattedDate,
+        job_card_no: formData.jobCardNo,
+        customer_name: formData.customerName,
+        customer_mobile: formData.customerMobile,
+        customer_remarks: formData.customerRemarks,
+        machine_type: machineTypeJson,
+        complaints: complaintsJson,
+        charges: chargesJson,
+        total_amount: parseFloat(formData.totalAmount),
+        repair_date: formattedRepairDate,
+        status: formData.status,
+        expected_completion_date: formattedExpectedCompletionDate,
+        technicians: techniciansJson
+      };
+
+      // Insert the service enquiry
+      const { data: serviceEnquiry, error: serviceEnquiryError } = await supabase
+        .from('service_enquiries')
+        .insert(serviceEnquiryData)
+        .select()
+        .single();
+
+      if (serviceEnquiryError) throw serviceEnquiryError;
+
+      console.log('Service enquiry inserted:', serviceEnquiry);
+
+      // Prepare and insert the parts data
+      const partsData = formData.parts.map(part => ({
+        service_enquiry_id: serviceEnquiry.id,
+        part_id: parseInt(part.partId),
+        part_name: part.partName,
+        part_number: part.partNumber,
+        qty: parseInt(part.qty),
+        rate: parseFloat(part.rate),
+        amount: parseFloat(part.amount)
       }));
-  
-      console.log('Enquiry to be saved:', enquiryToSave);
-  
-      const { data: result, error } = await supabase.from('enquiries').insert([enquiryToSave]);
-  
-      if (error) throw error;
-      console.log('Enquiry saved successfully:', result);
-      showSnackbar('Enquiry saved successfully!', 'success');
+
+      const { data: parts, error: partsError } = await supabase
+        .from('service_enquiry_parts')
+        .insert(partsData);
+
+      if (partsError) throw partsError;
+
+      console.log('Parts inserted:', parts);
+
+      // Notify success
+      showSnackbar('Service enquiry added successfully!', 'success');
       handleDialogClose();
     } catch (error) {
-      console.error('Error saving enquiry:', error.message);
+      console.error('Error submitting form:', error.message);
       showSnackbar(`Failed to save the enquiry: ${error.message}`, 'error');
     }
   };
-  
-  
 
   const handlePageChange = (event, value) => {
     setPage(value);
@@ -243,34 +291,31 @@ const SearchBar = ({ onSearch, currentUserId }) => {
           dialogOpen={dialogOpen}
           handleDialogClose={handleDialogClose}
           handleFormSubmit={handleFormSubmit}
-          enquiryData={enquiryData}
-          handleEnquiryDataChange={handleEnquiryDataChange}
           users={users}
           currentUserId={currentUserId}
+          showSnackbar={showSnackbar}
         />
       ) : (
         <AddEnquiryDialog
-  dialogOpen={dialogOpen}
-  dialogType={dialogType}
-  enquiryData={enquiryData}
-  handleEnquiryDataChange={handleEnquiryDataChange}
-  handleDialogClose={handleDialogClose}
-  handleFormSubmit={handleFormSubmit}
-  users={users}
-  products={products}
-  selectedProducts={selectedProducts}
-  handleProductToggle={handleProductToggle}
-  handleQuantityChange={handleQuantityChange}
-  productSearchTerm={productSearchTerm}
-  handleProductSearchChange={handleProductSearchChange}
-  page={page}
-  handlePageChange={handlePageChange}
-  totalEstimate={totalEstimate}
-  ITEMS_PER_PAGE={ITEMS_PER_PAGE}
-  totalProducts={totalProducts}
-  currentUserId={currentUserId} // Pass currentUserId
-/>
-
+          dialogOpen={dialogOpen}
+          dialogType={dialogType}
+          enquiryData={enquiryData}
+          handleDialogClose={handleDialogClose}
+          handleFormSubmit={handleFormSubmit}
+          users={users}
+          products={products}
+          selectedProducts={selectedProducts}
+          handleProductToggle={handleProductToggle}
+          handleQuantityChange={handleQuantityChange}
+          productSearchTerm={productSearchTerm}
+          handleProductSearchChange={handleProductSearchChange}
+          page={page}
+          handlePageChange={handlePageChange}
+          totalEstimate={totalEstimate}
+          ITEMS_PER_PAGE={ITEMS_PER_PAGE}
+          totalProducts={totalProducts}
+          currentUserId={currentUserId}
+        />
       )}
 
       <Snackbar

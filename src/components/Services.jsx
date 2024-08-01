@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Button, TextField, Typography, IconButton, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, FormControl, InputLabel, Select, MenuItem, Chip, Tooltip, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogTitle
+  Box, Button, TextField, Typography, IconButton, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, FormControl, InputLabel, Select, MenuItem, Chip, Tooltip, Snackbar, Alert
 } from '@mui/material';
 import {
-  Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, MoreVert as MoreVertIcon ,  Build as BuildIcon,
+  Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
-import { supabase } from '../supabaseClient'; // Adjust the path as needed
-import ServiceEnquiryDialog from './ServiceEnquiryDialog'; // Renamed from AddServiceEnquiryDialog
+import { supabase } from '../supabaseClient';
+import ServiceEnquiryDialog from './ServiceEnquiryDialog';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontWeight: 'bold',
   color: theme.palette.common.black,
 }));
 
-
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   backgroundColor: theme.palette.common.white,
 }));
-
 
 const Services = () => {
   const [enquiries, setEnquiries] = useState([]);
@@ -45,7 +43,7 @@ const Services = () => {
     try {
       const { data, error } = await supabase
         .from('service_enquiries')
-        .select('*, service_enquiry_parts(*)');
+        .select('*, service_enquiry_parts(*), service_enquiry_technicians(*)');
       if (error) throw error;
       setEnquiries(data);
       setFilteredEnquiries(data);
@@ -140,7 +138,7 @@ const Services = () => {
   return (
     <Box className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white shadow-md ">
+      <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
@@ -189,7 +187,7 @@ const Services = () => {
                 label="Technician"
               >
                 <MenuItem value=""><em>None</em></MenuItem>
-                {Array.from(new Set(enquiries.map(e => e.technician_name))).map(tech => (
+                {Array.from(new Set(enquiries.flatMap(e => e.service_enquiry_technicians.map(t => t.technician_name)))).map(tech => (
                   <MenuItem key={tech} value={tech}>{tech}</MenuItem>
                 ))}
               </Select>
@@ -214,57 +212,57 @@ const Services = () => {
           </Grid>
         </Grid>
         <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
-  <Table stickyHeader className="min-w-full">
-    <TableHead>
-      <TableRow>
-        <StyledTableCell>Date</StyledTableCell>
-        <StyledTableCell>Job Card No</StyledTableCell>
-        <StyledTableCell>Customer Name</StyledTableCell>
-        <StyledTableCell>Customer Mobile</StyledTableCell>
-        <StyledTableCell>Technician</StyledTableCell>
-        <StyledTableCell>Total Amount</StyledTableCell>
-        <StyledTableCell>Status</StyledTableCell>
-        <StyledTableCell>Actions</StyledTableCell>
-      </TableRow>
-    </TableHead>
-    <TableBody>
-      {filteredEnquiries.length > 0 ? (
-        filteredEnquiries.map(enquiry => (
-          <StyledTableRow key={enquiry.id}>
-            <TableCell>{new Date(enquiry.date).toLocaleDateString()}</TableCell>
-            <TableCell>{enquiry.job_card_no}</TableCell>
-            <TableCell>{enquiry.customer_name}</TableCell>
-            <TableCell>{enquiry.customer_mobile}</TableCell>
-            <TableCell>{enquiry.technician_name}</TableCell>
-            <TableCell>₹{enquiry.total_amount.toFixed(2)}</TableCell>
-            <TableCell>
-              <Chip 
-                label={enquiry.status} 
-                color={enquiry.status === 'completed' ? 'success' : enquiry.status.includes('paused') ? 'warning' : 'primary'}
-              />
-            </TableCell>
-            <TableCell>
-              <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
-                <EditIcon />
-              </IconButton>
-              <IconButton onClick={() => handleDeleteEnquiry(enquiry.id)} color="error">
-                <DeleteIcon />
-              </IconButton>
-            </TableCell>
-          </StyledTableRow>
-        ))
-      ) : (
-        <TableRow>
-          <TableCell colSpan={8} align="center">
-            No data to display
-          </TableCell>
-        </TableRow>
-      )}
-    </TableBody>
-  </Table>
-</TableContainer>
-
-
+          <Table stickyHeader className="min-w-full">
+            <TableHead>
+              <TableRow>
+                <StyledTableCell>Date</StyledTableCell>
+                <StyledTableCell>Job Card No</StyledTableCell>
+                <StyledTableCell>Customer Name</StyledTableCell>
+                <StyledTableCell>Customer Mobile</StyledTableCell>
+                <StyledTableCell>Technician(s)</StyledTableCell>
+                <StyledTableCell>Total Amount</StyledTableCell>
+                <StyledTableCell>Status</StyledTableCell>
+                <StyledTableCell>Actions</StyledTableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredEnquiries.length > 0 ? (
+                filteredEnquiries.map(enquiry => (
+                  <StyledTableRow key={enquiry.id}>
+                    <TableCell>{new Date(enquiry.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{enquiry.job_card_no}</TableCell>
+                    <TableCell>{enquiry.customer_name}</TableCell>
+                    <TableCell>{enquiry.customer_mobile}</TableCell>
+                    <TableCell>
+                      {enquiry.service_enquiry_technicians.map(t => t.technician_name).join(', ')}
+                    </TableCell>
+                    <TableCell>₹{enquiry.total_amount.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={enquiry.status} 
+                        color={enquiry.status === 'completed' ? 'success' : enquiry.status.includes('paused') ? 'warning' : 'primary'}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton onClick={() => handleDeleteEnquiry(enquiry.id)} color="error">
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </StyledTableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    No data to display
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </div>
 
       <ServiceEnquiryDialog

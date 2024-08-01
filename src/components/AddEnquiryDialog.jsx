@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogActions,
@@ -6,6 +6,10 @@ import {
   DialogTitle,
   Button,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem as SelectMenuItem,
   List,
   ListItem,
   ListItemText,
@@ -14,11 +18,8 @@ import {
   Typography,
   Pagination,
   Box,
-  Select,
-  FormControl,
-  InputLabel,
-  MenuItem as SelectMenuItem,
 } from '@mui/material';
+import { supabase } from '../supabaseClient'; // Adjust the import path as necessary
 
 const AddEnquiryDialog = ({
   dialogOpen,
@@ -41,6 +42,29 @@ const AddEnquiryDialog = ({
   totalProducts,
   currentUserId,
 }) => {
+  const [leadSources, setLeadSources] = useState([]);
+  
+  useEffect(() => {
+    const fetchLeadSources = async () => {
+      const { data, error } = await supabase.from('lead_sources').select();
+      if (error) {
+        console.error('Error fetching lead sources:', error);
+      } else {
+        setLeadSources(data);
+      }
+    };
+
+    fetchLeadSources();
+  }, []);
+
+  const handleLeadSourceChange = (e) => {
+    handleEnquiryDataChange(e);
+    const selectedLeadSource = e.target.value;
+    const selectedSource = leadSources.find(source => source.lead_source === selectedLeadSource);
+    handleEnquiryDataChange({ target: { name: 'state', value: selectedSource?.state || '' } });
+    handleEnquiryDataChange({ target: { name: 'district', value: selectedSource?.district || '' } });
+  };
+
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
       <DialogTitle>{dialogType === 'service' ? 'Add Service Enquiry' : 'Add Product Enquiry'}</DialogTitle>
@@ -114,15 +138,21 @@ const AddEnquiryDialog = ({
           value={enquiryData.mailid || ''}
           onChange={handleEnquiryDataChange}
         />
-        <TextField
-          name="leadsource"
-          label="Lead Source"
-          variant="outlined"
-          fullWidth
-          margin="dense"
-          value={enquiryData.leadsource || ''}
-          onChange={handleEnquiryDataChange}
-        />
+        <FormControl fullWidth margin="dense">
+          <InputLabel>Lead Source</InputLabel>
+          <Select
+            name="leadsource"
+            value={enquiryData.leadsource || ''}
+            onChange={handleLeadSourceChange}
+            label="Lead Source"
+          >
+            {leadSources.map((source) => (
+              <SelectMenuItem key={source.id} value={source.lead_source}>
+                {source.lead_source}
+              </SelectMenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <FormControl fullWidth margin="dense">
           <InputLabel>Assigned To</InputLabel>
           <Select
@@ -200,6 +230,17 @@ const AddEnquiryDialog = ({
             <SelectMenuItem value="false">No</SelectMenuItem>
           </Select>
         </FormControl>
+        <TextField
+          name="expected_completion_date"
+          label="Expected Completion Date"
+          type="date"
+          variant="outlined"
+          fullWidth
+          margin="dense"
+          InputLabelProps={{ shrink: true }}
+          value={enquiryData.expected_completion_date || ''}
+          onChange={handleEnquiryDataChange}
+        />
         {dialogType === 'product' && (
           <>
             <TextField

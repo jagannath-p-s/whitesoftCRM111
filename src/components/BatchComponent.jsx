@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient'; // Ensure this path is correct
 import {
   TextField,
   IconButton,
@@ -13,14 +13,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Button,
   Snackbar,
   Alert,
   InputAdornment
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
   FilterList as FilterListIcon,
   Inventory as InventoryIcon,
@@ -28,15 +26,14 @@ import {
 } from '@mui/icons-material';
 import { LocalizationProvider, DatePicker } from '@mui/lab';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
+import { format, parse, isValid } from 'date-fns';
 import BatchDialog from './BatchDialog';
 
 const BatchComponent = () => {
   const [batches, setBatches] = useState([]);
   const [products, setProducts] = useState([]);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [anchorEl, setAnchorEl] = useState(null);
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [filter, setFilter] = useState('');
   const [customExpiryDate, setCustomExpiryDate] = useState(null);
@@ -84,15 +81,16 @@ const BatchComponent = () => {
     tenDaysFromNow.setDate(now.getDate() + 10);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    return batches.filter(batch => {
+    let filteredBatches = batches.filter(batch => {
+      if (!batch.expiry_date) return filter === ''; // Only include items without expiry date when no filter is applied
       const expiryDate = new Date(batch.expiry_date);
       switch (filter) {
         case 'expiringInNext10Days':
-          return expiryDate <= tenDaysFromNow;
+          return expiryDate <= tenDaysFromNow && expiryDate >= now;
         case 'expiringThisMonth':
-          return expiryDate <= endOfMonth;
+          return expiryDate <= endOfMonth && expiryDate >= now;
         case 'customExpiryDate':
-          return customExpiryDate && expiryDate <= customExpiryDate;
+          return customExpiryDate && expiryDate <= customExpiryDate && expiryDate >= now;
         default:
           return true;
       }
@@ -103,10 +101,19 @@ const BatchComponent = () => {
       }
       return true;
     });
+
+    // Sort batches to move those without expiry dates to the bottom
+    filteredBatches = filteredBatches.sort((a, b) => {
+      if (!a.expiry_date && !b.expiry_date) return 0;
+      if (!a.expiry_date) return 1;
+      if (!b.expiry_date) return -1;
+      return new Date(a.expiry_date) - new Date(b.expiry_date);
+    });
+
+    return filteredBatches;
   };
 
   const handleOpenBatchDialog = () => {
-    setSelectedBatch(null);
     setBatchDialogOpen(true);
   };
 
@@ -115,26 +122,48 @@ const BatchComponent = () => {
   };
 
   const handleSaveBatch = async (batchCode, batchesToAdd) => {
-    const batchData = batchesToAdd.map((batch) => ({
-      batch_code: batchCode,
-      expiry_date: batch.expiryDate,
-      current_stock: parseInt(batch.currentStock),
-      product_id: batch.productId
-    }));
-
-    const { error } = await supabase.from('batches').insert(batchData);
-    if (error) {
-      showSnackbar(`Error adding batches: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Batches added successfully', 'success');
-      fetchBatches();
-      handleCloseBatchDialog();
+    if (!batchCode.trim()) {
+      showSnackbar('Please enter a batch code', 'error');
+      return;
     }
-  };
 
-  const handleEditBatch = (batch) => {
-    setSelectedBatch(batch);
-    setBatchDialogOpen(true);
+    const allValid = batchesToAdd.every(batch => {
+      const expiryDateValid = !batch.hasExpiryDate || (batch.expiryDate && isValid(parse(batch.expiryDate, 'yyyy-MM-dd', new Date())));
+      return batch.productId && batch.currentStock !== '' && expiryDateValid;
+    });
+
+    if (!allValid) {
+      showSnackbar('Please fill in all required fields for each product', 'error');
+      return;
+    }
+
+    try {
+      const payloads = batchesToAdd.map(batch => {
+        let expiryDate = null;
+        if (batch.hasExpiryDate && batch.expiryDate) {
+          const parsedDate = parse(batch.expiryDate, 'yyyy-MM-dd', new Date());
+          expiryDate = isValid(parsedDate) ? format(parsedDate, 'yyyy-MM-dd') : null;
+        }
+
+        return {
+          product_id: batch.productId,
+          batch_code: batchCode, // Use the provided batchCode without modification
+          expiry_date: expiryDate,
+          current_stock: parseInt(batch.currentStock, 10),
+        };
+      });
+
+      const { error } = await supabase.from('batches').insert(payloads);
+
+      if (error) throw error;
+
+      showSnackbar('Batches saved successfully', 'success');
+      fetchBatches(); // Refresh the batches after adding new ones
+      handleCloseBatchDialog();
+    } catch (error) {
+      console.error('Error adding batches:', error.message);
+      showSnackbar(`Error adding batches: ${error.message}`, 'error');
+    }
   };
 
   const handleDeleteBatch = async (batch_id) => {
@@ -256,7 +285,7 @@ const BatchComponent = () => {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={2000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

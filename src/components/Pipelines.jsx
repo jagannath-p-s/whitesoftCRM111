@@ -62,12 +62,14 @@ const Pipelines = () => {
   const [pipelines, setPipelines] = useState([]);
   const [stages, setStages] = useState([]);
   const [fields, setFields] = useState([]);
+  const [leadSources, setLeadSources] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [currentPipeline, setCurrentPipeline] = useState(null);
   const [currentStage, setCurrentStage] = useState(null);
   const [currentField, setCurrentField] = useState(null);
+  const [currentLeadSource, setCurrentLeadSource] = useState(null);
   const [dialogType, setDialogType] = useState('pipeline');
-  const [formData, setFormData] = useState({ name: '', type: 'textfield' });
+  const [formData, setFormData] = useState({ name: '', type: 'textfield', district: '', state: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', item: null });
 
@@ -87,6 +89,7 @@ const Pipelines = () => {
 
   useEffect(() => {
     fetchData('pipelines').then(setPipelines);
+    fetchData('lead_sources').then(setLeadSources);
   }, [fetchData]);
 
   useEffect(() => {
@@ -104,8 +107,10 @@ const Pipelines = () => {
   const handleOpenDialog = (type, item = null) => {
     setDialogType(type);
     setFormData({
-      name: item?.name || item?.pipeline_name || item?.stage_name || item?.field_name || '',
+      name: item?.name || item?.pipeline_name || item?.stage_name || item?.field_name || item?.lead_source || '',
       type: item?.type || item?.field_type || 'textfield',
+      district: item?.district || '',
+      state: item?.state || '',
     });
     setOpenDialog(true);
 
@@ -115,12 +120,14 @@ const Pipelines = () => {
       setCurrentStage(item);
     } else if (type === 'field') {
       setCurrentField(item);
+    } else if (type === 'leadsource') {
+      setCurrentLeadSource(item);
     }
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setFormData({ name: '', type: 'textfield' });
+    setFormData({ name: '', type: 'textfield', district: '', state: '' });
   };
 
   const handleFormSubmit = async () => {
@@ -128,6 +135,7 @@ const Pipelines = () => {
       pipeline: handlePipelineSubmit,
       stage: handleStageSubmit,
       field: handleFieldSubmit,
+      leadsource: handleLeadSourceSubmit,
     };
 
     const result = await submitFunctions[dialogType]();
@@ -135,11 +143,12 @@ const Pipelines = () => {
     if (result.error) {
       showSnackbar(`Error: ${result.error.message}`, 'error');
     } else {
-      showSnackbar(`${dialogType} ${currentPipeline || currentStage || currentField ? 'updated' : 'added'} successfully`, 'success');
+      showSnackbar(`${dialogType} ${currentPipeline || currentStage || currentField || currentLeadSource ? 'updated' : 'added'} successfully`, 'success');
       handleCloseDialog();
       if (dialogType === 'pipeline') fetchData('pipelines').then(setPipelines);
       if (dialogType === 'stage' && currentPipeline) fetchData('pipeline_stages', [{ column: 'pipeline_id', value: currentPipeline.pipeline_id }]).then(setStages);
       if (dialogType === 'field' && currentStage) fetchData('pipeline_fields', [{ column: 'stage_id', value: currentStage.stage_id }]).then(setFields);
+      if (dialogType === 'leadsource') fetchData('lead_sources').then(setLeadSources);
     }
   };
 
@@ -164,6 +173,13 @@ const Pipelines = () => {
       : await supabase.from('pipeline_fields').insert({ field_name: formData.name, field_type: formData.type, stage_id: currentStage.stage_id });
   };
 
+  const handleLeadSourceSubmit = async () => {
+    const { lead_source } = currentLeadSource || {};
+    return lead_source
+      ? await supabase.from('lead_sources').update({ lead_source: formData.name, district: formData.district, state: formData.state }).eq('lead_source', lead_source)
+      : await supabase.from('lead_sources').insert({ lead_source: formData.name, district: formData.district, state: formData.state });
+  };
+
   const handleDelete = (type, item) => {
     setConfirmDialog({ open: true, type, item });
   };
@@ -174,6 +190,7 @@ const Pipelines = () => {
       pipeline: { table: 'pipelines', key: 'pipeline_id', refresh: () => fetchData('pipelines').then(setPipelines) },
       stage: { table: 'pipeline_stages', key: 'stage_id', refresh: () => fetchData('pipeline_stages', [{ column: 'pipeline_id', value: currentPipeline.pipeline_id }]).then(setStages) },
       field: { table: 'pipeline_fields', key: 'field_id', refresh: () => fetchData('pipeline_fields', [{ column: 'stage_id', value: currentStage.stage_id }]).then(setFields) },
+      leadsource: { table: 'lead_sources', key: 'lead_source', refresh: () => fetchData('lead_sources').then(setLeadSources) },
     };
 
     const { table, key, refresh } = deleteOperations[type];
@@ -281,6 +298,37 @@ const Pipelines = () => {
     </StyledListItem>
   );
 
+  const renderLeadSourceListItem = (leadSource) => (
+    <StyledListItem key={leadSource.lead_source}>
+      <ListItemText
+        primary={
+          <Box display="flex" alignItems="center">
+            <Typography variant="body1" fontWeight="bold" ml={1}>{leadSource.lead_source}</Typography>
+            {leadSource.lead_source === 'Krishi Bahavan' && (
+              <>
+                <Typography variant="body2" color="textSecondary" ml={2}>
+                  {leadSource.district}, {leadSource.state}
+                </Typography>
+              </>
+            )}
+          </Box>
+        }
+      />
+      <ListItemSecondaryAction>
+        <Tooltip title="Edit Lead Source">
+          <StyledIconButton onClick={(e) => { e.stopPropagation(); handleOpenDialog('leadsource', leadSource); }} size="small">
+            <Edit />
+          </StyledIconButton>
+        </Tooltip>
+        <Tooltip title="Delete Lead Source">
+          <StyledIconButton onClick={(e) => { e.stopPropagation(); handleDelete('leadsource', leadSource); }} size="small">
+            <Delete />
+          </StyledIconButton>
+        </Tooltip>
+      </ListItemSecondaryAction>
+    </StyledListItem>
+  );
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       <div className="bg-white shadow-md">
@@ -321,7 +369,7 @@ const Pipelines = () => {
             </Breadcrumbs>
             <Divider sx={{ mb: 3 }} />
           </Box>
-          {!currentPipeline && (
+          {!currentPipeline && !currentLeadSource && (
             <List>
               {pipelines.map((pipeline) => renderPipelineCard(pipeline))}
             </List>
@@ -380,10 +428,29 @@ const Pipelines = () => {
               </Box>
             </>
           )}
+          <Divider sx={{ mt: 3, mb: 3 }} />
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6" gutterBottom fontWeight="bold">
+              Lead Sources
+            </Typography>
+            <Tooltip title="Add new lead source">
+              <StyledButton
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => handleOpenDialog('leadsource')}
+                color="primary"
+              >
+                Add Lead Source
+              </StyledButton>
+            </Tooltip>
+          </Box>
+          <List>
+            {leadSources.map((leadSource) => renderLeadSourceListItem(leadSource))}
+          </List>
         </StyledPaper>
 
         <Dialog open={openDialog} onClose={handleCloseDialog}>
-          <DialogTitle>{(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
+          <DialogTitle>{(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') || (currentLeadSource && dialogType === 'leadsource') ? 'Edit' : 'Add'} {dialogType}</DialogTitle>
           <DialogContent>
             <TextField
               label="Name"
@@ -405,11 +472,29 @@ const Pipelines = () => {
                 </Select>
               </FormControl>
             )}
+            {dialogType === 'leadsource' && (
+              <>
+                <TextField
+                  label="District"
+                  fullWidth
+                  margin="normal"
+                  value={formData.district}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, district: e.target.value }))}
+                />
+                <TextField
+                  label="State"
+                  fullWidth
+                  margin="normal"
+                  value={formData.state}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, state: e.target.value }))}
+                />
+              </>
+            )}
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseDialog}>Cancel</Button>
             <Button onClick={handleFormSubmit} variant="contained" color="primary">
-              {(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') ? 'Update' : 'Submit'}
+              {(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') || (currentLeadSource && dialogType === 'leadsource') ? 'Update' : 'Submit'}
             </Button>
           </DialogActions>
         </Dialog>
