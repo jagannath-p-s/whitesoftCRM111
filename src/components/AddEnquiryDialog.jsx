@@ -9,7 +9,7 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem as SelectMenuItem,
+  MenuItem,
   List,
   ListItem,
   ListItemText,
@@ -25,7 +25,6 @@ const AddEnquiryDialog = ({
   dialogOpen,
   dialogType,
   enquiryData,
-  handleEnquiryDataChange,
   handleDialogClose,
   handleFormSubmit,
   users,
@@ -43,13 +42,15 @@ const AddEnquiryDialog = ({
   currentUserId,
 }) => {
   const [leadSources, setLeadSources] = useState([]);
-  
+  const [localEnquiryData, setLocalEnquiryData] = useState(enquiryData);
+
   useEffect(() => {
     const fetchLeadSources = async () => {
       const { data, error } = await supabase.from('lead_sources').select();
       if (error) {
         console.error('Error fetching lead sources:', error);
       } else {
+        console.log('Lead sources fetched:', data);
         setLeadSources(data);
       }
     };
@@ -57,12 +58,33 @@ const AddEnquiryDialog = ({
     fetchLeadSources();
   }, []);
 
+  useEffect(() => {
+    setLocalEnquiryData(enquiryData);
+  }, [enquiryData]);
+
+  const handleEnquiryDataChange = (e) => {
+    const { name, value } = e.target;
+    setLocalEnquiryData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
   const handleLeadSourceChange = (e) => {
-    handleEnquiryDataChange(e);
     const selectedLeadSource = e.target.value;
     const selectedSource = leadSources.find(source => source.lead_source === selectedLeadSource);
-    handleEnquiryDataChange({ target: { name: 'state', value: selectedSource?.state || '' } });
-    handleEnquiryDataChange({ target: { name: 'district', value: selectedSource?.district || '' } });
+    console.log('Selected Lead Source:', selectedSource);
+
+    setLocalEnquiryData((prev) => ({
+      ...prev,
+      leadsource: selectedLeadSource,
+      state: selectedSource?.state || '',
+      district: selectedSource?.district || '',
+    }));
+  };
+
+  const handleSubmit = () => {
+    handleFormSubmit(localEnquiryData);
   };
 
   return (
@@ -75,7 +97,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={enquiryData.name || ''}
+          value={localEnquiryData.name || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -84,7 +106,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={enquiryData.mobilenumber1 || ''}
+          value={localEnquiryData.mobilenumber1 || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -93,7 +115,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={enquiryData.mobilenumber2 || ''}
+          value={localEnquiryData.mobilenumber2 || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -102,7 +124,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={enquiryData.address || ''}
+          value={localEnquiryData.address || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -111,22 +133,22 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={enquiryData.location || ''}
+          value={localEnquiryData.location || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
           <InputLabel>Stage</InputLabel>
           <Select
             name="stage"
-            value={enquiryData.stage || ''}
+            value={localEnquiryData.stage || ''}
             onChange={handleEnquiryDataChange}
             label="Stage"
           >
-            <SelectMenuItem value="Lead">Lead</SelectMenuItem>
-            <SelectMenuItem value="Prospect">Prospect</SelectMenuItem>
-            <SelectMenuItem value="Opportunity">Opportunity</SelectMenuItem>
-            <SelectMenuItem value="Customer Won">Customer Won</SelectMenuItem>
-            <SelectMenuItem value="Customer Lost">Customer Lost</SelectMenuItem>
+            <MenuItem value="Lead">Lead</MenuItem>
+            <MenuItem value="Prospect">Prospect</MenuItem>
+            <MenuItem value="Opportunity">Opportunity</MenuItem>
+            <MenuItem value="Customer Won">Customer Won</MenuItem>
+            <MenuItem value="Customer Lost">Customer Lost</MenuItem>
           </Select>
         </FormControl>
         <TextField
@@ -135,21 +157,21 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={enquiryData.mailid || ''}
+          value={localEnquiryData.mailid || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
           <InputLabel>Lead Source</InputLabel>
           <Select
             name="leadsource"
-            value={enquiryData.leadsource || ''}
+            value={localEnquiryData.leadsource || ''}
             onChange={handleLeadSourceChange}
             label="Lead Source"
           >
             {leadSources.map((source) => (
-              <SelectMenuItem key={source.id} value={source.lead_source}>
+              <MenuItem key={source.id} value={source.lead_source}>
                 {source.lead_source}
-              </SelectMenuItem>
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -157,14 +179,14 @@ const AddEnquiryDialog = ({
           <InputLabel>Assigned To</InputLabel>
           <Select
             name="assignedto"
-            value={enquiryData.assignedto || currentUserId}
+            value={localEnquiryData.assignedto || currentUserId}
             onChange={handleEnquiryDataChange}
             label="Assigned To"
           >
             {users.map((user) => (
-              <SelectMenuItem key={user.id} value={user.id}>
+              <MenuItem key={user.id} value={user.id}>
                 {user.username} ({user.id})
-              </SelectMenuItem>
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -176,27 +198,27 @@ const AddEnquiryDialog = ({
           margin="dense"
           multiline
           rows={2}
-          value={enquiryData.remarks || ''}
+          value={localEnquiryData.remarks || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
           <InputLabel>Priority</InputLabel>
           <Select
             name="priority"
-            value={enquiryData.priority || ''}
+            value={localEnquiryData.priority || ''}
             onChange={handleEnquiryDataChange}
             label="Priority"
           >
-            <SelectMenuItem value="Low">Low</SelectMenuItem>
-            <SelectMenuItem value="Medium">Medium</SelectMenuItem>
-            <SelectMenuItem value="High">High</SelectMenuItem>
+            <MenuItem value="Low">Low</MenuItem>
+            <MenuItem value="Medium">Medium</MenuItem>
+            <MenuItem value="High">High</MenuItem>
           </Select>
         </FormControl>
         <FormControl fullWidth margin="dense">
           <InputLabel>Invoiced</InputLabel>
           <Select
             name="invoiced"
-            value={enquiryData.invoiced ? 'true' : 'false'}
+            value={localEnquiryData.invoiced ? 'true' : 'false'}
             onChange={(e) =>
               handleEnquiryDataChange({
                 target: {
@@ -207,15 +229,15 @@ const AddEnquiryDialog = ({
             }
             label="Invoiced"
           >
-            <SelectMenuItem value="true">Yes</SelectMenuItem>
-            <SelectMenuItem value="false">No</SelectMenuItem>
+            <MenuItem value="true">Yes</MenuItem>
+            <MenuItem value="false">No</MenuItem>
           </Select>
         </FormControl>
         <FormControl fullWidth margin="dense">
           <InputLabel>Collected</InputLabel>
           <Select
             name="collected"
-            value={enquiryData.collected ? 'true' : 'false'}
+            value={localEnquiryData.collected ? 'true' : 'false'}
             onChange={(e) =>
               handleEnquiryDataChange({
                 target: {
@@ -226,8 +248,8 @@ const AddEnquiryDialog = ({
             }
             label="Collected"
           >
-            <SelectMenuItem value="true">Yes</SelectMenuItem>
-            <SelectMenuItem value="false">No</SelectMenuItem>
+            <MenuItem value="true">Yes</MenuItem>
+            <MenuItem value="false">No</MenuItem>
           </Select>
         </FormControl>
         <TextField
@@ -238,7 +260,7 @@ const AddEnquiryDialog = ({
           fullWidth
           margin="dense"
           InputLabelProps={{ shrink: true }}
-          value={enquiryData.expected_completion_date || ''}
+          value={localEnquiryData.expected_completion_date || ''}
           onChange={handleEnquiryDataChange}
         />
         {dialogType === 'product' && (
@@ -309,7 +331,7 @@ const AddEnquiryDialog = ({
         <Button onClick={handleDialogClose} color="primary">
           Cancel
         </Button>
-        <Button onClick={handleFormSubmit} color="primary">
+        <Button onClick={handleSubmit} color="primary">
           Add
         </Button>
       </DialogActions>

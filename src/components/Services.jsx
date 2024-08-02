@@ -301,7 +301,9 @@ const Services = () => {
                     <TableCell>{enquiry.customer_name}</TableCell>
                     <TableCell>{enquiry.customer_mobile}</TableCell>
                     <TableCell>{enquiry.technician_name}</TableCell>
-                    <TableCell>₹{enquiry.total_amount.toFixed(2)}</TableCell>
+                    <TableCell>
+                      {enquiry.total_amount != null ? `₹${enquiry.total_amount.toFixed(2)}` : 'N/A'}
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={enquiry.status}

@@ -40,13 +40,14 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     customerName: '',
     customerMobile: '',
     customerRemarks: '',
-    machineType: [],
+    complaintType: [],
     complaints: [''],
     parts: [{ partId: '', partName: '', partNumber: '', qty: 1, rate: 0, amount: 0 }],
     technicians: [],
     charges: { oil: 0, petrol: 0, labour: 0 },
     totalAmount: 0,
     repairDate: null,
+    expectedCompletionDate: null,
     status: 'started',
   });
   const [partsOptions, setPartsOptions] = useState([]);
@@ -69,10 +70,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     fetchTechnicians();
 
     if (editingEnquiry) {
-      const parsedMachineType = JSON.parse(editingEnquiry.machine_type);
+      const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
       const parsedComplaints = JSON.parse(editingEnquiry.complaints);
       const parsedCharges = JSON.parse(editingEnquiry.charges);
       const repairDate = editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null;
+      const expectedCompletionDate = editingEnquiry.expected_completion_date ? dayjs(editingEnquiry.expected_completion_date) : null;
 
       setFormData({
         date: dayjs(editingEnquiry.date),
@@ -80,7 +82,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         customerName: editingEnquiry.customer_name,
         customerMobile: editingEnquiry.customer_mobile,
         customerRemarks: editingEnquiry.customer_remarks,
-        machineType: parsedMachineType,
+        complaintType: parsedComplaintType,
         complaints: parsedComplaints,
         parts: editingEnquiry.service_enquiry_parts.map(part => ({
           partId: part.part_id,
@@ -94,6 +96,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         charges: parsedCharges,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
+        expectedCompletionDate: expectedCompletionDate,
         status: editingEnquiry.status
       });
     }
@@ -120,9 +123,9 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           newData.parts[index].amount = qty * rate;
         }
       } else if (type === 'checkbox') {
-        newData.machineType = checked
-          ? [...prevData.machineType, value]
-          : prevData.machineType.filter((item) => item !== value);
+        newData.complaintType = checked
+          ? [...prevData.complaintType, value]
+          : prevData.complaintType.filter((item) => item !== value);
       } else if (name.startsWith('charges.')) {
         const chargeField = name.split('.')[1];
         newData.charges = { ...prevData.charges, [chargeField]: parseFloat(value) || 0 };
@@ -218,9 +221,9 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       key={value}
       control={
         <Checkbox
-          name="machineType"
+          name="complaintType"
           value={value}
-          checked={formData.machineType.includes(value)}
+          checked={formData.complaintType.includes(value)}
           onChange={handleChange}
         />
       }
@@ -233,7 +236,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       console.log('Submitting form data:', formData);
 
       const complaintsJson = JSON.stringify(formData.complaints);
-      const machineTypeJson = JSON.stringify(formData.machineType);
+      const complaintTypeJson = JSON.stringify(formData.complaintType);
       const chargesJson = JSON.stringify(formData.charges);
 
       const serviceEnquiryData = {
@@ -242,12 +245,13 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         customer_name: formData.customerName,
         customer_mobile: formData.customerMobile,
         customer_remarks: formData.customerRemarks,
-        machine_type: machineTypeJson,
+        machine_type: complaintTypeJson,
         complaints: complaintsJson,
         technician_name: formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name).join(', '),
         charges: chargesJson,
         total_amount: parseFloat(formData.totalAmount),
         repair_date: formData.repairDate ? formData.repairDate.toISOString() : null,
+        expected_completion_date: formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null,
         status: formData.status
       };
 
@@ -331,7 +335,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           </StyledPaper>
 
           <StyledPaper elevation={3}>
-            <StyledTypography variant="h6">Machine Type</StyledTypography>
+            <StyledTypography variant="h6">Complaint Type</StyledTypography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {['Blade', 'Tap n go', 'Cup/Cup Nut', 'Side Cover, Nut', 'Bar, Bar Cover', 'Chain', 'Air filter/Cover', 'Engine only', 'Paid Service', 'With Transmission', 'Hose & Gun'].map((type) =>
                 renderCheckbox(type, type)
@@ -463,7 +467,13 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
             />
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
-                label="Completion Date"
+                label="Expected Completion Date"
+                value={formData.expectedCompletionDate}
+                onChange={(date) => handleChange({ target: { name: 'expectedCompletionDate', value: date } })}
+                slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+              />
+              <DatePicker
+                label="Repair Date"
                 value={formData.repairDate}
                 onChange={(date) => {
                   handleChange({ target: { name: 'repairDate', value: date } });
