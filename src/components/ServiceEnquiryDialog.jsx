@@ -33,7 +33,7 @@ const StyledIconButton = styled(IconButton)(({ theme }) => ({
   color: theme.palette.error.main,
 }));
 
-const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit, editingEnquiry }) => {
+const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit, editingEnquiry, techniciansOptions }) => {
   const [formData, setFormData] = useState({
     date: dayjs(),
     jobCardNo: '',
@@ -51,23 +51,15 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     status: 'started',
   });
   const [partsOptions, setPartsOptions] = useState([]);
-  const [techniciansOptions, setTechniciansOptions] = useState([]);
 
   useEffect(() => {
     const fetchParts = async () => {
-      const { data, error } = await supabase.from('products').select('*').eq('subcategory_id', 9); // Adjust this as needed
+      const { data, error } = await supabase.from('products').select('*').eq('subcategory_id', 9);
       if (error) console.error(error);
       else setPartsOptions(data);
     };
 
-    const fetchTechnicians = async () => {
-      const { data, error } = await supabase.from('technicians').select('id, name');
-      if (error) console.error(error);
-      else setTechniciansOptions(data);
-    };
-
     fetchParts();
-    fetchTechnicians();
 
     if (editingEnquiry) {
       const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
@@ -92,7 +84,10 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           rate: part.rate,
           amount: part.amount
         })),
-        technicians: editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ') : [],
+        technicians: editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ').map(name => {
+          const tech = techniciansOptions.find(t => t.name === name);
+          return tech ? tech.id : null;
+        }).filter(id => id !== null) : [],
         charges: parsedCharges,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
@@ -100,7 +95,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         status: editingEnquiry.status
       });
     }
-  }, [editingEnquiry]);
+  }, [editingEnquiry, techniciansOptions]);
 
   useEffect(() => {
     calculateTotalAmount();
@@ -216,20 +211,12 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     />
   );
 
-  const renderCheckbox = (label, value) => (
-    <FormControlLabel
-      key={value}
-      control={
-        <Checkbox
-          name="complaintType"
-          value={value}
-          checked={formData.complaintType.includes(value)}
-          onChange={handleChange}
-        />
-      }
-      label={label}
-    />
-  );
+  const renderCheckbox = (value, options) => {
+    if (!options || !Array.isArray(options)) {
+      return false;
+    }
+    return options.includes(value);
+  };
 
   const handleSubmit = async () => {
     try {
@@ -338,7 +325,17 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
             <StyledTypography variant="h6">Complaint Type</StyledTypography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {['Blade', 'Tap n go', 'Cup/Cup Nut', 'Side Cover, Nut', 'Bar, Bar Cover', 'Chain', 'Air filter/Cover', 'Engine only', 'Paid Service', 'With Transmission', 'Hose & Gun'].map((type) =>
-                renderCheckbox(type, type)
+                <FormControlLabel
+                  key={type}
+                  control={
+                    <Checkbox
+                      checked={renderCheckbox(type, formData.complaintType)}
+                      onChange={(e) => handleChange(e)}
+                      value={type}
+                    />
+                  }
+                  label={type}
+                />
               )}
             </Box>
 

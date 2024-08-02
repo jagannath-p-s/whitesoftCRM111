@@ -126,11 +126,50 @@ const Services = () => {
   const handleDeleteEnquiry = async (id) => {
     if (window.confirm('Are you sure you want to delete this enquiry?')) {
       try {
+        // Fetch the parts associated with the service enquiry to update stock
+        const { data: parts, error: partsError } = await supabase
+          .from('service_enquiry_parts')
+          .select('*')
+          .eq('service_enquiry_id', id);
+
+        if (partsError) throw partsError;
+
+        // Update the stock values
+        await Promise.all(parts.map(async (part) => {
+          const { data: product, error: productError } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('product_id', part.part_id)
+            .single();
+
+          if (productError) throw productError;
+
+          const updatedStock = product.stock + part.qty;
+
+          const { error: updateStockError } = await supabase
+            .from('products')
+            .update({ stock: updatedStock })
+            .eq('product_id', part.part_id);
+
+          if (updateStockError) throw updateStockError;
+        }));
+
+        // Delete parts associated with the service enquiry
+        const { error: deletePartsError } = await supabase
+          .from('service_enquiry_parts')
+          .delete()
+          .eq('service_enquiry_id', id);
+
+        if (deletePartsError) throw deletePartsError;
+
+        // Delete the service enquiry
         const { error } = await supabase
           .from('service_enquiries')
           .delete()
           .eq('id', id);
+
         if (error) throw error;
+
         fetchEnquiries();
         showSnackbar('Enquiry deleted successfully', 'success');
       } catch (error) {
@@ -253,7 +292,7 @@ const Services = () => {
                 <StyledTableCell>Customer Mobile</StyledTableCell>
                 <StyledTableCell>
                   <FormControl fullWidth>
-                    <InputLabel>Technician</InputLabel>
+                  
                     <Select
                       value={technicianFilter}
                       onChange={handleTechnicianFilterChange}
@@ -271,7 +310,7 @@ const Services = () => {
                 <StyledTableCell>Total Amount</StyledTableCell>
                 <StyledTableCell>
                   <FormControl fullWidth>
-                    <InputLabel>Status</InputLabel>
+                    
                     <Select
                       value={statusFilter}
                       onChange={handleStatusFilterChange}
