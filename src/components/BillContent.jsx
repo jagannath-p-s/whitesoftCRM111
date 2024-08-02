@@ -3,7 +3,7 @@ import React from 'react';
 const BillContent = ({ customer, jobCardNumber, products, waitingNumber, pipelineName }) => {
   const calculateTotal = () => {
     return Object.values(products).reduce((total, product) => {
-      return total + product.quantity * product.price;
+      return total + (product.quantity * product.price || 0);
     }, 0);
   };
 

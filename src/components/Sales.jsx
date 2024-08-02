@@ -51,45 +51,45 @@ const Sales = () => {
   const [viewCompletedSales, setViewCompletedSales] = useState(false); // State for viewing completed sales
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: enquiries, error: enquiriesError } = await supabase
-        .from('enquiries')
-        .select('*');
-
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, username');
-
-      if (enquiriesError || usersError) {
-        console.error('Error fetching data:', enquiriesError || usersError);
-      } else {
-        const categorizedData = [
-          { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
-          { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
-          { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
-          { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
-          { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
-        ];
-
-        enquiries.forEach((contact) => {
-          const category = categorizedData.find(c => c.name === contact.stage);
-          if (category) {
-            category.contacts.push(contact);
-          }
-        });
-
-        const usersMap = usersData.reduce((acc, user) => {
-          acc[user.id] = user;
-          return acc;
-        }, {});
-
-        setUsers(usersMap);
-        setColumns(categorizedData);
-      }
-    };
-
     fetchData();
   }, []);
+
+  const fetchData = async () => {
+    const { data: enquiries, error: enquiriesError } = await supabase
+      .from('enquiries')
+      .select('*');
+
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, username');
+
+    if (enquiriesError || usersError) {
+      console.error('Error fetching data:', enquiriesError || usersError);
+    } else {
+      const categorizedData = [
+        { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
+        { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
+        { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
+        { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
+        { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
+      ];
+
+      enquiries.forEach((contact) => {
+        const category = categorizedData.find(c => c.name === contact.stage);
+        if (category) {
+          category.contacts.push(contact);
+        }
+      });
+
+      const usersMap = usersData.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {});
+
+      setUsers(usersMap);
+      setColumns(categorizedData);
+    }
+  };
 
   const toggleExpand = (column) => {
     if (expanded.includes(column)) {
@@ -183,6 +183,7 @@ const Sales = () => {
         return column;
       }));
     }
+    fetchData(); // Fetch data again to update the columns
   };
 
   const handleSettingsOpen = () => {
@@ -270,6 +271,7 @@ const Sales = () => {
         open={printDialogOpen}
         handleClose={(shouldMove) => handlePrintClose(shouldMove)}
         customer={customerDetails}
+        onCustomerUpdate={fetchData} // Add this line to update the data when customer is updated
       />
 
       {/* Content */}

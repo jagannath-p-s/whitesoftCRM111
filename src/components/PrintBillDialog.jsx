@@ -10,7 +10,7 @@ import { supabase } from '../supabaseClient';
 import Confetti from 'react-confetti';
 import BillContent from './BillContent';
 
-const PrintBillDialog = ({ open, handleClose, customer }) => {
+const PrintBillDialog = ({ open, handleClose, customer, onCustomerUpdate }) => {
   const [waitingNumber, setWaitingNumber] = useState('');
   const [jobCardNumber, setJobCardNumber] = useState('');
   const [batchCodes, setBatchCodes] = useState({});
@@ -20,17 +20,15 @@ const PrintBillDialog = ({ open, handleClose, customer }) => {
   const [selectedPipeline, setSelectedPipeline] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const printRef = useRef();
 
   useEffect(() => {
     if (open && customer) {
       fetchBatches();
       fetchPipelines();
-      if (customer.pipeline_id) {
-        fetchPipelineName(customer.pipeline_id);
-      } else {
-        setSelectedPipeline('');
-      }
+      setIsSaved(false);
     }
   }, [open, customer]);
 
@@ -122,137 +120,150 @@ const PrintBillDialog = ({ open, handleClose, customer }) => {
     }
   };
 
-  const savePrintedBill = async () => {
+  const saveBillData = async () => {
     if (!customer) {
       throw new Error('Cannot save bill: customer is null');
     }
-    const { data, error } = await supabase.from('printed_bills').insert([
-      {
-        customer_id: customer.id,
-        customer_name: customer.name,
-        mobile_number: customer.mobilenumber1,
-        waiting_number: waitingNumber || null,
-        job_card_number: jobCardNumber || null,
-        products: JSON.stringify(batchCodes),
-        invoiced: customer.invoiced,
-        collected: customer.collected,
-        pipeline_name: pipelineName,
-        created_at: new Date().toISOString()
+    try {
+      const { data, error } = await supabase.from('bills').insert([
+        {
+          customer_name: customer.name || '',
+          job_card_number: jobCardNumber || '',
+          waiting_number: waitingNumber || '',
+          pipeline_name: pipelineName || '',
+          total_amount: calculateTotal(),
+          created_at: new Date().toISOString()
+        }
+      ]).select().single();
+      if (error) {
+        console.error('Error response:', error);
+        throw error;
       }
-    ]);
-    if (error) {
-      console.error('Error response:', error);
+      return data;
+    } catch (error) {
+      console.error('Error saving bill data:', error);
       throw error;
     }
-    console.log('Data inserted:', data);
   };
 
-  const saveSoldProducts = async (customer, products, batchCodes) => {
+  const saveBillItems = async (billId) => {
     try {
-      const salesflowCode = customer.salesflow_code || '';
+      const billItems = [];
       for (const [productId, product] of Object.entries(products)) {
         for (let i = 0; i < product.quantity; i++) {
           const batchCode = batchCodes[productId]?.[i] || null;
-          const productIdInt = parseInt(productId, 10); // Ensure productId is an integer
-          const priceFloat = parseFloat(product.price); // Ensure price is a float
-          if (isNaN(productIdInt) || isNaN(priceFloat)) {
-            throw new Error('Invalid product ID or price format.');
-          }
-          const { data, error } = await supabase.from('sold_products').insert([
-            {
-              customer_id: customer.id,
-              customer_name: customer.name,
-              salesflow_code: salesflowCode,
-              product_id: productIdInt,
-              product_name: product.product_name,
-              quantity: 1,
-              price: priceFloat,
-              batch_code: batchCode,
-              sold_at: new Date().toISOString()
-            }
-          ]);
-          if (error) {
-            console.error('Error response:', error);
-            throw error;
-          }
-          console.log('Data inserted:', data);
+          billItems.push({
+            bill_id: billId,
+            product_id: parseInt(productId, 10),
+            product_name: product.product_name || '',
+            quantity: 1,
+            price: product.price || 0,
+            amount: product.price || 0,
+            batch_code: batchCode || null
+          });
         }
       }
+      const { data, error } = await supabase.from('bill_items').insert(billItems);
+      if (error) {
+        console.error('Error response:', error);
+        throw error;
+      }
+      return data;
     } catch (error) {
-      console.error('Error saving sold products:', error);
+      console.error('Error saving bill items:', error);
       throw error;
     }
   };
 
   const updateCustomerStage = async () => {
     if (!customer) return;
-    const { error } = await supabase
-      .from('enquiries')
-      .update({ stage: 'Customer-Won' })
-      .eq('id', customer.id);
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from('enquiries')
+        .update({ 
+          stage: 'Customer Won',
+          won_date: new Date().toISOString(),
+          invoiced: true
+        })
+        .eq('id', customer.id);
+      if (error) throw error;
+      if (onCustomerUpdate) onCustomerUpdate({ ...customer, stage: 'Customer Won', invoiced: true });
+    } catch (error) {
       console.error('Error updating customer stage:', error);
-      throw error;
+      setSnackbar({ open: true, message: 'Error updating customer stage', severity: 'error' });
     }
   };
 
   const handleSave = async () => {
     if (!customer) {
       setSnackbar({ open: true, message: 'Cannot save bill: customer data is missing', severity: 'error' });
-      return;
+      return false;
     }
     if (!pipelineName && !selectedPipeline) {
       setSnackbar({ open: true, message: 'Please select a pipeline before saving the bill.', severity: 'warning' });
-      return;
+      return false;
     }
-    if (window.confirm('Are you sure you want to save this bill?')) {
-      try {
-        if (selectedPipeline) {
-          await fetchPipelineName(selectedPipeline);
-        }
-        await handleRemoveFromStock();
-        await savePrintedBill();
-        await saveSoldProducts(customer, products, batchCodes);
-        await updateCustomerStage();
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 5000);
-        setSnackbar({ open: true, message: 'Bill saved successfully!', severity: 'success' });
-        handleClose(true);
-      } catch (error) {
-        setSnackbar({ open: true, message: `Error saving bill: ${error.message}`, severity: 'error' });
+    if (isSaving || isSaved) {
+      setSnackbar({ open: true, message: 'Bill is already being saved or has been saved.', severity: 'warning' });
+      return false;
+    }
+    setIsSaving(true);
+    try {
+      if (selectedPipeline) {
+        await fetchPipelineName(selectedPipeline);
       }
+      await handleRemoveFromStock();
+      const billData = await saveBillData();
+      if (!billData) {
+        throw new Error('Failed to save bill data.');
+      }
+      await saveBillItems(billData.bill_id);
+      await updateCustomerStage();
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+      setSnackbar({ open: true, message: 'Bill saved successfully!', severity: 'success' });
+      setIsSaved(true);
+      handleClose(true);  // Close the dialog after saving
+      return true;
+    } catch (error) {
+      setSnackbar({ open: true, message: `Error saving bill: ${error.message}`, severity: 'error' });
+      return false;
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handlePrint = async () => {
-    try {
-      await handleSave();
-      if (printRef.current) {
-        const content = printRef.current;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write('<html><head><title>Print</title>');
-        printWindow.document.write('<style>');
-        printWindow.document.write(`
-          body { font-family: Arial, sans-serif; font-size: 10px; width: 3in; }
-          .text-center { text-align: center; }
-          .font-bold { font-weight: bold; }
-          .my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
-          .border-t { border-top: 1px solid black; }
-          .border-b { border-bottom: 1px solid black; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 2px; }
-          .text-right { text-align: right; }
-          .mt-2 { margin-top: 0.5rem; }
-        `);
-        printWindow.document.write('</style></head><body>');
-        printWindow.document.write(content.innerHTML);
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.print();
+    if (!isSaved) {
+      const saved = await handleSave();
+      if (!saved) {
+        console.error('Failed to save bill before printing');
+        return;
       }
-    } catch (error) {
-      console.error('Error printing:', error);
-      setSnackbar({ open: true, message: `Error printing bill: ${error.message}`, severity: 'error' });
+    }
+    
+    if (printRef.current) {
+      const content = printRef.current;
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write('<html><head><title>Print</title>');
+      printWindow.document.write('<style>');
+      printWindow.document.write(`
+        body { font-family: Arial, sans-serif; font-size: 10px; width: 3in; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        .my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+        .border-t { border-top: 1px solid black; }
+        .border-b { border-bottom: 1px solid black; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 2px; }
+        .text-right { text-align: right; }
+        .mt-2 { margin-top: 0.5rem; }
+      `);
+      printWindow.document.write('</style></head><body>');
+      printWindow.document.write(content.innerHTML);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.print();
     }
   };
 
@@ -281,6 +292,12 @@ const PrintBillDialog = ({ open, handleClose, customer }) => {
         ))}
       </Box>
     ));
+  };
+
+  const calculateTotal = () => {
+    return Object.values(products).reduce((total, product) => {
+      return total + (product.quantity * product.price || 0);
+    }, 0);
   };
 
   return (
@@ -333,10 +350,10 @@ const PrintBillDialog = ({ open, handleClose, customer }) => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleSave} color="primary" disabled={!customer}>
+          <Button onClick={handleSave} color="primary" disabled={!customer || isSaving || isSaved}>
             Save
           </Button>
-          <Button onClick={handlePrint} color="primary" disabled={!customer}>
+          <Button onClick={handlePrint} color="primary" disabled={!customer || isSaving}>
             Print
           </Button>
           <Button onClick={() => handleClose(false)} color="secondary">
