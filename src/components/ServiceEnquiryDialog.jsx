@@ -60,14 +60,19 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     fetchParts();
 
     if (editingEnquiry) {
+      const parsedMachineType = JSON.parse(editingEnquiry.machine_type);
+      const parsedComplaints = JSON.parse(editingEnquiry.complaints);
+      const parsedCharges = JSON.parse(editingEnquiry.charges);
+      const repairDate = editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null;
+
       setFormData({
         date: dayjs(editingEnquiry.date),
         jobCardNo: editingEnquiry.job_card_no,
         customerName: editingEnquiry.customer_name,
         customerMobile: editingEnquiry.customer_mobile,
         customerRemarks: editingEnquiry.customer_remarks,
-        machineType: JSON.parse(editingEnquiry.machine_type),
-        complaints: JSON.parse(editingEnquiry.complaints),
+        machineType: parsedMachineType,
+        complaints: parsedComplaints,
         parts: editingEnquiry.service_enquiry_parts.map(part => ({
           partId: part.part_id,
           partName: part.part_name,
@@ -77,9 +82,9 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           amount: part.amount
         })),
         technicianName: editingEnquiry.technician_name,
-        charges: JSON.parse(editingEnquiry.charges),
+        charges: parsedCharges,
         totalAmount: editingEnquiry.total_amount,
-        repairDate: editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null,
+        repairDate: repairDate,
         status: editingEnquiry.status
       });
     }

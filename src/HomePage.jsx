@@ -220,11 +220,11 @@ const HomePage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-x-auto">
         {/* Topbar */}
-        <div className="sticky top-0 z-10 bg-white border-b border-t border-gray-300">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-3">
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-300 w-full">
+          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-3" style={{ width: '100%' }}>
               <div className="flex items-center space-x-4">
                 <Tooltip title="Toggle Sidenav">
                   <button onClick={handleToggle} className="p-2 rounded-full text-gray-500 hover:bg-gray-100">
@@ -276,8 +276,10 @@ const HomePage = () => {
         </div>
 
         {/* Main Content Area */}
-        <div>
-          {renderComponent()}
+        <div className=" flex-1">
+          <div className="max-w-full">
+            {renderComponent()}
+          </div>
         </div>
       </div>
 

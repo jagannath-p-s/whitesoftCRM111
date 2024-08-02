@@ -25,9 +25,13 @@ import {
   Link,
   Tooltip,
   Divider,
+  Grid,
 } from '@mui/material';
-import { Delete, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile, Edit } from '@mui/icons-material';
+import {
+  Delete, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile, Edit,
+} from '@mui/icons-material';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import SourceIcon from '@mui/icons-material/Source';
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
 
@@ -52,9 +56,6 @@ const StyledListItem = styled(ListItem)(({ theme }) => ({
   transition: 'background-color 0.3s',
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
-  },
-  '&::before': {
-    content: 'none',
   },
 }));
 
@@ -336,118 +337,128 @@ const Pipelines = () => {
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
               <AccountTreeIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-              <h1 className="text-xl font-semibold ml-2">Pipelines</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Tooltip title="Add new pipeline">
-                <IconButton
-                  className="p-2"
-                  onClick={() => handleOpenDialog('pipeline')}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <Add style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
+              <h1 className="text-xl font-semibold ml-2">Pipeline and Lead Source Management</h1>
             </div>
           </div>
         </div>
       </div>
 
-      <Container maxWidth="md" className="flex-grow p-4 space-x-4 overflow-x-auto">
-        <StyledPaper>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
-              <Link underline="hover" color="inherit" onClick={() => { setCurrentStage(null); setCurrentPipeline(null); }}>
-                Pipelines
-              </Link>
-              {currentPipeline && (
-                <Link underline="hover" color="inherit" onClick={() => setCurrentStage(null)}>
-                  {currentPipeline.pipeline_name}
-                </Link>
+      <Container maxWidth="lg" className="flex-grow p-4 space-x-4 overflow-x-auto">
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={6}>
+            <StyledPaper>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 3 }}>
+                  <Link underline="hover" color="inherit" onClick={() => { setCurrentStage(null); setCurrentPipeline(null); }}>
+                    Pipelines
+                  </Link>
+                  {currentPipeline && (
+                    <Link underline="hover" color="inherit" onClick={() => setCurrentStage(null)}>
+                      {currentPipeline.pipeline_name}
+                    </Link>
+                  )}
+                  {currentStage && <Link underline="hover" color="inherit">{currentStage.stage_name}</Link>}
+                </Breadcrumbs>
+              </Box>
+              {!currentPipeline && (
+                <>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="h6" gutterBottom fontWeight="bold">
+                      Pipelines
+                    </Typography>
+                    <Tooltip title="Add new pipeline">
+                      <StyledButton
+                        variant="contained"
+                        startIcon={<Add />}
+                        onClick={() => handleOpenDialog('pipeline')}
+                        color="primary"
+                      >
+                        Add Pipeline
+                      </StyledButton>
+                    </Tooltip>
+                  </Box>
+                  <List>
+                    {pipelines.map((pipeline) => renderPipelineCard(pipeline))}
+                  </List>
+                </>
               )}
-              {currentStage && <Link underline="hover" color="inherit">{currentStage.stage_name}</Link>}
-            </Breadcrumbs>
-            <Divider sx={{ mb: 3 }} />
-          </Box>
-          {!currentPipeline && !currentLeadSource && (
-            <List>
-              {pipelines.map((pipeline) => renderPipelineCard(pipeline))}
-            </List>
-          )}
-          {currentPipeline && !currentStage && (
-            <>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" gutterBottom fontWeight="bold">
-                  Stages of {currentPipeline.pipeline_name}
-                </Typography>
-                <Tooltip title="Back to Pipelines">
-                  <StyledIconButton onClick={() => setCurrentPipeline(null)} size="small">
-                    <ArrowBack />
-                  </StyledIconButton>
+              {currentPipeline && !currentStage && (
+                <>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="h6" gutterBottom fontWeight="bold">
+                      Stages of {currentPipeline.pipeline_name}
+                    </Typography>
+                    <Tooltip title="Back to Pipelines">
+                      <StyledIconButton onClick={() => setCurrentPipeline(null)} size="small">
+                        <ArrowBack />
+                      </StyledIconButton>
+                    </Tooltip>
+                  </Box>
+                  <List>
+                    {stages.map((stage) => renderStageListItem(stage))}
+                  </List>
+                  <Box mt={2}>
+                    <StyledButton
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={() => handleOpenDialog('stage')}
+                      color="primary"
+                    >
+                      Add Stage
+                    </StyledButton>
+                  </Box>
+                </>
+              )}
+              {currentStage && (
+                <>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="h6" gutterBottom fontWeight="bold">
+                      Fields of {currentStage.stage_name}
+                    </Typography>
+                    <Tooltip title="Back to Stages">
+                      <StyledIconButton onClick={() => setCurrentStage(null)} size="small">
+                        <ArrowBack />
+                      </StyledIconButton>
+                    </Tooltip>
+                  </Box>
+                  <List>
+                    {fields.map((field) => renderFieldListItem(field))}
+                  </List>
+                  <Box mt={2}>
+                    <StyledButton
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={() => handleOpenDialog('field')}
+                      color="primary"
+                    >
+                      Add Field
+                    </StyledButton>
+                  </Box>
+                </>
+              )}
+            </StyledPaper>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <StyledPaper>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6" fontWeight="bold">Lead Sources</Typography>
+                <Tooltip title="Add new lead source">
+                  <IconButton
+                    className="p-2"
+                    onClick={() => handleOpenDialog('leadsource')}
+                    style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
+                  >
+                    <Add style={{ fontSize: '1.75rem' }} />
+                  </IconButton>
                 </Tooltip>
               </Box>
               <List>
-                {stages.map((stage) => renderStageListItem(stage))}
+                {leadSources.map((leadSource) => renderLeadSourceListItem(leadSource))}
               </List>
-              <Box mt={2}>
-                <StyledButton
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={() => handleOpenDialog('stage')}
-                  color="primary"
-                >
-                  Add Stage
-                </StyledButton>
-              </Box>
-            </>
-          )}
-          {currentStage && (
-            <>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" gutterBottom fontWeight="bold">
-                  Fields of {currentStage.stage_name}
-                </Typography>
-                <Tooltip title="Back to Stages">
-                  <StyledIconButton onClick={() => setCurrentStage(null)} size="small">
-                    <ArrowBack />
-                  </StyledIconButton>
-                </Tooltip>
-              </Box>
-              <List>
-                {fields.map((field) => renderFieldListItem(field))}
-              </List>
-              <Box mt={2}>
-                <StyledButton
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={() => handleOpenDialog('field')}
-                  color="primary"
-                >
-                  Add Field
-                </StyledButton>
-              </Box>
-            </>
-          )}
-          <Divider sx={{ mt: 3, mb: 3 }} />
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6" gutterBottom fontWeight="bold">
-              Lead Sources
-            </Typography>
-            <Tooltip title="Add new lead source">
-              <StyledButton
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => handleOpenDialog('leadsource')}
-                color="primary"
-              >
-                Add Lead Source
-              </StyledButton>
-            </Tooltip>
-          </Box>
-          <List>
-            {leadSources.map((leadSource) => renderLeadSourceListItem(leadSource))}
-          </List>
-        </StyledPaper>
+            </StyledPaper>
+          </Grid>
+        </Grid>
 
         <Dialog open={openDialog} onClose={handleCloseDialog}>
           <DialogTitle>{(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') || (currentLeadSource && dialogType === 'leadsource') ? 'Edit' : 'Add'} {dialogType}</DialogTitle>

@@ -97,7 +97,13 @@ const BatchComponent = () => {
     }).filter(batch => {
       if (productSearch) {
         const product = products.find(p => p.product_id === batch.product_id);
-        return product && product.product_name.toLowerCase().includes(productSearch.toLowerCase());
+        return (
+          batch.batch_code.toLowerCase().includes(productSearch.toLowerCase()) ||
+          (product && (
+            product.product_name.toLowerCase().includes(productSearch.toLowerCase()) ||
+            product.item_alias.toLowerCase().includes(productSearch.toLowerCase())
+          ))
+        );
       }
       return true;
     });
@@ -200,7 +206,7 @@ const BatchComponent = () => {
             <div className="flex items-center space-x-2">
               <TextField
                 variant="outlined"
-                placeholder="Search Product"
+                placeholder="Search Product or Batch Code"
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
                 size="small"
@@ -252,6 +258,7 @@ const BatchComponent = () => {
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Expiry Date</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Product</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Alias</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -262,6 +269,7 @@ const BatchComponent = () => {
                   <TableCell>{batch.expiry_date}</TableCell>
                   <TableCell>{batch.current_stock}</TableCell>
                   <TableCell>{products.find((product) => product.product_id === batch.product_id)?.product_name}</TableCell>
+                  <TableCell>{products.find((product) => product.product_id === batch.product_id)?.item_alias}</TableCell>
                   <TableCell>
                     <Tooltip title="Delete">
                       <IconButton onClick={() => handleDeleteBatch(batch.batch_id)}>

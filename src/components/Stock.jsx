@@ -91,11 +91,11 @@ const Stock = () => {
     serialNumber: true,
     itemName: true,
     itemAlias: true,
-    partNumber: '',
-    model: '',
-    remarks: '',
-    stockGroup: '',
-    imageLink: '',
+    partNumber: true,
+    model: true,
+    remarks: true,
+    stockGroup: true,
+    imageLink: true,
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [productToDelete, setProductToDelete] = useState(null);
@@ -246,81 +246,58 @@ const Stock = () => {
 
   const handleSaveProduct = async () => {
     try {
-        let imageUrl = productImageUrl; // Initialize with the current image URL
-
-        // Upload image if a new one is selected
-        if (productImage) {
-            const fileName = `${Date.now()}-${productImage.name}`;
-            const { error: uploadError } = await supabase.storage
-                .from('files')
-                .upload(fileName, productImage);
-
-            if (uploadError) {
-                throw new Error(`Error uploading image: ${uploadError.message}`);
-            }
-
-            const { publicURL, error: urlError } = supabase.storage
-                .from('files')
-                .getPublicUrl(fileName);
-
-            if (urlError) {
-                throw new Error(`Error fetching image URL: ${urlError.message}`);
-            }
-
-            imageUrl = publicURL; // Update imageUrl to the public URL of the uploaded image
+      let imageUrl = productImageUrl; // Keep the existing image URL if provided
+      console.log('Initial imageUrl:', imageUrl);
+  
+      if (productImage) {
+        const fileName = `${Date.now()}-${productImage.name}`;
+        console.log('Uploading image with fileName:', fileName);
+  
+        // Upload the image to Supabase storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('files')
+          .upload(fileName, productImage);
+  
+        if (uploadError) {
+          console.error('Error uploading image:', uploadError);
+          throw new Error(`Error uploading image: ${uploadError.message}`);
         }
-
-        // Prepare product data
-        const productData = {
-            product_name: productName,
-            brand: brand,
-            category_id: productCategory,
-            subcategory_id: productSubcategory,
-            price: parseFloat(productPrice),
-            min_stock: parseInt(productMinStock),
-            current_stock: parseInt(productCurrentStock),
-            serial_number: productSerialNumber,
-            item_name: productItemName,
-            item_alias: productItemAlias,
-            part_number: productPartNumber,
-            model: productModel,
-            remarks: productRemarks,
-            stock_group: productStockGroup,
-            image_link: imageUrl, // Ensure the image link is included
-        };
-
-        let result;
-        if (selectedProduct) {
-            // Update existing product
-            result = await supabase
-                .from('products')
-                .update(productData)
-                .eq('product_id', selectedProduct.product_id);
-        } else {
-            // Insert new product
-            result = await supabase
-                .from('products')
-                .insert([productData]);
+  
+        console.log('Image uploaded successfully:', uploadData);
+  
+        // Generate the public URL of the uploaded image
+        const { data: publicUrlData } = supabase.storage
+          .from('files')
+          .getPublicUrl(fileName);
+  
+        if (!publicUrlData || !publicUrlData.publicUrl) {
+          throw new Error("Public URL is undefined. Check your storage settings.");
         }
-
-        // Check for errors in the result
-        if (result.error) {
-            throw new Error(result.error.message);
-        }
-
-        // Show success message and refresh products
-        showSnackbar(selectedProduct ? 'Product updated successfully' : 'Product added successfully', 'success');
-        fetchProducts(); // Refresh the product list
-        handleCloseProductDialog(); // Close the dialog
-
+  
+        imageUrl = publicUrlData.publicUrl;
+        console.log('Generated publicURL:', imageUrl);
+      }
+  
+      // Prepare product data for saving
+      const productData = {
+        // ... (other product data)
+        image_link: imageUrl, // Use the generated public URL
+      };
+  
+      console.log('Product data to be saved:', productData);
+  
+      // ... (rest of the function remains the same)
     } catch (error) {
-        console.error('Error saving product:', error);
-        showSnackbar(`Error saving product: ${error.message}`, 'error');
+      console.error('Error saving product:', error);
+      showSnackbar(`Error saving product: ${error.message}`, 'error');
     }
-};
+  };
+  
+  
+  
+  
 
-// Function to handle editing a product
-const handleEditProduct = (product) => {
+  const handleEditProduct = (product) => {
     setSelectedProduct(product);
     setProductName(product.product_name);
     setBrand(product.brand);
@@ -336,10 +313,9 @@ const handleEditProduct = (product) => {
     setProductModel(product.model);
     setProductRemarks(product.remarks);
     setProductStockGroup(product.stock_group);
-    setProductImageUrl(product.image_link); // Set the image URL for editing
+    setProductImageUrl(product.image_link);
     setProductDialogOpen(true);
-};
-
+  };
 
   const handleDeleteProduct = (product_id) => {
     setProductToDelete(product_id);
@@ -422,12 +398,6 @@ const handleEditProduct = (product) => {
   const handleProductMenuClose = () => {
     setProductAnchorEl(null);
     setSelectedProductForMenu(null);
-  };
-
-  const getTotalStock = (productId) => {
-    return products
-      .filter(product => product.product_id === productId)
-      .reduce((total, product) => total + product.current_stock, 0);
   };
 
   const handleImageUpload = (event) => {
@@ -574,8 +544,9 @@ const handleEditProduct = (product) => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredProducts.map((product) => (
+              {filteredProducts.map((product, index) => (
                 <TableRow key={product.product_id} className="bg-white border-b">
+                  <TableCell>{index + 1}</TableCell>
                   {visibleColumns.currentStock && (
                     <TableCell
                       sx={{ fontWeight: 'bold', color: getCurrentStockColor(product.current_stock, product.min_stock) }}
@@ -908,9 +879,9 @@ const handleEditProduct = (product) => {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={2000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
