@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Checkbox, FormControlLabel, IconButton, Typography, Box, Grid, Paper, Divider, MenuItem, Select, FormControl, InputLabel
+  Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Checkbox, FormControlLabel, IconButton, Typography, Box, Grid, Paper, Divider, MenuItem, Select, FormControl, InputLabel, Chip
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -43,13 +43,14 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     machineType: [],
     complaints: [''],
     parts: [{ partId: '', partName: '', partNumber: '', qty: 1, rate: 0, amount: 0 }],
-    technicianName: '',
+    technicians: [],
     charges: { oil: 0, petrol: 0, labour: 0 },
     totalAmount: 0,
     repairDate: null,
     status: 'started',
   });
   const [partsOptions, setPartsOptions] = useState([]);
+  const [techniciansOptions, setTechniciansOptions] = useState([]);
 
   useEffect(() => {
     const fetchParts = async () => {
@@ -57,7 +58,15 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       if (error) console.error(error);
       else setPartsOptions(data);
     };
+
+    const fetchTechnicians = async () => {
+      const { data, error } = await supabase.from('technicians').select('id, name');
+      if (error) console.error(error);
+      else setTechniciansOptions(data);
+    };
+
     fetchParts();
+    fetchTechnicians();
 
     if (editingEnquiry) {
       const parsedMachineType = JSON.parse(editingEnquiry.machine_type);
@@ -81,7 +90,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           rate: part.rate,
           amount: part.amount
         })),
-        technicianName: editingEnquiry.technician_name,
+        technicians: editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ') : [],
         charges: parsedCharges,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
@@ -129,6 +138,16 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     const newComplaints = [...formData.complaints];
     newComplaints[index] = e.target.value;
     setFormData({ ...formData, complaints: newComplaints });
+  };
+
+  const handleTechnicianChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    setFormData({
+      ...formData,
+      technicians: typeof value === 'string' ? value.split(',') : value,
+    });
   };
 
   const fetchPartPrice = async (partId, index) => {
@@ -225,7 +244,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         customer_remarks: formData.customerRemarks,
         machine_type: machineTypeJson,
         complaints: complaintsJson,
-        technician_name: formData.technicianName,
+        technician_name: formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name).join(', '),
         charges: chargesJson,
         total_amount: parseFloat(formData.totalAmount),
         repair_date: formData.repairDate ? formData.repairDate.toISOString() : null,
@@ -394,7 +413,27 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           </StyledPaper>
 
           <StyledPaper elevation={3}>
-            {renderInputField('Name of Technician', 'technicianName')}
+            <FormControl fullWidth margin="dense">
+              <InputLabel>Technicians</InputLabel>
+              <Select
+                multiple
+                value={formData.technicians}
+                onChange={handleTechnicianChange}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => (
+                      <Chip key={value} label={techniciansOptions.find((tech) => tech.id === value)?.name} />
+                    ))}
+                  </Box>
+                )}
+              >
+                {techniciansOptions.map((technician) => (
+                  <MenuItem key={technician.id} value={technician.id}>
+                    {technician.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <StyledTypography variant="h6">Charges</StyledTypography>
             <Grid container spacing={2}>
               {Object.keys(formData.charges).map((charge) => (

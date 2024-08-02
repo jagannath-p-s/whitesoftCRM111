@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Tooltip from '@mui/material/Tooltip';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
-import ViewListIcon from '@mui/icons-material/ViewList';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
@@ -17,7 +15,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import TaskCard from './TaskCard';
 import { supabase } from '../supabaseClient';
 
-const Activities = ({ userId }) => {
+const Activities = ({ userId, userRole }) => {
   const initialExpandedColumns = [];
   const [expanded, setExpanded] = useState(initialExpandedColumns);
   const [view, setView] = useState('cards');
@@ -35,41 +33,36 @@ const Activities = ({ userId }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (userId) {
-        const { data: tasks, error: tasksError } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('assigned_to', userId); // Filter tasks assigned to the current user
+      const { data: tasks, error: tasksError } = await supabase.from('tasks').select('*');
 
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('id, username');
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username');
 
-        if (tasksError || usersError) {
-          console.error('Error fetching data:', tasksError || usersError);
-        } else {
-          const categorizedData = [
-            { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
-            { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
-            { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
-            { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
-          ];
+      if (tasksError || usersError) {
+        console.error('Error fetching data:', tasksError || usersError);
+      } else {
+        const categorizedData = [
+          { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
+          { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
+          { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
+          { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
+        ];
 
-          tasks.forEach((task) => {
-            const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
-            if (category) {
-              category.tasks.push(task);
-            }
-          });
+        tasks.forEach((task) => {
+          const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
+          if (category) {
+            category.tasks.push(task);
+          }
+        });
 
-          const usersMap = usersData.reduce((acc, user) => {
-            acc[user.id] = user;
-            return acc;
-          }, {});
+        const usersMap = usersData.reduce((acc, user) => {
+          acc[user.id] = user;
+          return acc;
+        }, {});
 
-          setUsers(usersMap);
-          setColumns(categorizedData);
-        }
+        setUsers(usersMap);
+        setColumns(categorizedData);
       }
     };
 
@@ -77,15 +70,15 @@ const Activities = ({ userId }) => {
 
     const taskSubscription = supabase
       .channel('public:tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${userId}` }, (payload) => {
-        fetchData(); // Fetch tasks again when changes occur
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        fetchData();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(taskSubscription);
     };
-  }, [userId]);
+  }, [userId, userRole]);
 
   const toggleExpand = (column) => {
     if (expanded.includes(column)) {
@@ -170,7 +163,7 @@ const Activities = ({ userId }) => {
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
-                <EventNoteIcon  className="text-blue-500" style={{ fontSize: '1.75rem' }} />
+                <EventNoteIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
                 <h1 className="text-xl font-semibold ml-2">Activities</h1>
               </div>
             </div>
@@ -180,18 +173,6 @@ const Activities = ({ userId }) => {
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
                 </button>
               </Tooltip>
-              {/* <Tooltip title={view === 'cards' ? "Table View" : "Card View"}>
-                <button
-                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
-                  onClick={() => setView(view === 'cards' ? 'table' : 'cards')}
-                >
-                  {view === 'cards' ? (
-                    <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} />
-                  ) : (
-                    <ViewListIcon style={{ fontSize: '1.75rem' }} />
-                  )}
-                </button>
-              </Tooltip> */}
             </div>
           </div>
         </div>

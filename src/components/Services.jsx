@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Button, TextField, Typography, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, Alert, Menu
+  Box, Button, TextField, Typography, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, Alert, Menu, Chip
 } from '@mui/material';
 import {
   Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, MoreVert as MoreVertIcon
@@ -8,7 +8,7 @@ import {
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
 import ServiceEnquiryDialog from './ServiceEnquiryDialog';
-import TechnicianDialog from './TechnicianDialog'; // New component for managing technicians
+import TechnicianDialog from './TechnicianDialog';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontWeight: 'bold',
@@ -32,9 +32,11 @@ const Services = () => {
   const [editingEnquiry, setEditingEnquiry] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [anchorEl, setAnchorEl] = useState(null);
+  const [techniciansOptions, setTechniciansOptions] = useState([]);
 
   useEffect(() => {
     fetchEnquiries();
+    fetchTechnicians();
   }, []);
 
   useEffect(() => {
@@ -54,6 +56,18 @@ const Services = () => {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTechnicians = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('technicians')
+        .select('*');
+      if (error) throw error;
+      setTechniciansOptions(data);
+    } catch (error) {
+      setError(error.message);
     }
   };
 
@@ -158,7 +172,6 @@ const Services = () => {
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
-    setTechnicianDialogOpen(true);
   };
 
   const handleMenuClose = () => {
@@ -245,24 +258,6 @@ const Services = () => {
                       value={technicianFilter}
                       onChange={handleTechnicianFilterChange}
                       displayEmpty
-                      variant="outlined"
-                      sx={{
-                        '& .MuiSelect-outlined': {
-                          padding: '8px 12px',
-                        },
-                        '& .MuiSelect-iconOutlined': {
-                          right: 12,
-                        },
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#E3F2FD',
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1E88E5',
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1E88E5',
-                        },
-                      }}
                     >
                       <MenuItem value="">
                         <em>All</em>
@@ -281,24 +276,6 @@ const Services = () => {
                       value={statusFilter}
                       onChange={handleStatusFilterChange}
                       displayEmpty
-                      variant="outlined"
-                      sx={{
-                        '& .MuiSelect-outlined': {
-                          padding: '8px 12px',
-                        },
-                        '& .MuiSelect-iconOutlined': {
-                          right: 12,
-                        },
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#E3F2FD',
-                        },
-                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1E88E5',
-                        },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1E88E5',
-                        },
-                      }}
                     >
                       <MenuItem value="">
                         <em>All</em>
@@ -330,24 +307,6 @@ const Services = () => {
                         value={enquiry.status}
                         onChange={(e) => handleStatusChange(enquiry, e.target.value)}
                         disabled={enquiry.status === 'completed'}
-                        variant="outlined"
-                        sx={{
-                          '& .MuiSelect-outlined': {
-                            padding: '8px 12px',
-                          },
-                          '& .MuiSelect-iconOutlined': {
-                            right: 12,
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#E3F2FD',
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#1E88E5',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#1E88E5',
-                          },
-                        }}
                       >
                         <MenuItem value="started">Started</MenuItem>
                         <MenuItem value="ongoing">Ongoing</MenuItem>
@@ -386,6 +345,7 @@ const Services = () => {
         handleDialogClose={handleDialogClose}
         handleFormSubmit={handleFormSubmit}
         editingEnquiry={editingEnquiry}
+        techniciansOptions={techniciansOptions}
       />
 
       <TechnicianDialog
