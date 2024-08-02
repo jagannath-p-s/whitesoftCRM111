@@ -233,8 +233,8 @@ const SearchBar = ({ onSearch, currentUserId }) => {
         )}
       </div>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={() => handleDialogOpen('service')}>Add Service Enquiry</MenuItem>
-        {/* <MenuItem onClick={() => handleDialogOpen('product')}>Add Product Enquiry</MenuItem> */}
+        {/* <MenuItem onClick={() => handleDialogOpen('service')}>Add Service Enquiry</MenuItem> */}
+        <MenuItem onClick={() => handleDialogOpen('product')}>Add Product Enquiry</MenuItem>
       </Menu>
 
       {dialogType === 'service' ? (

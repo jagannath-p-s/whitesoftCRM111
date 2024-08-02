@@ -19,7 +19,7 @@ import {
   Pagination,
   Box,
 } from '@mui/material';
-import { supabase } from '../supabaseClient'; // Adjust the import path as necessary
+import { supabase } from '../supabaseClient';
 
 const AddEnquiryDialog = ({
   dialogOpen,
@@ -83,7 +83,7 @@ const AddEnquiryDialog = ({
     }));
   };
 
-  const handleSubmit = () => {
+  const handleFormSubmission = () => {
     handleFormSubmit(localEnquiryData);
   };
 
@@ -331,7 +331,7 @@ const AddEnquiryDialog = ({
         <Button onClick={handleDialogClose} color="primary">
           Cancel
         </Button>
-        <Button onClick={handleSubmit} color="primary">
+        <Button onClick={handleFormSubmission} color="primary">
           Add
         </Button>
       </DialogActions>
