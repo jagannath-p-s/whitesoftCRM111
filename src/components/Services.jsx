@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, IconButton, TextField, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Menu, MenuItem, Tooltip, Snackbar, Alert
 } from '@mui/material';
@@ -42,7 +42,7 @@ const FilterSelect = ({ label, value, handleChange, options, withDatePicker, sta
   };
 
   const handleSelect = (selectedValue) => {
-    handleChange({ target: { value: selectedValue } });
+    handleChange(selectedValue);
     handleClose();
   };
 
@@ -111,16 +111,7 @@ const Services = () => {
   const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState(null);
   const [statusMenuEnquiry, setStatusMenuEnquiry] = useState(null);
 
-  useEffect(() => {
-    fetchEnquiries();
-    fetchTechnicians();
-  }, []);
-
-  useEffect(() => {
-    filterEnquiries();
-  }, [searchTerm, technicianFilter, statusFilter, dateFilter, startDate, endDate, enquiries]);
-
-  const fetchEnquiries = async () => {
+  const fetchEnquiries = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -128,16 +119,15 @@ const Services = () => {
         .select('*, service_enquiry_parts(*)');
       if (error) throw error;
       setEnquiries(data);
-      setFilteredEnquiries(data);
     } catch (error) {
       setError(error.message);
       console.error("Error fetching enquiries:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchTechnicians = async () => {
+  const fetchTechnicians = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('technicians')
@@ -148,59 +138,68 @@ const Services = () => {
       setError(error.message);
       console.error("Error fetching technicians:", error);
     }
-  };
+  }, []);
 
-  const filterEnquiries = () => {
-    let filtered = enquiries;
-    if (searchTerm) {
-      filtered = filtered.filter(enquiry =>
-        enquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        enquiry.customer_mobile.includes(searchTerm) ||
-        enquiry.job_card_no.includes(searchTerm)
-      );
-    }
-    if (technicianFilter && technicianFilter !== 'See All') {
-      filtered = filtered.filter(enquiry =>
-        enquiry.technician_name && enquiry.technician_name.split(', ').includes(technicianFilter)
-      );
-    }
-    if (statusFilter && statusFilter !== 'See All') {
-      filtered = filtered.filter(enquiry => enquiry.status === statusFilter);
-    }
-    if (dateFilter === 'This Month') {
-      filtered = filtered.filter(enquiry =>
-        dayjs(enquiry.date).isAfter(dayjs().startOf('month'))
-      );
-    } else if (dateFilter === 'Last 30 Days') {
-      filtered = filtered.filter(enquiry =>
-        dayjs(enquiry.date).isAfter(dayjs().subtract(30, 'day'))
-      );
-    } else if (dateFilter === 'Last 60 Days') {
-      filtered = filtered.filter(enquiry =>
-        dayjs(enquiry.date).isAfter(dayjs().subtract(60, 'day'))
-      );
-    } else if (dateFilter === 'Custom Date Range') {
-      filtered = filtered.filter(enquiry =>
-        dayjs(enquiry.date).isAfter(startDate) && dayjs(enquiry.date).isBefore(endDate)
-      );
-    }
-    setFilteredEnquiries(filtered);
-  };
+  useEffect(() => {
+    fetchEnquiries();
+    fetchTechnicians();
+  }, [fetchEnquiries, fetchTechnicians]);
+
+  useEffect(() => {
+    const filterEnquiries = () => {
+      let filtered = enquiries;
+      if (searchTerm) {
+        filtered = filtered.filter(enquiry =>
+          enquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          enquiry.customer_mobile.includes(searchTerm) ||
+          enquiry.job_card_no.includes(searchTerm)
+        );
+      }
+      if (technicianFilter && technicianFilter !== 'See All') {
+        filtered = filtered.filter(enquiry =>
+          enquiry.technician_name && enquiry.technician_name.split(', ').includes(technicianFilter)
+        );
+      }
+      if (statusFilter && statusFilter !== 'See All') {
+        filtered = filtered.filter(enquiry => enquiry.status === statusFilter);
+      }
+      if (dateFilter === 'This Month') {
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(dayjs().startOf('month'))
+        );
+      } else if (dateFilter === 'Last 30 Days') {
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(dayjs().subtract(30, 'day'))
+        );
+      } else if (dateFilter === 'Last 60 Days') {
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(dayjs().subtract(60, 'day'))
+        );
+      } else if (dateFilter === 'Custom Date Range') {
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(startDate) && dayjs(enquiry.date).isBefore(endDate)
+        );
+      }
+      setFilteredEnquiries(filtered);
+    };
+
+    filterEnquiries();
+  }, [searchTerm, technicianFilter, statusFilter, dateFilter, startDate, endDate, enquiries]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
   };
 
   const handleTechnicianFilterChange = (value) => {
-    setTechnicianFilter(value.target.value);
+    setTechnicianFilter(value);
   };
 
   const handleStatusFilterChange = (value) => {
-    setStatusFilter(value.target.value);
+    setStatusFilter(value);
   };
 
   const handleDateFilterChange = (value) => {
-    setDateFilter(value.target.value);
+    setDateFilter(value);
   };
 
   const handleAddEnquiryClick = () => {
@@ -226,20 +225,20 @@ const Services = () => {
   const handleDeleteEnquiry = async (id) => {
     if (window.confirm('Are you sure you want to delete this enquiry?')) {
       try {
-        const { data: parts, error: partsError } = await supabase
+        const { error: partsError } = await supabase
           .from('service_enquiry_parts')
           .delete()
           .eq('service_enquiry_id', id);
-  
+
         if (partsError) throw partsError;
-  
+
         const { error } = await supabase
           .from('service_enquiries')
           .delete()
           .eq('id', id);
-  
+
         if (error) throw error;
-  
+
         fetchEnquiries();
         showSnackbar('Enquiry deleted successfully', 'success');
       } catch (error) {

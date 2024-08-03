@@ -37,19 +37,16 @@ import {
   MoreVert as MoreVertIcon,
   Settings as SettingsIcon,
   FilterList as FilterListIcon,
-  Storage as StorageIcon,
-  CloudUpload as CloudUploadIcon,
-  Image as ImageIcon,
+  Inventory as InventoryIcon,
   Download as DownloadIcon,
   Category as CategoryIcon,
   SubdirectoryArrowRight as SubdirectoryArrowRightIcon,
+  Storage as StorageIcon,
+  CloudUpload as CloudUploadIcon,
+  Image as ImageIcon,
 } from '@mui/icons-material';
-import Papa from 'papaparse';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import DownloadDialog from './DownloadDialog';
 
-const Stock = () => {
+const StockTable = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -76,9 +73,6 @@ const Stock = () => {
   const [productImageUrl, setProductImageUrl] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStockLevel, setFilterStockLevel] = useState('');
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
-  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [visibleColumns, setVisibleColumns] = useState({
     productName: true,
     brand: true,
@@ -96,21 +90,12 @@ const Stock = () => {
     stockGroup: true,
     imageLink: true,
   });
-  const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
-  const [filteredProducts, setFilteredProducts] = useState([]);
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
     fetchSubcategories();
   }, []);
-
-  useEffect(() => {
-    const results = products.filter((product) => {
-      return product.product_name?.toLowerCase().includes(searchTerm.toLowerCase());
-    });
-    setFilteredProducts(results);
-  }, [products, searchTerm]);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('*');
@@ -139,212 +124,29 @@ const Stock = () => {
     }
   };
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleSettingsMenuOpen = (event) => {
-    setSettingsAnchorEl(event.currentTarget);
-  };
-
-  const handleFilterMenuOpen = (event) => {
-    setFilterAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSettingsAnchorEl(null);
-    setFilterAnchorEl(null);
-  };
-
-  const handleOpenProductDialog = () => {
-    setSelectedProduct(null);
-    resetProductFields();
+  const handleEditProduct = (product) => {
+    setSelectedProduct(product);
+    setProductName(product.product_name);
+    setBrand(product.brand);
+    setProductCategory(product.category_id);
+    setProductSubcategory(product.subcategory_id);
+    setProductPrice(product.price);
+    setProductMinStock(product.min_stock);
+    setProductCurrentStock(product.current_stock);
+    setProductSerialNumber(product.serial_number);
+    setProductItemName(product.item_name);
+    setProductItemAlias(product.item_alias);
+    setProductPartNumber(product.part_number);
+    setProductModel(product.model);
+    setProductRemarks(product.remarks);
+    setProductStockGroup(product.stock_group);
+    setProductImageUrl(product.image_link);
     setProductDialogOpen(true);
-  };
-
-  const handleCloseProductDialog = () => {
-    setProductDialogOpen(false);
-  };
-
-  const handleDeleteProduct = async (productId) => {
-    const { error } = await supabase.from('products').delete().eq('product_id', productId);
-    if (error) {
-      showSnackbar(`Error deleting product: ${error.message}`, 'error');
-    } else {
-      fetchProducts();
-      setDeleteDialogOpen(false);
-      showSnackbar('Product deleted successfully', 'success');
-    }
-  };
-
-  const handleDownloadCSV = () => {
-    const visibleProducts = products.map((product) => {
-      const result = {};
-      if (visibleColumns.productName) result['Product Name'] = product.product_name;
-      if (visibleColumns.brand) result['Brand'] = product.brand;
-      if (visibleColumns.category) result['Category'] = categories.find((cat) => cat.category_id === product.category_id)?.category_name;
-      if (visibleColumns.subcategory) result['Subcategory'] = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name;
-      if (visibleColumns.price) result['Price'] = product.price;
-      if (visibleColumns.minStock) result['Min Stock'] = product.min_stock;
-      if (visibleColumns.currentStock) result['Current Stock'] = product.current_stock;
-      return result;
-    });
-
-    const csv = Papa.unparse(visibleProducts);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'products.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF('landscape', 'pt', 'a4');
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-  
-    // Title
-    doc.setFontSize(18);
-    doc.text('Product Data', pageWidth / 2, 30, { align: 'center' });
-  
-    const columns = Object.entries(visibleColumns)
-      .filter(([_, visible]) => visible)
-      .map(([key]) => ({
-        header: key.replace(/([A-Z])/g, ' $1').trim(),
-        dataKey: key
-      }));
-  
-    const data = filteredProducts.map(product => {
-      const result = {};
-      if (visibleColumns.productName) result.productName = product.product_name || '';
-      if (visibleColumns.brand) result.brand = product.brand || '';
-      if (visibleColumns.category) result.category = categories.find(cat => cat.category_id === product.category_id)?.category_name || '';
-      if (visibleColumns.subcategory) result.subcategory = subcategories.find(sub => sub.subcategory_id === product.subcategory_id)?.subcategory_name || '';
-      if (visibleColumns.price) result.price = product.price ? `$${product.price.toFixed(2)}` : '';
-      if (visibleColumns.minStock) result.minStock = product.min_stock || '';
-      if (visibleColumns.currentStock) result.currentStock = product.current_stock || '';
-      if (visibleColumns.serialNumber) result.serialNumber = product.serial_number || '';
-      if (visibleColumns.itemName) result.itemName = product.item_name || '';
-      if (visibleColumns.itemAlias) result.itemAlias = product.item_alias || '';
-      if (visibleColumns.partNumber) result.partNumber = product.part_number || '';
-      if (visibleColumns.model) result.model = product.model || '';
-      if (visibleColumns.remarks) result.remarks = product.remarks || '';
-      if (visibleColumns.stockGroup) result.stockGroup = product.stock_group || '';
-      return result;
-    });
-  
-    doc.autoTable({
-      columns: columns,
-      body: data,
-      startY: 50,
-      margin: { top: 50, right: 30, bottom: 40, left: 30 },
-      styles: {
-        fontSize: 8,
-        cellPadding: 3,
-        overflow: 'linebreak',
-        halign: 'left',
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: [66, 135, 245],
-        textColor: 255,
-        fontSize: 9,
-        fontStyle: 'bold'
-      },
-      alternateRowStyles: {
-        fillColor: [240, 240, 240]
-      },
-      columnStyles: {
-        price: { halign: 'right' },
-        minStock: { halign: 'right' },
-        currentStock: { halign: 'right' }
-      },
-      didDrawPage: (data) => {
-        // Footer
-        doc.setFontSize(8);
-        doc.text(`Page ${data.pageNumber} of ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      }
-    });
-  
-    doc.save('products.pdf');
-  };
-  const showSnackbar = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleSnackbarClose = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
-  const handleSearchChange = (event) => {
-    setSearchTerm(event.target.value);
-  };
-
-  const handleViewImage = (url) => {
-    setProductImageUrl(url);
-    setImageDialogOpen(true);
-  };
-
-  const handleCloseImageDialog = () => {
-    setImageDialogOpen(false);
-    setProductImageUrl('');
-  };
-
-  const handleProductMenuOpen = (event, product) => {
-    setProductAnchorEl(event.currentTarget);
-    setSelectedProductForMenu(product);
-  };
-
-  const handleProductMenuClose = () => {
-    setProductAnchorEl(null);
-    setSelectedProductForMenu(null);
-  };
-
-  const handleOpenCategoryDialog = () => {
-    setCategoryDialogOpen(true);
-  };
-
-  const handleCloseCategoryDialog = () => {
-    setCategoryDialogOpen(false);
-  };
-
-  const handleOpenSubcategoryDialog = () => {
-    setSubcategoryDialogOpen(true);
-  };
-
-  const handleCloseSubcategoryDialog = () => {
-    setSubcategoryDialogOpen(false);
-  };
-
-  const handleCloseDeleteDialog = () => {
-    setDeleteDialogOpen(false);
-  };
-
-  const confirmDeleteProduct = () => {
-    if (selectedProduct) {
-      handleDeleteProduct(selectedProduct.product_id);
-    }
-  };
-
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProductImage(file);
-        setProductImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const handleSaveProduct = async () => {
     try {
-      let imageUrl = productImageUrl;
+      let imageUrl = productImageUrl; // Keep the existing image URL if provided
 
       if (productImage) {
         const fileName = `${Date.now()}-${productImage.name}`;
@@ -405,14 +207,25 @@ const Stock = () => {
     }
   };
 
-  const resetProductFields = () => {
-    setProductSerialNumber('');
-    setProductItemName('');
-    setProductItemAlias('');
-    setProductPartNumber('');
-    setProductModel('');
-    setProductRemarks('');
-    setProductStockGroup('');
+  const handleDeleteProduct = (product_id) => {
+    setSelectedProduct(product_id);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteProduct = async () => {
+    const { error } = await supabase.from('products').delete().eq('product_id', selectedProduct);
+    if (error) {
+      showSnackbar(`Error deleting product: ${error.message}`, 'error');
+    } else {
+      showSnackbar('Product deleted successfully', 'success');
+      fetchProducts();
+      setDeleteDialogOpen(false);
+      setSelectedProduct(null);
+    }
+  };
+
+  const handleCloseProductDialog = () => {
+    setSelectedProduct(null);
     setProductName('');
     setBrand('');
     setProductCategory('');
@@ -420,9 +233,36 @@ const Stock = () => {
     setProductPrice('');
     setProductMinStock('');
     setProductCurrentStock('');
+    setProductSerialNumber('');
+    setProductItemName('');
+    setProductItemAlias('');
+    setProductPartNumber('');
+    setProductModel('');
+    setProductRemarks('');
+    setProductStockGroup('');
+    setProductImageUrl('');
     setProductImage(null);
     setProductImagePreview('');
-    setProductImageUrl('');
+    setProductDialogOpen(false);
+  };
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setProductImage(file);
+    setProductImagePreview(URL.createObjectURL(file));
+  };
+
+  const showSnackbar = (message, severity) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar({ ...snackbar, open: false });
   };
 
   const getCurrentStockColor = (current, min) => {
@@ -435,17 +275,26 @@ const Stock = () => {
     setVisibleColumns({ ...visibleColumns, [event.target.name]: event.target.checked });
   };
 
-  const handleFilterChange = (event) => {
-    setFilterStockLevel(event.target.value);
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
   };
 
-  const handleDownloadDialogOpen = () => {
-    setOpenDownloadDialog(true);
-  };
+  const filteredProducts = products.filter((product) => {
+    const matchesSearchTerm =
+      product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      categories.find((cat) => cat.category_id === product.category_id)?.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.price.toString().includes(searchTerm.toLowerCase()) ||
+      product.min_stock.toString().includes(searchTerm.toLowerCase()) ||
+      product.current_stock.toString().includes(searchTerm.toLowerCase());
 
-  const handleDownloadDialogClose = () => {
-    setOpenDownloadDialog(false);
-  };
+    if (filterStockLevel) {
+      const color = getCurrentStockColor(product.current_stock, product.min_stock);
+      return matchesSearchTerm && color === filterStockLevel;
+    }
+    return matchesSearchTerm;
+  });
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -464,79 +313,6 @@ const Stock = () => {
                 onChange={handleSearchChange}
                 size="small"
               />
-              <Tooltip title="Download">
-                <IconButton
-                  onClick={handleDownloadDialogOpen}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <DownloadIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Add">
-                <IconButton onClick={handleMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
-                  <AddIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Filter">
-                <IconButton onClick={handleFilterMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
-                  <FilterListIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Settings">
-                <IconButton onClick={handleSettingsMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
-                  <SettingsIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                <MenuItem onClick={handleOpenProductDialog} sx={{ padding: '12px 24px' }}>
-                  <ListItemIcon>
-                    <AddIcon fontSize="medium" />
-                  </ListItemIcon>
-                  <ListItemText primary="Add Product" />
-                </MenuItem>
-                <MenuItem onClick={handleOpenCategoryDialog} sx={{ padding: '12px 24px' }}>
-                  <ListItemIcon>
-                    <CategoryIcon fontSize="medium" />
-                  </ListItemIcon>
-                  <ListItemText primary="Add Category" />
-                </MenuItem>
-                <MenuItem onClick={handleOpenSubcategoryDialog} sx={{ padding: '12px 24px' }}>
-                  <ListItemIcon>
-                    <SubdirectoryArrowRightIcon fontSize="medium" />
-                  </ListItemIcon>
-                  <ListItemText primary="Add Subcategory" />
-                </MenuItem>
-              </Menu>
-              <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={handleMenuClose}>
-                <MenuItem onClick={() => { handleFilterChange({ target: { value: '' } }); handleMenuClose(); }}>
-                  All
-                </MenuItem>
-                <MenuItem onClick={() => { handleFilterChange({ target: { value: 'red' } }); handleMenuClose(); }}>
-                  Low Stock
-                </MenuItem>
-                <MenuItem onClick={() => { handleFilterChange({ target: { value: 'green' } }); handleMenuClose(); }}>
-                  In Stock
-                </MenuItem>
-              </Menu>
-              <Menu anchorEl={settingsAnchorEl} open={Boolean(settingsAnchorEl)} onClose={handleMenuClose}>
-                <Box sx={{ p: 2 }}>
-                  <FormControl component="fieldset" variant="standard">
-                    {Object.entries(visibleColumns).map(([key, value]) => (
-                      <FormControlLabel
-                        key={key}
-                        control={
-                          <Checkbox
-                            checked={value}
-                            onChange={handleVisibleColumnChange}
-                            name={key}
-                          />
-                        }
-                        label={key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
-                      />
-                    ))}
-                  </FormControl>
-                </Box>
-              </Menu>
             </div>
           </div>
         </div>
@@ -551,7 +327,8 @@ const Stock = () => {
                   ([key, value]) =>
                     value && (
                       <TableCell key={key} sx={{ fontWeight: 'bold', color: 'black' }}>
-                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
+                        {key.charAt(0).toUpperCase() +
+                          key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
                       </TableCell>
                     )
                 )}
@@ -798,7 +575,7 @@ const Stock = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} fullWidth maxWidth="sm">
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
@@ -806,7 +583,7 @@ const Stock = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} color="primary">
+          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
             Cancel
           </Button>
           <Button onClick={confirmDeleteProduct} color="primary">
@@ -815,20 +592,13 @@ const Stock = () => {
         </DialogActions>
       </Dialog>
 
-      <DownloadDialog
-        open={openDownloadDialog}
-        handleClose={handleDownloadDialogClose}
-        handleDownloadCSV={handleDownloadCSV}
-        handleDownloadPDF={handleDownloadPDF}
-      />
-
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
+        autoHideDuration={2000}
+        onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -836,4 +606,4 @@ const Stock = () => {
   );
 };
 
-export default Stock;
+export default StockTable;
