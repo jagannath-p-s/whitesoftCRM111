@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Button, TextField, Typography, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, Alert, Menu, Chip
+  Box, IconButton, TextField, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Menu, MenuItem, Tooltip, Snackbar, Alert
 } from '@mui/material';
 import {
-  Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, MoreVert as MoreVertIcon
+  Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, ArrowDropDown as ArrowDropDownIcon
 } from '@mui/icons-material';
+import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
 import ServiceEnquiryDialog from './ServiceEnquiryDialog';
@@ -13,11 +14,57 @@ import TechnicianDialog from './TechnicianDialog';
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontWeight: 'bold',
   color: theme.palette.common.black,
+  padding: theme.spacing(2),
 }));
 
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
-  backgroundColor: theme.palette.common.white,
+  '&:first-of-type td, &:first-of-type th': {
+    paddingLeft: theme.spacing(3),
+  },
+  '&:last-child td, &:last-child th': {
+    paddingRight: theme.spacing(3),
+  },
 }));
+
+const FilterSelect = ({ label, value, handleChange, options }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleSelect = (selectedValue) => {
+    handleChange({ target: { value: selectedValue } });
+    handleClose();
+  };
+
+  return (
+    <Box display="flex" alignItems="center">
+      <Typography variant="subtitle1" fontWeight="bold">{label}</Typography>
+      <IconButton onClick={handleOpen} size="small">
+        <ArrowDropDownIcon />
+      </IconButton>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleClose}
+      >
+        <MenuItem onClick={() => handleSelect('')}>
+          <em>All</em>
+        </MenuItem>
+        {options.map((option) => (
+          <MenuItem key={option} onClick={() => handleSelect(option)}>
+            {option}
+          </MenuItem>
+        ))}
+      </Menu>
+    </Box>
+  );
+};
 
 const Services = () => {
   const [enquiries, setEnquiries] = useState([]);
@@ -31,7 +78,6 @@ const Services = () => {
   const [error, setError] = useState(null);
   const [editingEnquiry, setEditingEnquiry] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [anchorEl, setAnchorEl] = useState(null);
   const [techniciansOptions, setTechniciansOptions] = useState([]);
 
   useEffect(() => {
@@ -65,7 +111,7 @@ const Services = () => {
         .from('technicians')
         .select('*');
       if (error) throw error;
-      setTechniciansOptions(data);
+      setTechniciansOptions(data.map(tech => tech.name));
     } catch (error) {
       setError(error.message);
     }
@@ -126,50 +172,11 @@ const Services = () => {
   const handleDeleteEnquiry = async (id) => {
     if (window.confirm('Are you sure you want to delete this enquiry?')) {
       try {
-        // Fetch the parts associated with the service enquiry to update stock
-        const { data: parts, error: partsError } = await supabase
-          .from('service_enquiry_parts')
-          .select('*')
-          .eq('service_enquiry_id', id);
-
-        if (partsError) throw partsError;
-
-        // Update the stock values
-        await Promise.all(parts.map(async (part) => {
-          const { data: product, error: productError } = await supabase
-            .from('products')
-            .select('stock')
-            .eq('product_id', part.part_id)
-            .single();
-
-          if (productError) throw productError;
-
-          const updatedStock = product.stock + part.qty;
-
-          const { error: updateStockError } = await supabase
-            .from('products')
-            .update({ stock: updatedStock })
-            .eq('product_id', part.part_id);
-
-          if (updateStockError) throw updateStockError;
-        }));
-
-        // Delete parts associated with the service enquiry
-        const { error: deletePartsError } = await supabase
-          .from('service_enquiry_parts')
-          .delete()
-          .eq('service_enquiry_id', id);
-
-        if (deletePartsError) throw deletePartsError;
-
-        // Delete the service enquiry
         const { error } = await supabase
           .from('service_enquiries')
           .delete()
           .eq('id', id);
-
         if (error) throw error;
-
         fetchEnquiries();
         showSnackbar('Enquiry deleted successfully', 'success');
       } catch (error) {
@@ -191,10 +198,6 @@ const Services = () => {
   };
 
   const handleStatusChange = async (enquiry, status) => {
-    if (status === 'completed') {
-      return;
-    }
-
     try {
       const { error } = await supabase
         .from('service_enquiries')
@@ -209,17 +212,8 @@ const Services = () => {
     }
   };
 
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
   const handleManageTechnicians = () => {
     setTechnicianDialogOpen(true);
-    handleMenuClose();
   };
 
   if (loading) return <Typography>Loading...</Typography>;
@@ -227,63 +221,43 @@ const Services = () => {
 
   return (
     <Box className="flex flex-col min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-                <h1 className="text-xl font-semibold ml-2">Service Enquiries</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <TextField
-                type="text"
-                placeholder="Search for enquiries"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                variant="outlined"
-                size="small"
-                sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }}
-                autoComplete="off"
-                InputProps={{
-                  endAdornment: <SearchIcon />,
-                }}
-              />
-              <Tooltip title="Add new enquiry">
-                <IconButton
-                  className="p-2"
-                  onClick={handleAddEnquiryClick}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <AddIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="More options">
-                <IconButton
-                  onClick={handleMenuOpen}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <MoreVertIcon />
-                </IconButton>
-              </Tooltip>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
+      <Box className="bg-white shadow-md p-4">
+        <Box className="max-w-7xl mx-auto flex justify-between items-center">
+          <Box className="flex items-center space-x-4">
+            <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
+            <h1 className="text-xl font-semibold ml-2">Service Enquiries</h1>
+          </Box>
+          <Box className="flex items-center space-x-4">
+            <TextField
+              placeholder="Search for enquiries"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              variant="outlined"
+              size="small"
+            />
+            <Tooltip title="Add new enquiry">
+              <IconButton
+                onClick={handleAddEnquiryClick}
+                style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
               >
-                <MenuItem onClick={handleManageTechnicians}>Manage Technicians</MenuItem>
-              </Menu>
-            </div>
-          </div>
-        </div>
-      </div>
+                <AddIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Manage technicians">
+              <IconButton
+                onClick={handleManageTechnicians}
+                style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
+              >
+                <DesignServicesIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Box>
 
-      {/* Content */}
-      <div className="flex-grow p-4 space-x-4 overflow-x-auto">
-        <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
-          <Table stickyHeader className="min-w-full">
+      <Box className="flex-grow p-4">
+        <TableContainer component={Paper} className="shadow-md rounded-lg overflow-hidden">
+          <Table stickyHeader>
             <TableHead>
               <TableRow>
                 <StyledTableCell>Date</StyledTableCell>
@@ -291,43 +265,23 @@ const Services = () => {
                 <StyledTableCell>Customer Name</StyledTableCell>
                 <StyledTableCell>Customer Mobile</StyledTableCell>
                 <StyledTableCell>
-                  <FormControl fullWidth>
-                  
-                    <Select
-                      value={technicianFilter}
-                      onChange={handleTechnicianFilterChange}
-                      displayEmpty
-                    >
-                      <MenuItem value="">
-                        <em>All</em>
-                      </MenuItem>
-                      {Array.from(new Set(enquiries.flatMap(e => e.technician_name ? e.technician_name.split(', ') : []))).map(tech => (
-                        <MenuItem key={tech} value={tech}>{tech}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <FilterSelect 
+                    label="Technician"
+                    value={technicianFilter}
+                    handleChange={handleTechnicianFilterChange}
+                    options={techniciansOptions}
+                  />
                 </StyledTableCell>
                 <StyledTableCell>Total Amount</StyledTableCell>
                 <StyledTableCell>
-                  <FormControl fullWidth>
-                    
-                    <Select
-                      value={statusFilter}
-                      onChange={handleStatusFilterChange}
-                      displayEmpty
-                    >
-                      <MenuItem value="">
-                        <em>All</em>
-                      </MenuItem>
-                      <MenuItem value="started">Started</MenuItem>
-                      <MenuItem value="ongoing">Ongoing</MenuItem>
-                      <MenuItem value="paused">Paused</MenuItem>
-                      <MenuItem value="paused due to parts unavailability">Paused due to Parts Unavailability</MenuItem>
-                      <MenuItem value="completed">Completed</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <FilterSelect 
+                    label="Status"
+                    value={statusFilter}
+                    handleChange={handleStatusFilterChange}
+                    options={['started', 'ongoing', 'paused', 'completed']}
+                  />
                 </StyledTableCell>
-                <StyledTableCell>Expected Completion Date</StyledTableCell>
+                <StyledTableCell>Expected Completion</StyledTableCell>
                 <StyledTableCell>Actions</StyledTableCell>
               </TableRow>
             </TableHead>
@@ -344,21 +298,14 @@ const Services = () => {
                       {enquiry.total_amount != null ? `₹${enquiry.total_amount.toFixed(2)}` : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={enquiry.status}
-                        onChange={(e) => handleStatusChange(enquiry, e.target.value)}
-                        disabled={enquiry.status === 'completed'}
-                      >
-                        <MenuItem value="started">Started</MenuItem>
-                        <MenuItem value="ongoing">Ongoing</MenuItem>
-                        <MenuItem value="paused">Paused</MenuItem>
-                        <MenuItem value="paused due to parts unavailability">Paused due to Parts Unavailability</MenuItem>
-                        <MenuItem value="completed">Completed</MenuItem>
-                      </Select>
+                      <Box display="flex" alignItems="center">
+                        <Typography>{enquiry.status}</Typography>
+                        <IconButton size="small" onClick={(event) => handleStatusChange(enquiry, event.target.value)}>
+                          <ArrowDropDownIcon />
+                        </IconButton>
+                      </Box>
                     </TableCell>
-                    <TableCell style={{ color: enquiry.status !== 'completed' && new Date(enquiry.expected_completion_date) < new Date() ? 'red' : 'inherit' }}>
-                      {new Date(enquiry.expected_completion_date).toLocaleDateString()}
-                    </TableCell>
+                    <TableCell>{new Date(enquiry.expected_completion_date).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
                         <EditIcon />
@@ -379,7 +326,7 @@ const Services = () => {
             </TableBody>
           </Table>
         </TableContainer>
-      </div>
+      </Box>
 
       <ServiceEnquiryDialog
         dialogOpen={dialogOpen}
