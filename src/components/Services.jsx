@@ -3,10 +3,14 @@ import {
   Box, IconButton, TextField, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Menu, MenuItem, Tooltip, Snackbar, Alert
 } from '@mui/material';
 import {
-  Add as AddIcon, Search as SearchIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, ArrowDropDown as ArrowDropDownIcon
+  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, ArrowDropDown as ArrowDropDownIcon
 } from '@mui/icons-material';
 import DesignServicesIcon from '@mui/icons-material/DesignServices';
 import { styled } from '@mui/material/styles';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
 import { supabase } from '../supabaseClient';
 import ServiceEnquiryDialog from './ServiceEnquiryDialog';
 import TechnicianDialog from './TechnicianDialog';
@@ -26,7 +30,7 @@ const StyledTableRow = styled(TableRow)(({ theme }) => ({
   },
 }));
 
-const FilterSelect = ({ label, value, handleChange, options }) => {
+const FilterSelect = ({ label, value, handleChange, options, withDatePicker, startDate, endDate, handleStartDateChange, handleEndDateChange }) => {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleOpen = (event) => {
@@ -44,27 +48,49 @@ const FilterSelect = ({ label, value, handleChange, options }) => {
 
   return (
     <Box display="flex" alignItems="center">
-      <Typography variant="subtitle1" fontWeight="bold">{label}</Typography>
-      <IconButton onClick={handleOpen} size="small">
-        <ArrowDropDownIcon />
-      </IconButton>
+      <Tooltip title={`Filter by ${label}`}>
+        <button
+          className={`py-2 px-4 rounded-full border ${anchorEl ? 'border-blue-600 bg-blue-100' : 'border-gray-300'} focus:outline-none transition duration-150 ease-in-out`}
+          onClick={handleOpen}
+        >
+          {value || label}
+          <ArrowDropDownIcon className="ml-1" />
+        </button>
+      </Tooltip>
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleClose}
       >
-        <MenuItem onClick={() => handleSelect('')}>
-          <em>All</em>
-        </MenuItem>
         {options.map((option) => (
-          <MenuItem key={option.id} onClick={() => handleSelect(option.name)}>
-            {option.name}
+          <MenuItem key={option} onClick={() => handleSelect(option)}>
+            {option}
           </MenuItem>
         ))}
+        {withDatePicker && (
+          <Box p={2}>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Start Date"
+                value={startDate}
+                onChange={handleStartDateChange}
+                renderInput={(params) => <TextField {...params} size="small" />}
+              />
+              <DatePicker
+                label="End Date"
+                value={endDate}
+                onChange={handleEndDateChange}
+                renderInput={(params) => <TextField {...params} size="small" />}
+              />
+            </LocalizationProvider>
+          </Box>
+        )}
       </Menu>
     </Box>
   );
 };
+
+const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Services = () => {
   const [enquiries, setEnquiries] = useState([]);
@@ -72,13 +98,18 @@ const Services = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [technicianDialogOpen, setTechnicianDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [technicianFilter, setTechnicianFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [technicianFilter, setTechnicianFilter] = useState('See All');
+  const [statusFilter, setStatusFilter] = useState('See All');
+  const [dateFilter, setDateFilter] = useState('Last 30 Days');
+  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
+  const [endDate, setEndDate] = useState(dayjs());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingEnquiry, setEditingEnquiry] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [techniciansOptions, setTechniciansOptions] = useState([]);
+  const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState(null);
+  const [statusMenuEnquiry, setStatusMenuEnquiry] = useState(null);
 
   useEffect(() => {
     fetchEnquiries();
@@ -87,7 +118,7 @@ const Services = () => {
 
   useEffect(() => {
     filterEnquiries();
-  }, [searchTerm, technicianFilter, statusFilter, enquiries]);
+  }, [searchTerm, technicianFilter, statusFilter, dateFilter, startDate, endDate, enquiries]);
 
   const fetchEnquiries = async () => {
     setLoading(true);
@@ -100,6 +131,7 @@ const Services = () => {
       setFilteredEnquiries(data);
     } catch (error) {
       setError(error.message);
+      console.error("Error fetching enquiries:", error);
     } finally {
       setLoading(false);
     }
@@ -114,6 +146,7 @@ const Services = () => {
       setTechniciansOptions(data);
     } catch (error) {
       setError(error.message);
+      console.error("Error fetching technicians:", error);
     }
   };
 
@@ -126,13 +159,30 @@ const Services = () => {
         enquiry.job_card_no.includes(searchTerm)
       );
     }
-    if (technicianFilter) {
+    if (technicianFilter && technicianFilter !== 'See All') {
       filtered = filtered.filter(enquiry =>
         enquiry.technician_name && enquiry.technician_name.split(', ').includes(technicianFilter)
       );
     }
-    if (statusFilter) {
+    if (statusFilter && statusFilter !== 'See All') {
       filtered = filtered.filter(enquiry => enquiry.status === statusFilter);
+    }
+    if (dateFilter === 'This Month') {
+      filtered = filtered.filter(enquiry =>
+        dayjs(enquiry.date).isAfter(dayjs().startOf('month'))
+      );
+    } else if (dateFilter === 'Last 30 Days') {
+      filtered = filtered.filter(enquiry =>
+        dayjs(enquiry.date).isAfter(dayjs().subtract(30, 'day'))
+      );
+    } else if (dateFilter === 'Last 60 Days') {
+      filtered = filtered.filter(enquiry =>
+        dayjs(enquiry.date).isAfter(dayjs().subtract(60, 'day'))
+      );
+    } else if (dateFilter === 'Custom Date Range') {
+      filtered = filtered.filter(enquiry =>
+        dayjs(enquiry.date).isAfter(startDate) && dayjs(enquiry.date).isBefore(endDate)
+      );
     }
     setFilteredEnquiries(filtered);
   };
@@ -141,12 +191,16 @@ const Services = () => {
     setSearchTerm(e.target.value);
   };
 
-  const handleTechnicianFilterChange = (e) => {
-    setTechnicianFilter(e.target.value);
+  const handleTechnicianFilterChange = (value) => {
+    setTechnicianFilter(value.target.value);
   };
 
-  const handleStatusFilterChange = (e) => {
-    setStatusFilter(e.target.value);
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value.target.value);
+  };
+
+  const handleDateFilterChange = (value) => {
+    setDateFilter(value.target.value);
   };
 
   const handleAddEnquiryClick = () => {
@@ -172,7 +226,6 @@ const Services = () => {
   const handleDeleteEnquiry = async (id) => {
     if (window.confirm('Are you sure you want to delete this enquiry?')) {
       try {
-        // Start a transaction
         const { data: parts, error: partsError } = await supabase
           .from('service_enquiry_parts')
           .delete()
@@ -195,7 +248,7 @@ const Services = () => {
       }
     }
   };
-  
+
   const showSnackbar = (message, severity) => {
     setSnackbar({ open: true, message, severity });
   };
@@ -207,18 +260,30 @@ const Services = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  const handleStatusChange = async (enquiry, status) => {
+  const handleStatusMenuOpen = (event, enquiry) => {
+    setStatusMenuAnchorEl(event.currentTarget);
+    setStatusMenuEnquiry(enquiry);
+  };
+
+  const handleStatusMenuClose = () => {
+    setStatusMenuAnchorEl(null);
+    setStatusMenuEnquiry(null);
+  };
+
+  const handleStatusChange = async (status) => {
     try {
       const { error } = await supabase
         .from('service_enquiries')
         .update({ status })
-        .eq('id', enquiry.id);
+        .eq('id', statusMenuEnquiry.id);
       if (error) throw error;
       fetchEnquiries();
       showSnackbar('Status updated successfully', 'success');
+      handleStatusMenuClose();
     } catch (error) {
       console.error('Error updating status:', error);
       showSnackbar('Error updating status', 'error');
+      handleStatusMenuClose();
     }
   };
 
@@ -235,7 +300,18 @@ const Services = () => {
         <Box className="max-w-7xl mx-auto flex justify-between items-center">
           <Box className="flex items-center space-x-4">
             <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-            <h1 className="text-xl font-semibold ml-2">Service Enquiries</h1>
+            <h1 className="text-xl font-semibold ml-2">Upload Files</h1>
+            <FilterSelect
+              label="Date Range"
+              value={dateFilter}
+              handleChange={handleDateFilterChange}
+              options={dateOptions}
+              withDatePicker={dateFilter === 'Custom Date Range'}
+              startDate={startDate}
+              endDate={endDate}
+              handleStartDateChange={setStartDate}
+              handleEndDateChange={setEndDate}
+            />
           </Box>
           <Box className="flex items-center space-x-4">
             <TextField
@@ -279,7 +355,7 @@ const Services = () => {
                     label="Technician"
                     value={technicianFilter}
                     handleChange={handleTechnicianFilterChange}
-                    options={techniciansOptions}
+                    options={['See All', ...techniciansOptions.map(tech => tech.name)]}
                   />
                 </StyledTableCell>
                 <StyledTableCell>Total Amount</StyledTableCell>
@@ -288,7 +364,7 @@ const Services = () => {
                     label="Status"
                     value={statusFilter}
                     handleChange={handleStatusFilterChange}
-                    options={['started', 'ongoing', 'paused', 'completed']}
+                    options={['See All', 'started', 'ongoing', 'paused', 'completed']}
                   />
                 </StyledTableCell>
                 <StyledTableCell>Expected Completion</StyledTableCell>
@@ -310,9 +386,20 @@ const Services = () => {
                     <TableCell>
                       <Box display="flex" alignItems="center">
                         <Typography>{enquiry.status}</Typography>
-                        <IconButton size="small" onClick={(event) => handleStatusChange(enquiry, event.target.value)}>
+                        <IconButton size="small" onClick={(event) => handleStatusMenuOpen(event, enquiry)}>
                           <ArrowDropDownIcon />
                         </IconButton>
+                        <Menu
+                          anchorEl={statusMenuAnchorEl}
+                          open={Boolean(statusMenuAnchorEl) && statusMenuEnquiry === enquiry}
+                          onClose={handleStatusMenuClose}
+                        >
+                          {['started', 'ongoing', 'paused', 'completed'].map(status => (
+                            <MenuItem key={status} onClick={() => handleStatusChange(status)}>
+                              {status}
+                            </MenuItem>
+                          ))}
+                        </Menu>
                       </Box>
                     </TableCell>
                     <TableCell>{new Date(enquiry.expected_completion_date).toLocaleDateString()}</TableCell>

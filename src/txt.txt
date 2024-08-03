@@ -1,69 +1,598 @@
-im not able to delete service enquiries also the names of the technicians are not fetched properly in the dropdown , the tables are create table
-  public.service_enquiries (
-    id serial not null,
-    date timestamp without time zone null,
-    job_card_no character varying(255) null,
-    customer_name character varying(255) null,
-    customer_mobile character varying(15) null,
-    customer_remarks text null,
-    machine_type jsonb null,
-    complaints jsonb null,
-    technician_name character varying(255) null,
-    charges jsonb null,
-    total_amount numeric(10, 2) null,
-    total_charges numeric(10, 2) null,
-    repair_date timestamp without time zone null,
-    expected_completion_date timestamp without time zone null,
-    status character varying(50) null,
-    constraint service_enquiries_pkey primary key (id)
-  ) tablespace pg_default; , create table
-  public.service_enquiry_parts (
-    id serial not null,
-    service_enquiry_id integer null,
-    part_id integer null,
-    part_name character varying(255) null,
-    part_number character varying(255) null,
-    qty integer null,
-    rate numeric(10, 2) null,
-    amount numeric(10, 2) null,
-    constraint service_enquiry_parts_pkey primary key (id),
-    constraint service_enquiry_parts_service_enquiry_id_fkey foreign key (service_enquiry_id) references service_enquiries (id)
-  ) tablespace pg_default; , create table
-  public.products (
-    product_id serial not null,
-    serial_number character varying(100) not null,
-    item_name character varying(255) not null,
-    item_alias character varying(255) not null,
-    part_number character varying(100) not null,
-    model character varying(100) not null,
-    remarks text null,
-    stock_group character varying(100) not null,
-    product_name character varying(255) not null,
-    brand character varying(255) not null,
-    category_id integer null,
-    subcategory_id integer null,
-    price numeric(10, 2) not null,
-    min_stock integer not null,
-    current_stock integer not null default 0,
-    image_link text null,
-    constraint products_pkey primary key (product_id),
-    constraint products_category_id_fkey foreign key (category_id) references categories (category_id)
-  ) tablespace pg_default; , create table
-  public.batches (
-    batch_id serial not null,
-    product_id integer not null,
-    batch_code character varying(50) not null,
-    expiry_date date null,
-    current_stock integer not null,
-    constraint batches_pkey primary key (batch_id),
-    constraint batches_product_id_batch_code_key unique (product_id, batch_code),
-    constraint batches_product_id_fkey foreign key (product_id) references products (product_id)
-  ) tablespace pg_default;
+ServiceEnquiryDialog.jsx:431 Uncaught TypeError: Cannot read properties of undefined (reading 'map')
+    at ServiceEnquiryDialog (ServiceEnquiryDialog.jsx:431:37)
+    at renderWithHooks (chunk-RY6NLCXT.js?v=d34c87aa:11548:26)
+    at mountIndeterminateComponent (chunk-RY6NLCXT.js?v=d34c87aa:14926:21)
+    at beginWork (chunk-RY6NLCXT.js?v=d34c87aa:15914:22)
+    at HTMLUnknownElement.callCallback2 (chunk-RY6NLCXT.js?v=d34c87aa:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RY6NLCXT.js?v=d34c87aa:3699:24)
+    at invokeGuardedCallback (chunk-RY6NLCXT.js?v=d34c87aa:3733:39)
+    at beginWork$1 (chunk-RY6NLCXT.js?v=d34c87aa:19765:15)
+    at performUnitOfWork (chunk-RY6NLCXT.js?v=d34c87aa:19198:20)
+    at workLoopSync (chunk-RY6NLCXT.js?v=d34c87aa:19137:13)
+ServiceEnquiryDialog @ ServiceEnquiryDialog.jsx:431
+renderWithHooks @ chunk-RY6NLCXT.js?v=d34c87aa:11548
+mountIndeterminateComponent @ chunk-RY6NLCXT.js?v=d34c87aa:14926
+beginWork @ chunk-RY6NLCXT.js?v=d34c87aa:15914
+callCallback2 @ chunk-RY6NLCXT.js?v=d34c87aa:3674
+invokeGuardedCallbackDev @ chunk-RY6NLCXT.js?v=d34c87aa:3699
+invokeGuardedCallback @ chunk-RY6NLCXT.js?v=d34c87aa:3733
+beginWork$1 @ chunk-RY6NLCXT.js?v=d34c87aa:19765
+performUnitOfWork @ chunk-RY6NLCXT.js?v=d34c87aa:19198
+workLoopSync @ chunk-RY6NLCXT.js?v=d34c87aa:19137
+renderRootSync @ chunk-RY6NLCXT.js?v=d34c87aa:19116
+performConcurrentWorkOnRoot @ chunk-RY6NLCXT.js?v=d34c87aa:18678
+workLoop @ chunk-RY6NLCXT.js?v=d34c87aa:197
+flushWork @ chunk-RY6NLCXT.js?v=d34c87aa:176
+performWorkUntilDeadline @ chunk-RY6NLCXT.js?v=d34c87aa:384
+Show 14 more frames
+Show lessUnderstand this error
+ServiceEnquiryDialog.jsx:431 Uncaught TypeError: Cannot read properties of undefined (reading 'map')
+    at ServiceEnquiryDialog (ServiceEnquiryDialog.jsx:431:37)
+    at renderWithHooks (chunk-RY6NLCXT.js?v=d34c87aa:11548:26)
+    at mountIndeterminateComponent (chunk-RY6NLCXT.js?v=d34c87aa:14926:21)
+    at beginWork (chunk-RY6NLCXT.js?v=d34c87aa:15914:22)
+    at HTMLUnknownElement.callCallback2 (chunk-RY6NLCXT.js?v=d34c87aa:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-RY6NLCXT.js?v=d34c87aa:3699:24)
+    at invokeGuardedCallback (chunk-RY6NLCXT.js?v=d34c87aa:3733:39)
+    at beginWork$1 (chunk-RY6NLCXT.js?v=d34c87aa:19765:15)
+    at performUnitOfWork (chunk-RY6NLCXT.js?v=d34c87aa:19198:20)
+    at workLoopSync (chunk-RY6NLCXT.js?v=d34c87aa:19137:13)
+ServiceEnquiryDialog @ ServiceEnquiryDialog.jsx:431
+renderWithHooks @ chunk-RY6NLCXT.js?v=d34c87aa:11548
+mountIndeterminateComponent @ chunk-RY6NLCXT.js?v=d34c87aa:14926
+beginWork @ chunk-RY6NLCXT.js?v=d34c87aa:15914
+callCallback2 @ chunk-RY6NLCXT.js?v=d34c87aa:3674
+invokeGuardedCallbackDev @ chunk-RY6NLCXT.js?v=d34c87aa:3699
+invokeGuardedCallback @ chunk-RY6NLCXT.js?v=d34c87aa:3733
+beginWork$1 @ chunk-RY6NLCXT.js?v=d34c87aa:19765
+performUnitOfWork @ chunk-RY6NLCXT.js?v=d34c87aa:19198
+workLoopSync @ chunk-RY6NLCXT.js?v=d34c87aa:19137
+renderRootSync @ chunk-RY6NLCXT.js?v=d34c87aa:19116
+recoverFromConcurrentError @ chunk-RY6NLCXT.js?v=d34c87aa:18736
+performConcurrentWorkOnRoot @ chunk-RY6NLCXT.js?v=d34c87aa:18684
+workLoop @ chunk-RY6NLCXT.js?v=d34c87aa:197
+flushWork @ chunk-RY6NLCXT.js?v=d34c87aa:176
+performWorkUntilDeadline @ chunk-RY6NLCXT.js?v=d34c87aa:384
+Show 15 more frames
+Show lessUnderstand this error
+chunk-RY6NLCXT.js?v=d34c87aa:14032 The above error occurred in the <ServiceEnquiryDialog> component:
 
-create trigger update_product_stock_trigger
-after insert on batches for each row
-execute function update_product_stock ();
+    at ServiceEnquiryDialog (http://localhost:5173/src/components/ServiceEnquiryDialog.jsx?t=1722667451062:70:33)
+    at div
+    at http://localhost:5173/node_modules/.vite/deps/chunk-47DLNGS4.js?v=d34c87aa:1564:50
+    at Box3 (http://localhost:5173/node_modules/.vite/deps/chunk-2NRF2UPJ.js?v=d34c87aa:691:19)
+    at Services (http://localhost:5173/src/components/Services.jsx?t=1722671705658:201:37)
+    at div
+    at div
+    at div
+    at div
+    at HomePage (http://localhost:5173/src/HomePage.jsx?t=1722664815618:51:35)
+    at PrivateRoute (http://localhost:5173/src/App.jsx?t=1722664815618:21:25)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d34c87aa:4000:5)
+    at Routes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d34c87aa:4434:5)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d34c87aa:4377:15)
+    at BrowserRouter (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d34c87aa:5122:5)
+    at App
 
-adding to batch is the only way to add stock , and service parts have no expiry , so upon completing the sale the products have to be reduced accordingly from both the tbales , also take the consideration of edit 
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-RY6NLCXT.js?v=d34c87aa:14032
+update.callback @ chunk-RY6NLCXT.js?v=d34c87aa:14052
+callCallback @ chunk-RY6NLCXT.js?v=d34c87aa:11248
+commitUpdateQueue @ chunk-RY6NLCXT.js?v=d34c87aa:11265
+commitLayoutEffectOnFiber @ chunk-RY6NLCXT.js?v=d34c87aa:17093
+commitLayoutMountEffects_complete @ chunk-RY6NLCXT.js?v=d34c87aa:17980
+commitLayoutEffects_begin @ chunk-RY6NLCXT.js?v=d34c87aa:17969
+commitLayoutEffects @ chunk-RY6NLCXT.js?v=d34c87aa:17920
+commitRootImpl @ chunk-RY6NLCXT.js?v=d34c87aa:19353
+commitRoot @ chunk-RY6NLCXT.js?v=d34c87aa:19277
+finishConcurrentRender @ chunk-RY6NLCXT.js?v=d34c87aa:18760
+performConcurrentWorkOnRoot @ chunk-RY6NLCXT.js?v=d34c87aa:18718
+workLoop @ chunk-RY6NLCXT.js?v=d34c87aa:197
+flushWork @ chunk-RY6NLCXT.js?v=d34c87aa:176
+performWorkUntilDeadline @ chunk-RY6NLCXT.js?v=d34c87aa:384
+Show 15 more frames
+Show lessUnderstand this error
+chunk-RY6NLCXT.js?v=d34c87aa:19413 Uncaught TypeError: Cannot read properties of undefined (reading 'map')
+    at ServiceEnquiryDialog (ServiceEnquiryDialog.jsx:431:37)
+    at renderWithHooks (chunk-RY6NLCXT.js?v=d34c87aa:11548:26)
+    at mountIndeterminateComponent (chunk-RY6NLCXT.js?v=d34c87aa:14926:21)
+    at beginWork (chunk-RY6NLCXT.js?v=d34c87aa:15914:22)
+    at beginWork$1 (chunk-RY6NLCXT.js?v=d34c87aa:19753:22)
+    at performUnitOfWork (chunk-RY6NLCXT.js?v=d34c87aa:19198:20)
+    at workLoopSync (chunk-RY6NLCXT.js?v=d34c87aa:19137:13)
+    at renderRootSync (chunk-RY6NLCXT.js?v=d34c87aa:19116:15)
+    at recoverFromConcurrentError (chunk-RY6NLCXT.js?v=d34c87aa:18736:28)
+    at performConcurrentWorkOnRoot (chunk-RY6NLCXT.js?v=d34c87aa:18684:30)
+ServiceEnquiryDialog @ ServiceEnquiryDialog.jsx:431
+renderWithHooks @ chunk-RY6NLCXT.js?v=d34c87aa:11548
+mountIndeterminateComponent @ chunk-RY6NLCXT.js?v=d34c87aa:14926
+beginWork @ chunk-RY6NLCXT.js?v=d34c87aa:15914
+beginWork$1 @ chunk-RY6NLCXT.js?v=d34c87aa:19753
+performUnitOfWork @ chunk-RY6NLCXT.js?v=d34c87aa:19198
+workLoopSync @ chunk-RY6NLCXT.js?v=d34c87aa:19137
+renderRootSync @ chunk-RY6NLCXT.js?v=d34c87aa:19116
+recoverFromConcurrentError @ chunk-RY6NLCXT.js?v=d34c87aa:18736
+performConcurrentWorkOnRoot @ chunk-RY6NLCXT.js?v=d34c87aa:18684
+workLoop @ chunk-RY6NLCXT.js?v=d34c87aa:197
+flushWork @ chunk-RY6NLCXT.js?v=d34c87aa:176
+performWorkUntilDeadline @ chunk-RY6NLCXT.js?v=d34c87aa:384
+Show 12 more frames
+Show lessUnderstand this error
 
-fix the codes , 
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Box, IconButton, TextField, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Menu, MenuItem, Tooltip, Snackbar, Alert, CircularProgress
+} from '@mui/material';
+import {
+  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, ArrowDropDown as ArrowDropDownIcon
+} from '@mui/icons-material';
+import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import { styled } from '@mui/material/styles';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import { supabase } from '../supabaseClient';
+import ServiceEnquiryDialog from './ServiceEnquiryDialog';
+import TechnicianDialog from './TechnicianDialog';
+
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  fontWeight: 'bold',
+  backgroundColor: theme.palette.common.white,
+  color: theme.palette.common.black,
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
+}));
+
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+  '&:nth-of-type(odd)': {
+    backgroundColor: theme.palette.action.hover,
+  },
+  '&:hover': {
+    backgroundColor: theme.palette.action.selected,
+  },
+}));
+
+const FilterSelect = ({ label, value, handleChange, options, isDateRange, startDate, endDate, handleStartDateChange, handleEndDateChange }) => {
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleSelect = (selectedValue) => {
+    handleChange(selectedValue);
+    handleClose();
+  };
+
+  return (
+    <Box className="relative inline-block">
+      <Tooltip title={`Filter by ${label}`}>
+        <button
+          className={`py-1 px-2 rounded-full border ${anchorEl ? 'border-blue-600 bg-blue-100' : 'border-gray-300'} focus:outline-none transition duration-150 ease-in-out`}
+          onClick={handleOpen}
+        >
+          {value || label}
+          <ArrowDropDownIcon className="ml-1" />
+        </button>
+      </Tooltip>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleClose}
+      >
+        {options.map((option) => (
+          <MenuItem key={option} onClick={() => handleSelect(option)}>
+            {option}
+          </MenuItem>
+        ))}
+        {isDateRange && value === 'Custom Date Range' && (
+          <Box className="px-4 py-2">
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Start Date"
+                value={startDate}
+                onChange={handleStartDateChange}
+                textField={(params) => <TextField {...params} size="small" />}
+              />
+              <DatePicker
+                label="End Date"
+                value={endDate}
+                onChange={handleEndDateChange}
+                textField={(params) => <TextField {...params} size="small" />}
+              />
+            </LocalizationProvider>
+          </Box>
+        )}
+      </Menu>
+    </Box>
+  );
+};
+
+const dateOptions = ['This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
+
+const Services = () => {
+  const [enquiries, setEnquiries] = useState([]);
+  const [filteredEnquiries, setFilteredEnquiries] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [technicianDialogOpen, setTechnicianDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [technicianFilter, setTechnicianFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('Last 30 Days');
+  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
+  const [endDate, setEndDate] = useState(dayjs());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editingEnquiry, setEditingEnquiry] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [techniciansOptions, setTechniciansOptions] = useState([]);
+
+  const fetchEnquiries = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_enquiries')
+        .select('*, service_enquiry_parts(*)');
+      if (error) throw error;
+      setEnquiries(data);
+      setFilteredEnquiries(data);
+    } catch (error) {
+      setError(`Error fetching enquiries: ${error.message}`);
+      showSnackbar('Failed to fetch enquiries', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchTechnicians = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('technicians')
+        .select('*');
+      if (error) throw error;
+      setTechniciansOptions(data);
+    } catch (error) {
+      setError(`Error fetching technicians: ${error.message}`);
+      showSnackbar('Failed to fetch technicians', 'error');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEnquiries();
+    fetchTechnicians();
+  }, [fetchEnquiries, fetchTechnicians]);
+
+  useEffect(() => {
+    filterEnquiries();
+  }, [searchTerm, technicianFilter, statusFilter, dateFilter, startDate, endDate, enquiries]);
+
+  const filterEnquiries = () => {
+    let filtered = enquiries;
+    if (searchTerm) {
+      const lowercasedSearchTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(enquiry =>
+        enquiry.customer_name.toLowerCase().includes(lowercasedSearchTerm) ||
+        enquiry.customer_mobile.includes(lowercasedSearchTerm) ||
+        enquiry.job_card_no.includes(lowercasedSearchTerm)
+      );
+    }
+    if (technicianFilter) {
+      filtered = filtered.filter(enquiry =>
+        enquiry.technician_name && enquiry.technician_name.split(', ').includes(technicianFilter)
+      );
+    }
+    if (statusFilter) {
+      filtered = filtered.filter(enquiry => enquiry.status === statusFilter);
+    }
+    switch (dateFilter) {
+      case 'This Month':
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(dayjs().startOf('month'))
+        );
+        break;
+      case 'Last 30 Days':
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(dayjs().subtract(30, 'day'))
+        );
+        break;
+      case 'Last 60 Days':
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(dayjs().subtract(60, 'day'))
+        );
+        break;
+      case 'Custom Date Range':
+        filtered = filtered.filter(enquiry =>
+          dayjs(enquiry.date).isAfter(startDate) && dayjs(enquiry.date).isBefore(endDate)
+        );
+        break;
+      default:
+        break;
+    }
+    setFilteredEnquiries(filtered);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleTechnicianFilterChange = (value) => {
+    setTechnicianFilter(value);
+  };
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+  };
+
+  const handleDateFilterChange = (value) => {
+    setDateFilter(value);
+  };
+
+  const handleStartDateChange = (date) => {
+    setStartDate(date);
+  };
+
+  const handleEndDateChange = (date) => {
+    setEndDate(date);
+  };
+
+  const handleAddEnquiryClick = () => {
+    setEditingEnquiry(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditEnquiry = (enquiry) => {
+    setEditingEnquiry(enquiry);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingEnquiry(null);
+  };
+
+  const handleFormSubmit = () => {
+    fetchEnquiries();
+    handleDialogClose();
+  };
+
+  const handleDeleteEnquiry = async (id) => {
+    if (window.confirm('Are you sure you want to delete this enquiry?')) {
+      try {
+        const { error: partsError } = await supabase
+          .from('service_enquiry_parts')
+          .delete()
+          .eq('service_enquiry_id', id);
+  
+        if (partsError) throw partsError;
+  
+        const { error } = await supabase
+          .from('service_enquiries')
+          .delete()
+          .eq('id', id);
+  
+        if (error) throw error;
+  
+        fetchEnquiries();
+        showSnackbar('Enquiry deleted successfully', 'success');
+      } catch (error) {
+        console.error('Error deleting enquiry:', error);
+        showSnackbar('Error deleting enquiry', 'error');
+      }
+    }
+  };
+  
+  const showSnackbar = (message, severity) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleStatusChange = async (enquiry, status) => {
+    try {
+      const { error } = await supabase
+        .from('service_enquiries')
+        .update({ status })
+        .eq('id', enquiry.id);
+      if (error) throw error;
+      fetchEnquiries();
+      showSnackbar('Status updated successfully', 'success');
+    } catch (error) {
+      console.error('Error updating status:', error);
+      showSnackbar('Error updating status', 'error');
+    }
+  };
+
+  const handleManageTechnicians = () => {
+    setTechnicianDialogOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <Typography color="error">Error: {error}</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box className="flex flex-col min-h-screen bg-gray-100">
+      <Box className="bg-white shadow-md p-4 sticky top-0 z-10">
+        <Box className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <Box className="flex items-center space-x-4">
+            <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
+            <Typography variant="h5" component="h1" className="font-semibold">Service Enquiries</Typography>
+            <FilterSelect
+              label="Date Range"
+              value={dateFilter}
+              handleChange={handleDateFilterChange}
+              options={dateOptions}
+              isDateRange
+              startDate={startDate}
+              endDate={endDate}
+              handleStartDateChange={handleStartDateChange}
+              handleEndDateChange={handleEndDateChange}
+            />
+          </Box>
+          <Box className="flex flex-wrap items-center space-x-2 space-y-2 md:space-y-0">
+            <TextField
+              placeholder="Search for enquiries"
+              value={searchTerm || ''}
+              onChange={handleSearchChange}
+              variant="outlined"
+              size="small"
+            />
+            <Tooltip title="Add new enquiry">
+              <IconButton
+                onClick={handleAddEnquiryClick}
+                className="bg-blue-100 hover:bg-blue-200 text-blue-500"
+              >
+                <AddIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Manage technicians">
+              <IconButton
+                onClick={handleManageTechnicians}
+                className="bg-blue-100 hover:bg-blue-200 text-blue-500"
+              >
+                <DesignServicesIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Box>
+
+      <Box className="flex-grow p-4">
+        <TableContainer component={Paper} className="shadow-md rounded-lg overflow-hidden">
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                <StyledTableCell>Created Date</StyledTableCell>
+                <StyledTableCell>Job Card No</StyledTableCell>
+                <StyledTableCell>Customer Name</StyledTableCell>
+                <StyledTableCell>Customer Mobile</StyledTableCell>
+                <StyledTableCell>
+                  <FilterSelect 
+                    label="Technician"
+                    value={technicianFilter}
+                    handleChange={handleTechnicianFilterChange}
+                    options={['All', ...techniciansOptions.map(tech => tech.name)]}
+                  />
+                </StyledTableCell>
+                <StyledTableCell>Total Amount</StyledTableCell>
+                <StyledTableCell>
+                  <FilterSelect 
+                    label="Status"
+                    value={statusFilter}
+                    handleChange={handleStatusFilterChange}
+                    options={['started', 'ongoing', 'paused', 'completed']}
+                  />
+                </StyledTableCell>
+                <StyledTableCell>Expected Completion</StyledTableCell>
+                <StyledTableCell>Actions</StyledTableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredEnquiries.length > 0 ? (
+                filteredEnquiries.map(enquiry => (
+                  <StyledTableRow key={enquiry.id}>
+                    <TableCell>{dayjs(enquiry.date).format('DD/MM/YYYY')}</TableCell>
+                    <TableCell>{enquiry.job_card_no}</TableCell>
+                    <TableCell>{enquiry.customer_name}</TableCell>
+                    <TableCell>{enquiry.customer_mobile}</TableCell>
+                    <TableCell>{enquiry.technician_name}</TableCell>
+                    <TableCell>
+                      {enquiry.total_amount != null ? `₹${enquiry.total_amount.toFixed(2)}` : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" alignItems="center">
+                        <Typography>{enquiry.status}</Typography>
+                        <FilterSelect
+                          label=""
+                          value={enquiry.status}
+                          handleChange={(newStatus) => handleStatusChange(enquiry, newStatus)}
+                          options={['started', 'ongoing', 'paused', 'completed']}
+                        />
+                      </Box>
+                    </TableCell>
+                    <TableCell>{dayjs(enquiry.expected_completion_date).format('DD/MM/YYYY')}</TableCell>
+                    <TableCell>
+                      <Tooltip title="Edit enquiry">
+                        <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete enquiry">
+                        <IconButton onClick={() => handleDeleteEnquiry(enquiry.id)} color="error">
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </StyledTableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    <Typography variant="body1" color="textSecondary">
+                      No data to display
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+
+      <ServiceEnquiryDialog
+        open={dialogOpen}
+        onClose={handleDialogClose}
+        onSubmit={handleFormSubmit}
+        enquiry={editingEnquiry}
+        technicians={techniciansOptions || []} // Provide a default empty array
+      />
+
+      <TechnicianDialog
+        open={technicianDialogOpen}
+        onClose={() => setTechnicianDialogOpen(false)}
+        onTechnicianUpdated={fetchTechnicians}
+      />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+};
+
+export default Services;
+
+
+fix and giver full code , throughly inspect and fix whever issues might arise 
+
