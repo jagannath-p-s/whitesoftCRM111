@@ -1,0 +1,69 @@
+im not able to delete service enquiries also the names of the technicians are not fetched properly in the dropdown , the tables are create table
+  public.service_enquiries (
+    id serial not null,
+    date timestamp without time zone null,
+    job_card_no character varying(255) null,
+    customer_name character varying(255) null,
+    customer_mobile character varying(15) null,
+    customer_remarks text null,
+    machine_type jsonb null,
+    complaints jsonb null,
+    technician_name character varying(255) null,
+    charges jsonb null,
+    total_amount numeric(10, 2) null,
+    total_charges numeric(10, 2) null,
+    repair_date timestamp without time zone null,
+    expected_completion_date timestamp without time zone null,
+    status character varying(50) null,
+    constraint service_enquiries_pkey primary key (id)
+  ) tablespace pg_default; , create table
+  public.service_enquiry_parts (
+    id serial not null,
+    service_enquiry_id integer null,
+    part_id integer null,
+    part_name character varying(255) null,
+    part_number character varying(255) null,
+    qty integer null,
+    rate numeric(10, 2) null,
+    amount numeric(10, 2) null,
+    constraint service_enquiry_parts_pkey primary key (id),
+    constraint service_enquiry_parts_service_enquiry_id_fkey foreign key (service_enquiry_id) references service_enquiries (id)
+  ) tablespace pg_default; , create table
+  public.products (
+    product_id serial not null,
+    serial_number character varying(100) not null,
+    item_name character varying(255) not null,
+    item_alias character varying(255) not null,
+    part_number character varying(100) not null,
+    model character varying(100) not null,
+    remarks text null,
+    stock_group character varying(100) not null,
+    product_name character varying(255) not null,
+    brand character varying(255) not null,
+    category_id integer null,
+    subcategory_id integer null,
+    price numeric(10, 2) not null,
+    min_stock integer not null,
+    current_stock integer not null default 0,
+    image_link text null,
+    constraint products_pkey primary key (product_id),
+    constraint products_category_id_fkey foreign key (category_id) references categories (category_id)
+  ) tablespace pg_default; , create table
+  public.batches (
+    batch_id serial not null,
+    product_id integer not null,
+    batch_code character varying(50) not null,
+    expiry_date date null,
+    current_stock integer not null,
+    constraint batches_pkey primary key (batch_id),
+    constraint batches_product_id_batch_code_key unique (product_id, batch_code),
+    constraint batches_product_id_fkey foreign key (product_id) references products (product_id)
+  ) tablespace pg_default;
+
+create trigger update_product_stock_trigger
+after insert on batches for each row
+execute function update_product_stock ();
+
+adding to batch is the only way to add stock , and service parts have no expiry , so upon completing the sale the products have to be reduced accordingly from both the tbales , also take the consideration of edit 
+
+fix the codes , 

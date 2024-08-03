@@ -57,8 +57,8 @@ const FilterSelect = ({ label, value, handleChange, options }) => {
           <em>All</em>
         </MenuItem>
         {options.map((option) => (
-          <MenuItem key={option} onClick={() => handleSelect(option)}>
-            {option}
+          <MenuItem key={option.id} onClick={() => handleSelect(option.name)}>
+            {option.name}
           </MenuItem>
         ))}
       </Menu>
@@ -111,7 +111,7 @@ const Services = () => {
         .from('technicians')
         .select('*');
       if (error) throw error;
-      setTechniciansOptions(data.map(tech => tech.name));
+      setTechniciansOptions(data);
     } catch (error) {
       setError(error.message);
     }
@@ -172,11 +172,21 @@ const Services = () => {
   const handleDeleteEnquiry = async (id) => {
     if (window.confirm('Are you sure you want to delete this enquiry?')) {
       try {
+        // Start a transaction
+        const { data: parts, error: partsError } = await supabase
+          .from('service_enquiry_parts')
+          .delete()
+          .eq('service_enquiry_id', id);
+  
+        if (partsError) throw partsError;
+  
         const { error } = await supabase
           .from('service_enquiries')
           .delete()
           .eq('id', id);
+  
         if (error) throw error;
+  
         fetchEnquiries();
         showSnackbar('Enquiry deleted successfully', 'success');
       } catch (error) {
@@ -185,7 +195,7 @@ const Services = () => {
       }
     }
   };
-
+  
   const showSnackbar = (message, severity) => {
     setSnackbar({ open: true, message, severity });
   };
