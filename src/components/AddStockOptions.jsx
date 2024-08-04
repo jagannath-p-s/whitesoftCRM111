@@ -1,5 +1,3 @@
-
-// AddStockOptions.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import {
@@ -27,6 +25,8 @@ const AddStockOptions = ({
   setCategoryDialogOpen,
   subcategoryDialogOpen,
   setSubcategoryDialogOpen,
+  selectedProduct,
+  setSelectedProduct,
 }) => {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -54,7 +54,24 @@ const AddStockOptions = ({
   useEffect(() => {
     fetchCategories();
     fetchSubcategories();
-  }, []);
+    if (selectedProduct) {
+      setProductName(selectedProduct.product_name);
+      setBrand(selectedProduct.brand);
+      setProductCategory(selectedProduct.category_id);
+      setProductSubcategory(selectedProduct.subcategory_id);
+      setProductPrice(selectedProduct.price);
+      setProductMinStock(selectedProduct.min_stock);
+      setProductCurrentStock(selectedProduct.current_stock);
+      setProductSerialNumber(selectedProduct.serial_number);
+      setProductItemName(selectedProduct.item_name);
+      setProductItemAlias(selectedProduct.item_alias);
+      setProductPartNumber(selectedProduct.part_number);
+      setProductModel(selectedProduct.model);
+      setProductRemarks(selectedProduct.remarks);
+      setProductStockGroup(selectedProduct.stock_group);
+      setProductImagePreview(selectedProduct.image_link);
+    }
+  }, [selectedProduct]);
 
   const fetchCategories = async () => {
     const { data, error } = await supabase.from('categories').select('*');
@@ -75,6 +92,7 @@ const AddStockOptions = ({
   };
 
   const handleCloseProductDialog = () => {
+    setSelectedProduct(null);
     setProductDialogOpen(false);
   };
 
@@ -156,12 +174,22 @@ const AddStockOptions = ({
         image_link: imageUrl || null,
       };
 
-      const { error } = await supabase.from('products').insert([productData]);
+      let error;
+      if (selectedProduct) {
+        const { error: updateError } = await supabase
+          .from('products')
+          .update(productData)
+          .eq('product_id', selectedProduct.product_id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase.from('products').insert([productData]);
+        error = insertError;
+      }
 
       if (error) {
-        showSnackbar(`Error adding product: ${error.message}`, 'error');
+        showSnackbar(`Error ${selectedProduct ? 'updating' : 'adding'} product: ${error.message}`, 'error');
       } else {
-        showSnackbar('Product added successfully', 'success');
+        showSnackbar(`Product ${selectedProduct ? 'updated' : 'added'} successfully`, 'success');
         fetchProducts();
         handleCloseProductDialog();
       }
@@ -254,7 +282,7 @@ const AddStockOptions = ({
       </Dialog>
 
       <Dialog open={productDialogOpen} onClose={handleCloseProductDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Add Product</DialogTitle>
+        <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add Product'}</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <TextField
@@ -420,7 +448,7 @@ const AddStockOptions = ({
             Cancel
           </Button>
           <Button onClick={handleAddProduct} color="primary">
-            Add
+            {selectedProduct ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
 import {
   TextField,
   IconButton,
@@ -29,51 +28,45 @@ import {
   Typography,
   Select,
   InputLabel,
+  TablePagination,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
   MoreVert as MoreVertIcon,
   Settings as SettingsIcon,
   FilterList as FilterListIcon,
-  Inventory as InventoryIcon,
+  Storage as StorageIcon,
   Download as DownloadIcon,
   Category as CategoryIcon,
-  SubdirectoryArrowRight as SubdirectoryArrowRightIcon,
-  Storage as StorageIcon,
-  CloudUpload as CloudUploadIcon,
-  Image as ImageIcon,
+  SubdirectoryArrowRight as SubcategoryIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
+import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { supabase } from '../supabaseClient';
+import DownloadDialog from './DownloadDialog';
+import AddStockOptions from './AddStockOptions';
+import ManageCategoriesDialog from './ManageCategoriesDialog';
 
 const StockTable = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
+  const [manageCategoriesDialogOpen, setManageCategoriesDialogOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [productName, setProductName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [productCategory, setProductCategory] = useState('');
-  const [productSubcategory, setProductSubcategory] = useState('');
-  const [productPrice, setProductPrice] = useState('');
-  const [productMinStock, setProductMinStock] = useState('');
-  const [productCurrentStock, setProductCurrentStock] = useState('');
-  const [productSerialNumber, setProductSerialNumber] = useState('');
-  const [productItemName, setProductItemName] = useState('');
-  const [productItemAlias, setProductItemAlias] = useState('');
-  const [productPartNumber, setProductPartNumber] = useState('');
-  const [productModel, setProductModel] = useState('');
-  const [productRemarks, setProductRemarks] = useState('');
-  const [productStockGroup, setProductStockGroup] = useState('');
-  const [productImage, setProductImage] = useState(null);
-  const [productImagePreview, setProductImagePreview] = useState('');
-  const [productImageUrl, setProductImageUrl] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStockLevel, setFilterStockLevel] = useState('');
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
+  const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
+  const [addAnchorEl, setAddAnchorEl] = useState(null);
+  const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({
+    index: true,
+    serialNumber: true,
     productName: true,
     brand: true,
     category: true,
@@ -81,7 +74,6 @@ const StockTable = () => {
     price: true,
     minStock: true,
     currentStock: true,
-    serialNumber: true,
     itemName: true,
     itemAlias: true,
     partNumber: true,
@@ -90,12 +82,43 @@ const StockTable = () => {
     stockGroup: true,
     imageLink: true,
   });
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [optionsAnchorEl, setOptionsAnchorEl] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     fetchProducts();
     fetchCategories();
     fetchSubcategories();
   }, []);
+
+  useEffect(() => {
+    const results = products.filter((product) => {
+      const searchTermLower = searchTerm.toLowerCase();
+      return (
+        product.product_name?.toLowerCase().includes(searchTermLower) ||
+        product.brand?.toLowerCase().includes(searchTermLower) ||
+        categories.find((cat) => cat.category_id === product.category_id)?.category_name?.toLowerCase().includes(searchTermLower) ||
+        subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name?.toLowerCase().includes(searchTermLower) ||
+        product.serial_number?.toLowerCase().includes(searchTermLower) ||
+        product.item_name?.toLowerCase().includes(searchTermLower) ||
+        product.item_alias?.toLowerCase().includes(searchTermLower) ||
+        product.part_number?.toLowerCase().includes(searchTermLower) ||
+        product.model?.toLowerCase().includes(searchTermLower) ||
+        product.remarks?.toLowerCase().includes(searchTermLower) ||
+        product.stock_group?.toLowerCase().includes(searchTermLower)
+      );
+    });
+
+    if (filter === 'lowStock') {
+      setFilteredProducts(results.filter((product) => product.current_stock <= product.min_stock));
+    } else {
+      setFilteredProducts(results);
+    }
+  }, [products, searchTerm, filter]);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('*');
@@ -124,151 +147,67 @@ const StockTable = () => {
     }
   };
 
-  const handleEditProduct = (product) => {
-    setSelectedProduct(product);
-    setProductName(product.product_name);
-    setBrand(product.brand);
-    setProductCategory(product.category_id);
-    setProductSubcategory(product.subcategory_id);
-    setProductPrice(product.price);
-    setProductMinStock(product.min_stock);
-    setProductCurrentStock(product.current_stock);
-    setProductSerialNumber(product.serial_number);
-    setProductItemName(product.item_name);
-    setProductItemAlias(product.item_alias);
-    setProductPartNumber(product.part_number);
-    setProductModel(product.model);
-    setProductRemarks(product.remarks);
-    setProductStockGroup(product.stock_group);
-    setProductImageUrl(product.image_link);
+  const handleFilterMenuOpen = (event) => {
+    setFilterAnchorEl(event.currentTarget);
+  };
+
+  const handleSettingsMenuOpen = (event) => {
+    setSettingsAnchorEl(event.currentTarget);
+  };
+
+  const handleAddMenuOpen = (event) => {
+    setAddAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setFilterAnchorEl(null);
+    setSettingsAnchorEl(null);
+    setAddAnchorEl(null);
+    setOptionsAnchorEl(null);
+  };
+
+  const handleOpenProductDialog = () => {
     setProductDialogOpen(true);
+    handleMenuClose();
   };
 
-  const handleSaveProduct = async () => {
-    try {
-      let imageUrl = productImageUrl; // Keep the existing image URL if provided
-
-      if (productImage) {
-        const fileName = `${Date.now()}-${productImage.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('files')
-          .upload(fileName, productImage);
-
-        if (uploadError) {
-          showSnackbar(`Error uploading image: ${uploadError.message}`, 'error');
-          return;
-        }
-
-        const { publicUrl } = supabase.storage
-          .from('files')
-          .getPublicUrl(fileName)
-          .data;
-
-        if (!publicUrl) {
-          showSnackbar("Public URL is undefined. Check your storage settings.", 'error');
-          return;
-        }
-
-        imageUrl = publicUrl;
-      }
-
-      const productData = {
-        serial_number: productSerialNumber || null,
-        item_name: productItemName || null,
-        item_alias: productItemAlias || null,
-        part_number: productPartNumber || null,
-        model: productModel || null,
-        remarks: productRemarks || null,
-        stock_group: productStockGroup || null,
-        product_name: productName || null,
-        brand: brand || null,
-        category_id: productCategory ? parseInt(productCategory, 10) : null,
-        subcategory_id: productSubcategory ? parseInt(productSubcategory, 10) : null,
-        price: productPrice ? parseFloat(productPrice) : null,
-        min_stock: productMinStock ? parseInt(productMinStock, 10) : null,
-        current_stock: productCurrentStock ? parseInt(productCurrentStock, 10) : null,
-        image_link: imageUrl || null,
-      };
-
-      const { error } = await supabase
-        .from('products')
-        .update(productData)
-        .eq('product_id', selectedProduct.product_id);
-
-      if (error) {
-        showSnackbar(`Error updating product: ${error.message}`, 'error');
-      } else {
-        showSnackbar('Product updated successfully', 'success');
-        fetchProducts();
-        setProductDialogOpen(false);
-      }
-    } catch (error) {
-      showSnackbar(`Unexpected error: ${error.message}`, 'error');
-    }
+  const handleOpenCategoryDialog = () => {
+    setCategoryDialogOpen(true);
+    handleMenuClose();
   };
 
-  const handleDeleteProduct = (product_id) => {
-    setSelectedProduct(product_id);
-    setDeleteDialogOpen(true);
+  const handleOpenSubcategoryDialog = () => {
+    setSubcategoryDialogOpen(true);
+    handleMenuClose();
   };
 
-  const confirmDeleteProduct = async () => {
-    const { error } = await supabase.from('products').delete().eq('product_id', selectedProduct);
-    if (error) {
-      showSnackbar(`Error deleting product: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Product deleted successfully', 'success');
-      fetchProducts();
-      setDeleteDialogOpen(false);
-      setSelectedProduct(null);
-    }
+  const handleOpenManageCategoriesDialog = () => {
+    setManageCategoriesDialogOpen(true);
+    handleMenuClose();
   };
 
   const handleCloseProductDialog = () => {
-    setSelectedProduct(null);
-    setProductName('');
-    setBrand('');
-    setProductCategory('');
-    setProductSubcategory('');
-    setProductPrice('');
-    setProductMinStock('');
-    setProductCurrentStock('');
-    setProductSerialNumber('');
-    setProductItemName('');
-    setProductItemAlias('');
-    setProductPartNumber('');
-    setProductModel('');
-    setProductRemarks('');
-    setProductStockGroup('');
-    setProductImageUrl('');
-    setProductImage(null);
-    setProductImagePreview('');
     setProductDialogOpen(false);
   };
 
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    setProductImage(file);
-    setProductImagePreview(URL.createObjectURL(file));
+  const handleCloseCategoryDialog = () => {
+    setCategoryDialogOpen(false);
   };
 
-  const showSnackbar = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
+  const handleCloseSubcategoryDialog = () => {
+    setSubcategoryDialogOpen(false);
   };
 
-  const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbar({ ...snackbar, open: false });
+  const handleCloseManageCategoriesDialog = () => {
+    setManageCategoriesDialogOpen(false);
   };
 
-  const getCurrentStockColor = (current, min) => {
-    if (current <= min) return 'red';
-    if (current > min) return 'green';
-    return 'gray';
+  const handleDownloadDialogOpen = () => {
+    setOpenDownloadDialog(true);
+  };
+
+  const handleDownloadDialogClose = () => {
+    setOpenDownloadDialog(false);
   };
 
   const handleVisibleColumnChange = (event) => {
@@ -279,26 +218,164 @@ const StockTable = () => {
     setSearchTerm(event.target.value);
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearchTerm =
-      product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      categories.find((cat) => cat.category_id === product.category_id)?.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.price.toString().includes(searchTerm.toLowerCase()) ||
-      product.min_stock.toString().includes(searchTerm.toLowerCase()) ||
-      product.current_stock.toString().includes(searchTerm.toLowerCase());
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
 
-    if (filterStockLevel) {
-      const color = getCurrentStockColor(product.current_stock, product.min_stock);
-      return matchesSearchTerm && color === filterStockLevel;
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(+event.target.value);
+    setPage(0);
+  };
+
+  const showSnackbar = (message, severity) => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const getCurrentStockColor = (current, min) => {
+    if (current <= min) return 'red';
+    if (current > min) return 'green';
+    return 'gray';
+  };
+
+  const handleDownloadCSV = () => {
+    const visibleProducts = filteredProducts.map((product, index) => {
+      const result = {};
+      result['Index'] = page * rowsPerPage + index + 1;
+      if (visibleColumns.serialNumber) result['Serial Number'] = product.serial_number;
+      if (visibleColumns.productName) result['Product Name'] = product.product_name;
+      if (visibleColumns.brand) result['Brand'] = product.brand;
+      if (visibleColumns.category) result['Category'] = categories.find((cat) => cat.category_id === product.category_id)?.category_name;
+      if (visibleColumns.subcategory) result['Subcategory'] = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name;
+      if (visibleColumns.price) result['Price'] = product.price;
+      if (visibleColumns.minStock) result['Min Stock'] = product.min_stock;
+      if (visibleColumns.currentStock) result['Current Stock'] = product.current_stock;
+      if (visibleColumns.itemName) result['Item Name'] = product.item_name;
+      if (visibleColumns.itemAlias) result['Item Alias'] = product.item_alias;
+      if (visibleColumns.partNumber) result['Part Number'] = product.part_number;
+      if (visibleColumns.model) result['Model'] = product.model;
+      if (visibleColumns.remarks) result['Remarks'] = product.remarks;
+      if (visibleColumns.stockGroup) result['Stock Group'] = product.stock_group;
+      if (visibleColumns.imageLink) result['Image Link'] = product.image_link;
+      return result;
+    });
+
+    const csv = Papa.unparse(visibleProducts);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'products.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF('landscape', 'pt', 'a4');
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+
+    doc.setFontSize(18);
+    doc.text('Product Data', pageWidth / 2, 30, { align: 'center' });
+
+    const columns = [
+      { header: 'Index', dataKey: 'index' },
+      ...Object.entries(visibleColumns)
+        .filter(([key, visible]) => visible && key !== 'imageLink')
+        .map(([key]) => ({
+          header: key.replace(/([A-Z])/g, ' $1').trim(),
+          dataKey: key,
+        }))
+    ];
+
+    const data = filteredProducts.map((product, index) => {
+      const result = {};
+      result.index = page * rowsPerPage + index + 1;
+      if (visibleColumns.serialNumber) result.serialNumber = product.serial_number || '';
+      if (visibleColumns.productName) result.productName = product.product_name || '';
+      if (visibleColumns.brand) result.brand = product.brand || '';
+      if (visibleColumns.category) result.category = categories.find((cat) => cat.category_id === product.category_id)?.category_name || '';
+      if (visibleColumns.subcategory) result.subcategory = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name || '';
+      if (visibleColumns.price) result.price = product.price !== undefined ? product.price.toFixed(2) : '';
+      if (visibleColumns.minStock) result.minStock = product.min_stock || '';
+      if (visibleColumns.currentStock) result.currentStock = product.current_stock || '';
+      if (visibleColumns.itemName) result.itemName = product.item_name || '';
+      if (visibleColumns.itemAlias) result.itemAlias = product.item_alias || '';
+      if (visibleColumns.partNumber) result.partNumber = product.part_number || '';
+      if (visibleColumns.model) result.model = product.model || '';
+      if (visibleColumns.remarks) result.remarks = product.remarks || '';
+      if (visibleColumns.stockGroup) result.stockGroup = product.stock_group || '';
+      return result;
+    });
+
+    doc.autoTable({
+      columns,
+      body: data,
+      startY: 50,
+      margin: { top: 50, right: 30, bottom: 40, left: 30 },
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+        overflow: 'linebreak',
+        halign: 'left',
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [66, 135, 245],
+        textColor: 255,
+        fontSize: 9,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [240, 240, 240],
+      },
+      columnStyles: {
+        price: { halign: 'right' },
+        minStock: { halign: 'right' },
+        currentStock: { halign: 'right' },
+      },
+      didDrawPage: (data) => {
+        doc.setFontSize(8);
+        doc.text(`Page ${data.pageNumber} of ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      },
+    });
+
+    doc.save('products.pdf');
+  };
+
+  const handleOptionsMenuOpen = (event, product) => {
+    setOptionsAnchorEl(event.currentTarget);
+    setSelectedProduct(product);
+  };
+
+  const handleDeleteProduct = async () => {
+    const { error } = await supabase.from('products').delete().eq('product_id', selectedProduct.product_id);
+    if (error) {
+      showSnackbar(`Error deleting product: ${error.message}`, 'error');
+    } else {
+      showSnackbar('Product deleted successfully', 'success');
+      fetchProducts();
     }
-    return matchesSearchTerm;
-  });
+    handleMenuClose();
+  };
+
+  const handleEditProduct = () => {
+    setProductDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleFilterChange = (filterType) => {
+    setFilter(filterType);
+    handleMenuClose();
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      <div className="bg-white shadow-md ">
+      <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
@@ -313,6 +390,82 @@ const StockTable = () => {
                 onChange={handleSearchChange}
                 size="small"
               />
+              <Tooltip title="Download">
+                <IconButton
+                  onClick={handleDownloadDialogOpen}
+                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
+                >
+                  <DownloadIcon style={{ fontSize: '1.75rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Add">
+                <IconButton onClick={handleAddMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
+                  <AddIcon style={{ fontSize: '1.75rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Filter">
+                <IconButton onClick={handleFilterMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
+                  <FilterListIcon style={{ fontSize: '1.75rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Settings">
+                <IconButton onClick={handleSettingsMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
+                  <SettingsIcon style={{ fontSize: '1.75rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Menu anchorEl={addAnchorEl} open={Boolean(addAnchorEl)} onClose={handleMenuClose}>
+                <MenuItem onClick={handleOpenProductDialog}>
+                  <ListItemIcon>
+                    <AddIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Add Product" />
+                </MenuItem>
+                <MenuItem onClick={handleOpenCategoryDialog}>
+                  <ListItemIcon>
+                    <CategoryIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Add Category" />
+                </MenuItem>
+                <MenuItem onClick={handleOpenSubcategoryDialog}>
+                  <ListItemIcon>
+                    <SubcategoryIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Add Subcategory" />
+                </MenuItem>
+                <MenuItem onClick={handleOpenManageCategoriesDialog}>
+                  <ListItemIcon>
+                    <SettingsIcon />
+                  </ListItemIcon>
+                  <ListItemText primary="Manage Categories" />
+                </MenuItem>
+              </Menu>
+              <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={handleMenuClose}>
+                <MenuItem onClick={() => { handleFilterChange('all'); handleMenuClose(); }}>
+                  All
+                </MenuItem>
+                <MenuItem onClick={() => { handleFilterChange('lowStock'); handleMenuClose(); }}>
+                  Low Stock
+                </MenuItem>
+              </Menu>
+              <Menu anchorEl={settingsAnchorEl} open={Boolean(settingsAnchorEl)} onClose={handleMenuClose}>
+                <Box sx={{ p: 2 }}>
+                  <FormControl component="fieldset" variant="standard">
+                    {Object.entries(visibleColumns).map(([key, value]) => (
+                      <FormControlLabel
+                        key={key}
+                        control={
+                          <Checkbox
+                            checked={value}
+                            onChange={handleVisibleColumnChange}
+                            name={key}
+                          />
+                        }
+                        label={key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
+                      />
+                    ))}
+                  </FormControl>
+                </Box>
+              </Menu>
             </div>
           </div>
         </div>
@@ -323,21 +476,25 @@ const StockTable = () => {
           <Table stickyHeader className="min-w-full">
             <TableHead>
               <TableRow>
+                {visibleColumns.index && <TableCell align="center" sx={{ fontWeight: 'bold', color: 'black' }}>No</TableCell>}
+                {visibleColumns.serialNumber && <TableCell align="center" sx={{ fontWeight: 'bold', color: 'black' }}>Serial Number</TableCell>}
                 {Object.entries(visibleColumns).map(
                   ([key, value]) =>
-                    value && (
+                    value && key !== 'index' && key !== 'serialNumber' && key !== 'imageLink' && (
                       <TableCell key={key} sx={{ fontWeight: 'bold', color: 'black' }}>
-                        {key.charAt(0).toUpperCase() +
-                          key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
+                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
                       </TableCell>
                     )
                 )}
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
+                {visibleColumns.imageLink && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Image</TableCell>}
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Options</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredProducts.map((product, index) => (
+              {filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((product, index) => (
                 <TableRow key={product.product_id} className="bg-white border-b">
+                  {visibleColumns.index && <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>}
+                  {visibleColumns.serialNumber && <TableCell align="center">{product.serial_number}</TableCell>}
                   {visibleColumns.productName && <TableCell>{product.product_name}</TableCell>}
                   {visibleColumns.brand && <TableCell>{product.brand}</TableCell>}
                   {visibleColumns.category && (
@@ -363,7 +520,6 @@ const StockTable = () => {
                       {product.current_stock}
                     </TableCell>
                   )}
-                  {visibleColumns.serialNumber && <TableCell>{product.serial_number}</TableCell>}
                   {visibleColumns.itemName && <TableCell>{product.item_name}</TableCell>}
                   {visibleColumns.itemAlias && <TableCell>{product.item_alias}</TableCell>}
                   {visibleColumns.partNumber && <TableCell>{product.part_number}</TableCell>}
@@ -372,233 +528,82 @@ const StockTable = () => {
                   {visibleColumns.stockGroup && <TableCell>{product.stock_group}</TableCell>}
                   {visibleColumns.imageLink && (
                     <TableCell>
-                      <Tooltip title="View Image">
-                        <IconButton onClick={() => handleViewImage(product.image_link)}>
-                          <ImageIcon />
-                        </IconButton>
-                      </Tooltip>
+                      {product.image_link && <img src={product.image_link} alt="Product" style={{ maxWidth: '100px' }} />}
                     </TableCell>
                   )}
                   <TableCell>
                     <Tooltip title="More options">
-                      <IconButton onClick={(event) => handleEditProduct(product)}>
+                      <IconButton onClick={(event) => handleOptionsMenuOpen(event, product)}>
                         <MoreVertIcon />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton onClick={() => handleEditProduct(product)}>
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton onClick={() => handleDeleteProduct(product.product_id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Menu anchorEl={optionsAnchorEl} open={Boolean(optionsAnchorEl)} onClose={handleMenuClose}>
+                      <MenuItem onClick={handleEditProduct}>
+                        <ListItemIcon>
+                          <EditIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="Edit" />
+                      </MenuItem>
+                      <MenuItem onClick={handleDeleteProduct}>
+                        <ListItemIcon>
+                          <DeleteIcon />
+                        </ListItemIcon>
+                        <ListItemText primary="Delete" />
+                      </MenuItem>
+                    </Menu>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
+
+        <TablePagination
+          component="div"
+          count={filteredProducts.length}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+        <div className="flex justify-end mt-4">
+          <Typography variant="body2" color="textSecondary">
+            Total entries: {filteredProducts.length}
+          </Typography>
+        </div>
       </div>
 
-      <Dialog open={productDialogOpen} onClose={handleCloseProductDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add Product'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              label="Serial Number"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productSerialNumber}
-              onChange={(e) => setProductSerialNumber(e.target.value)}
-            />
-            <TextField
-              label="Item Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productItemName}
-              onChange={(e) => setProductItemName(e.target.value)}
-            />
-            <TextField
-              label="Item Alias"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productItemAlias}
-              onChange={(e) => setProductItemAlias(e.target.value)}
-            />
-            <TextField
-              label="Part Number"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productPartNumber}
-              onChange={(e) => setProductPartNumber(e.target.value)}
-            />
-            <TextField
-              label="Model"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productModel}
-              onChange={(e) => setProductModel(e.target.value)}
-            />
-            <TextField
-              label="Remarks"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productRemarks}
-              onChange={(e) => setProductRemarks(e.target.value)}
-            />
-            <TextField
-              label="Stock Group"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productStockGroup}
-              onChange={(e) => setProductStockGroup(e.target.value)}
-            />
-            <TextField
-              label="Product Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-            />
-            <TextField
-              label="Brand"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-            />
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={productCategory}
-                onChange={(e) => setProductCategory(e.target.value)}
-                label="Category"
-              >
-                {categories.map((category) => (
-                  <MenuItem key={category.category_id} value={category.category_id}>
-                    {category.category_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Subcategory</InputLabel>
-              <Select
-                value={productSubcategory}
-                onChange={(e) => setProductSubcategory(e.target.value)}
-                label="Subcategory"
-              >
-                {subcategories
-                  .filter((sub) => sub.category_id === productCategory)
-                  .map((subcategory) => (
-                    <MenuItem key={subcategory.subcategory_id} value={subcategory.subcategory_id}>
-                      {subcategory.subcategory_name}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Price"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productPrice}
-              onChange={(e) => setProductPrice(e.target.value)}
-            />
-            <TextField
-              label="Min Stock"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productMinStock}
-              onChange={(e) => setProductMinStock(e.target.value)}
-            />
-            <TextField
-              label="Current Stock"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productCurrentStock}
-              onChange={(e) => setProductCurrentStock(e.target.value)}
-            />
-            <input
-              accept="image/*"
-              style={{ display: 'none' }}
-              id="product-image-upload"
-              type="file"
-              onChange={handleImageUpload}
-            />
-            <label htmlFor="product-image-upload">
-              <Button
-                variant="contained"
-                color="primary"
-                component="span"
-                startIcon={<CloudUploadIcon />}
-                sx={{ mt: 2 }}
-              >
-                Upload Image
-              </Button>
-            </label>
-            {(productImagePreview || productImageUrl) && (
-              <Box sx={{ mt: 2 }}>
-                <img
-                  src={productImagePreview || productImageUrl}
-                  alt="Product"
-                  style={{ maxWidth: '100%', maxHeight: 200 }}
-                />
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseProductDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleSaveProduct} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AddStockOptions
+        fetchProducts={fetchProducts}
+        productDialogOpen={productDialogOpen}
+        setProductDialogOpen={setProductDialogOpen}
+        categoryDialogOpen={categoryDialogOpen}
+        setCategoryDialogOpen={setCategoryDialogOpen}
+        subcategoryDialogOpen={subcategoryDialogOpen}
+        setSubcategoryDialogOpen={setSubcategoryDialogOpen}
+        selectedProduct={selectedProduct}
+        setSelectedProduct={setSelectedProduct}
+      />
 
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography>Are you sure you want to delete this product?</Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={confirmDeleteProduct} color="primary">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ManageCategoriesDialog
+        open={manageCategoriesDialogOpen}
+        handleClose={handleCloseManageCategoriesDialog}
+      />
+
+      <DownloadDialog
+        open={openDownloadDialog}
+        handleClose={handleDownloadDialogClose}
+        handleDownloadCSV={handleDownloadCSV}
+        handleDownloadPDF={handleDownloadPDF}
+      />
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={2000}
-        onClose={handleCloseSnackbar}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
