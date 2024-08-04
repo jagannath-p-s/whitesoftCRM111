@@ -14,6 +14,7 @@ import {
   FormControl,
   Snackbar,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
@@ -50,6 +51,7 @@ const AddStockOptions = ({
   const [productImage, setProductImage] = useState(null);
   const [productImagePreview, setProductImagePreview] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -128,34 +130,53 @@ const AddStockOptions = ({
     }
   };
 
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file size (e.g., limit to 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showSnackbar('File size exceeds 5MB limit', 'error');
+      return;
+    }
+
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      showSnackbar('Only JPEG, PNG, and GIF images are allowed', 'error');
+      return;
+    }
+
+    setProductImage(file);
+    setProductImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadImage = async (file) => {
+    const fileName = `${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage
+      .from('files')
+      .upload(fileName, file);
+  
+    if (error) {
+      throw new Error(`Error uploading image: ${error.message}`);
+    }
+  
+    // Return the file path instead of the public URL
+    return data.path;
+  };
+  
+  
+
+  // ... (to be continued in the next part)
   const handleAddProduct = async () => {
+    setUploading(true);
     try {
-      let imageUrl = '';
-
+      let imagePath = '';
+  
       if (productImage) {
-        const fileName = `${Date.now()}-${productImage.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('files')
-          .upload(fileName, productImage);
-
-        if (uploadError) {
-          showSnackbar(`Error uploading image: ${uploadError.message}`, 'error');
-          return;
-        }
-
-        const { publicUrl } = supabase.storage
-          .from('files')
-          .getPublicUrl(fileName)
-          .data;
-
-        if (!publicUrl) {
-          showSnackbar("Public URL is undefined. Check your storage settings.", 'error');
-          return;
-        }
-
-        imageUrl = publicUrl;
+        imagePath = await uploadImage(productImage);
       }
-
+  
       const productData = {
         serial_number: productSerialNumber || null,
         item_name: productItemName || null,
@@ -171,9 +192,9 @@ const AddStockOptions = ({
         price: productPrice ? parseFloat(productPrice) : null,
         min_stock: productMinStock ? parseInt(productMinStock, 10) : null,
         current_stock: productCurrentStock ? parseInt(productCurrentStock, 10) : null,
-        image_link: imageUrl || null,
+        image_link: imagePath || null, // Use the file path here
       };
-
+  
       let error;
       if (selectedProduct) {
         const { error: updateError } = await supabase
@@ -185,26 +206,22 @@ const AddStockOptions = ({
         const { error: insertError } = await supabase.from('products').insert([productData]);
         error = insertError;
       }
-
+  
       if (error) {
-        showSnackbar(`Error ${selectedProduct ? 'updating' : 'adding'} product: ${error.message}`, 'error');
-      } else {
-        showSnackbar(`Product ${selectedProduct ? 'updated' : 'added'} successfully`, 'success');
-        fetchProducts();
-        handleCloseProductDialog();
+        throw new Error(`Error ${selectedProduct ? 'updating' : 'adding'} product: ${error.message}`);
       }
+  
+      showSnackbar(`Product ${selectedProduct ? 'updated' : 'added'} successfully`, 'success');
+      fetchProducts();
+      handleCloseProductDialog();
     } catch (error) {
-      showSnackbar(`Unexpected error: ${error.message}`, 'error');
+      showSnackbar(error.message, 'error');
+    } finally {
+      setUploading(false);
     }
   };
-
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    setProductImage(file);
-    setProductImagePreview(URL.createObjectURL(file));
-  };
+  
+  
 
   const showSnackbar = (message, severity) => {
     setSnackbar({ open: true, message, severity });
@@ -415,7 +432,7 @@ const AddStockOptions = ({
               onChange={(e) => setProductCurrentStock(e.target.value)}
             />
             <input
-              accept="image/*"
+              accept="image/jpeg,image/png,image/gif"
               style={{ display: 'none' }}
               id="product-image-upload"
               type="file"
@@ -444,11 +461,11 @@ const AddStockOptions = ({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseProductDialog} color="primary">
+          <Button onClick={handleCloseProductDialog} color="primary" disabled={uploading}>
             Cancel
           </Button>
-          <Button onClick={handleAddProduct} color="primary">
-            {selectedProduct ? 'Update' : 'Add'}
+          <Button onClick={handleAddProduct} color="primary" disabled={uploading}>
+            {uploading ? <CircularProgress size={24} /> : (selectedProduct ? 'Update' : 'Add')}
           </Button>
         </DialogActions>
       </Dialog>
