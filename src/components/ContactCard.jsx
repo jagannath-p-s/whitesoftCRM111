@@ -128,7 +128,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     if (!products) return {};
     if (typeof products === 'string') {
       try {
-        return JSON.parse(products.replace(/""/g, '"'));
+        return JSON.parse(products.replace(/""/g, '"').replace(/\\/g, ''));
       } catch (error) {
         console.error('Error parsing products:', error);
         return {};
@@ -162,6 +162,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         {visibleFields.collected && <p className="text-sm mb-1">Collected: {contact.collected ? 'Yes' : 'No'}</p>}
         {visibleFields.created_at && <p className="text-sm mb-1">Date Created: {new Date(contact.created_at).toLocaleDateString()}</p>}
         {visibleFields.salesflow_code && <p className="text-sm mb-1">Salesflow Code: {contact.salesflow_code}</p>}
+        {visibleFields.last_updated && <p className="text-sm mb-1">Last Updated: {new Date(contact.last_updated).toLocaleString()}</p>} {/* Last updated field */}
         {visibleFields.products && Object.values(products).length > 0 && (
           <Box mt={2}>
             <Typography variant="body2">Products:</Typography>

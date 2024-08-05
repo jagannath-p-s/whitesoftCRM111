@@ -21,9 +21,8 @@ import {
 } from '@mui/material';
 import { supabase } from '../supabaseClient';
 
-const AddEnquiryDialog = ({
+const EditEnquiryDialog = ({
   dialogOpen,
-  dialogType,
   enquiryData,
   handleDialogClose,
   handleFormSubmit,
@@ -42,7 +41,8 @@ const AddEnquiryDialog = ({
   currentUserId,
 }) => {
   const [leadSources, setLeadSources] = useState([]);
-  const [localEnquiryData, setLocalEnquiryData] = useState(enquiryData);
+  const [localEnquiryData, setLocalEnquiryData] = useState(enquiryData || {});
+  const [localSelectedProducts, setLocalSelectedProducts] = useState(selectedProducts);
 
   useEffect(() => {
     const fetchLeadSources = async () => {
@@ -59,8 +59,9 @@ const AddEnquiryDialog = ({
   }, []);
 
   useEffect(() => {
-    setLocalEnquiryData(enquiryData);
-  }, [enquiryData]);
+    setLocalEnquiryData(enquiryData || {});
+    setLocalSelectedProducts(selectedProducts);
+  }, [enquiryData, selectedProducts]);
 
   const handleEnquiryDataChange = (e) => {
     const { name, value } = e.target;
@@ -84,12 +85,44 @@ const AddEnquiryDialog = ({
   };
 
   const handleFormSubmission = () => {
-    handleFormSubmit(localEnquiryData);
+    const updatedEnquiry = {
+      ...localEnquiryData,
+      products: JSON.stringify(localSelectedProducts),
+    };
+    handleFormSubmit(updatedEnquiry);
+  };
+
+  const handleProductToggleLocal = (product) => {
+    setLocalSelectedProducts((prev) => {
+      const newSelected = { ...prev };
+      if (newSelected[product.product_id]) {
+        delete newSelected[product.product_id];
+      } else {
+        newSelected[product.product_id] = { ...product, quantity: 1 };
+      }
+      return newSelected;
+    });
+  };
+
+  const handleQuantityChangeLocal = (productId, change) => {
+    setLocalSelectedProducts((prev) => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        quantity: Math.max(1, prev[productId].quantity + change),
+      },
+    }));
+  };
+
+  const calculateTotalEstimateLocal = () => {
+    return Object.values(localSelectedProducts).reduce((sum, product) => {
+      return sum + product.price * product.quantity;
+    }, 0);
   };
 
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
-      <DialogTitle>{dialogType === 'service' ? 'Add Service Enquiry' : 'Add Product Enquiry'}</DialogTitle>
+      <DialogTitle>Edit Enquiry</DialogTitle>
       <DialogContent>
         <TextField
           name="name"
@@ -263,7 +296,16 @@ const AddEnquiryDialog = ({
           value={localEnquiryData.expected_completion_date || ''}
           onChange={handleEnquiryDataChange}
         />
-        {dialogType === 'product' && (
+        <TextField
+          name="salesflow_code"
+          label="Salesflow Code"
+          variant="outlined"
+          fullWidth
+          margin="dense"
+          value={localEnquiryData.salesflow_code || ''}
+          onChange={handleEnquiryDataChange}
+        />
+        {products.length > 0 && (
           <>
             <TextField
               label="Search Products"
@@ -274,44 +316,48 @@ const AddEnquiryDialog = ({
               onChange={handleProductSearchChange}
             />
             <List sx={{ width: '100%', maxHeight: 300, overflow: 'auto' }}>
-              {products.map((product) => (
-                <ListItem key={product.product_id} dense>
-                  <Checkbox
-                    edge="start"
-                    checked={Boolean(selectedProducts[product.product_id])}
-                    tabIndex={-1}
-                    disableRipple
-                    onClick={() => handleProductToggle(product)}
-                  />
-                  <ListItemText
-                    primary={product.product_name}
-                    secondary={`Price: ₹${product.price.toFixed(2)}`}
-                  />
-                  {selectedProducts[product.product_id] && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
-                      <IconButton
-                        size="large"
-                        onClick={() => handleQuantityChange(product.product_id, -1)}
-                        color="primary"
-                        sx={{ borderRadius: '50%', width: '40px', height: '40px' }}
-                      >
-                        -
-                      </IconButton>
-                      <Typography sx={{ mx: 1 }}>
-                        {selectedProducts[product.product_id].quantity}
-                      </Typography>
-                      <IconButton
-                        size="large"
-                        onClick={() => handleQuantityChange(product.product_id, 1)}
-                        color="primary"
-                        sx={{ borderRadius: '50%', width: '40px', height: '40px' }}
-                      >
-                        +
-                      </IconButton>
-                    </Box>
-                  )}
-                </ListItem>
-              ))}
+              {products
+                .filter((product) => localSelectedProducts[product.product_id])
+                .concat(products.filter((product) => !localSelectedProducts[product.product_id]))
+                .map((product) => (
+                  <ListItem key={product.product_id} dense>
+                    <Checkbox
+                      edge="start"
+                      checked={Boolean(localSelectedProducts[product.product_id])}
+                      tabIndex={-1}
+                      disableRipple
+                      onClick={() => handleProductToggleLocal(product)}
+                      sx={{ color: 'blue' }}
+                    />
+                    <ListItemText
+                      primary={product.product_name}
+                      secondary={`Price: ₹${product.price.toFixed(2)}`}
+                    />
+                    {localSelectedProducts[product.product_id] && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+                        <IconButton
+                          size="large"
+                          onClick={() => handleQuantityChangeLocal(product.product_id, -1)}
+                          color="primary"
+                          sx={{ borderRadius: '50%', width: '40px', height: '40px' }}
+                        >
+                          -
+                        </IconButton>
+                        <Typography sx={{ mx: 1 }}>
+                          {localSelectedProducts[product.product_id].quantity}
+                        </Typography>
+                        <IconButton
+                          size="large"
+                          onClick={() => handleQuantityChangeLocal(product.product_id, 1)}
+                          color="primary"
+                          sx={{ borderRadius: '50%', width: '40px', height: '40px' }}
+                        >
+                          +
+                        </IconButton>
+                      </Box>
+                    )}
+                  </ListItem>
+                ))}
             </List>
             <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
               <Pagination
@@ -322,7 +368,7 @@ const AddEnquiryDialog = ({
               />
             </Box>
             <Typography variant="h6" sx={{ mt: 2 }}>
-              Total Estimate: ₹{totalEstimate.toFixed(2)}
+              Total Estimate: ₹{calculateTotalEstimateLocal().toFixed(2)}
             </Typography>
           </>
         )}
@@ -332,11 +378,11 @@ const AddEnquiryDialog = ({
           Cancel
         </Button>
         <Button onClick={handleFormSubmission} color="primary">
-          Add
+          Save
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-export default AddEnquiryDialog;
+export default EditEnquiryDialog;

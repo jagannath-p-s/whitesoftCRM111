@@ -21,7 +21,7 @@ import PrintBillDialog from './PrintBillDialog';
 import Dash from './Dash'; 
 
 const Sales = () => {
-  const initialExpandedColumns = [];
+  const initialExpandedColumns = ['Lead', 'Prospect', 'Opportunity', 'Customer-Won', 'Lost/Rejected'];
   const [expanded, setExpanded] = useState(initialExpandedColumns);
   const [view, setView] = useState('cards');
   const [columns, setColumns] = useState([]);
@@ -44,6 +44,7 @@ const Sales = () => {
     products: true,
     created_at: true,
     salesflow_code: true,
+    last_updated: true, // Added last updated field
   });
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [customerDetails, setCustomerDetails] = useState(null);
@@ -230,7 +231,7 @@ const Sales = () => {
               </Tooltip>
               <Tooltip title="View Completed Sales">
                 <button
-                  className="flex items-center p-2 text-gray-500 hover:bg-gray-100 rounded-full"
+                  className={`flex items-center p-2 rounded-full ${viewCompletedSales ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}
                   onClick={() => setViewCompletedSales(!viewCompletedSales)}  // Toggle view to completed sales
                 >
                   <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />

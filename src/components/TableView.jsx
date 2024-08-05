@@ -1,322 +1,303 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TextField, Select, MenuItem, IconButton, Typography, FormControl,
-  Checkbox, Tooltip, Menu, ListItemIcon, ListItemText, Button, Box,
-  InputLabel, Grid
+  Box, IconButton, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Snackbar, Alert, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Checkbox, FormControlLabel, Button
 } from '@mui/material';
 import {
-  GetApp as DownloadIcon, NavigateBefore as PrevIcon, NavigateNext as NextIcon,
-  MoreVert as MoreVertIcon, Edit as EditIcon, Delete as DeleteIcon,
-  Clear as ClearIcon
+  Edit as EditIcon, Delete as DeleteIcon, SettingsOutlined as SettingsOutlinedIcon
 } from '@mui/icons-material';
-import { saveAs } from 'file-saver';
-import { format, isValid, parseISO } from 'date-fns';
+import { supabase } from '../supabaseClient';
+import { styled } from '@mui/material/styles';
+import EditEnquiryDialog from './EditEnquiryDialog';
 
-const TableView = ({ columns, visibleFields }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [filters, setFilters] = useState({
-    name: '',
-    contactNo: '',
-    stage: '',
-    dateFrom: '',
-    dateTo: '',
-  });
-  const [selectedRows, setSelectedRows] = useState([]);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedContact, setSelectedContact] = useState(null);
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  fontWeight: 'bold',
+  color: theme.palette.common.black,
+  padding: theme.spacing(2),
+}));
 
-  const tableData = useMemo(() => {
-    return columns.flatMap(column =>
-      column.contacts.map(contact => ({
-        ...contact,
-        name: contact.name,
-        stage: column.name,
-      }))
-    );
-  }, [columns]);
+const StyledTableRow = styled(TableRow)(({ theme }) => ({
+  '&:first-of-type td, &:first-of-type th': {
+    paddingLeft: theme.spacing(3),
+  },
+  '&:last-child td, &:last-child th': {
+    paddingRight: theme.spacing(3),
+  },
+}));
 
-  const filteredData = useMemo(() => {
-    const dateFrom = filters.dateFrom ? parseISO(filters.dateFrom) : null;
-    const dateTo = filters.dateTo ? parseISO(filters.dateTo) : null;
-    return tableData.filter(contact => {
-      const contactDate = parseISO(contact.created_at);
-      return (
-        contact.name.toLowerCase().includes(filters.name.toLowerCase()) &&
-        contact.mobilenumber1.includes(filters.contactNo) &&
-        (!filters.stage || contact.stage === filters.stage) &&
-        (!dateFrom || contactDate >= dateFrom) &&
-        (!dateTo || contactDate <= dateTo)
-      );
-    });
-  }, [tableData, filters]);
+const TableView = ({ visibleFields }) => {
+  const [enquiries, setEnquiries] = useState([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEnquiry, setEditingEnquiry] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState({});
+  const [page, setPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
 
-  const pageCount = Math.ceil(filteredData.length / rowsPerPage);
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filteredData.slice(start, start + rowsPerPage);
-  }, [filteredData, currentPage, rowsPerPage]);
+  const ITEMS_PER_PAGE = 10;
 
-  const handleFilterChange = (event) => {
-    setFilters({ ...filters, [event.target.name]: event.target.value });
-    setCurrentPage(1);
+  useEffect(() => {
+    fetchEnquiries();
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [page, productSearchTerm]);
+
+  const fetchEnquiries = async () => {
+    const { data, error } = await supabase.from('enquiries').select('*');
+    if (error) {
+      console.error('Error fetching enquiries:', error);
+    } else {
+      setEnquiries(data);
+    }
   };
 
-  const handleClearFilters = () => {
-    setFilters({
-      name: '',
-      contactNo: '',
-      stage: '',
-      dateFrom: '',
-      dateTo: '',
-    });
-    setCurrentPage(1);
+  const fetchProducts = async () => {
+    try {
+      let query = supabase.from('products').select('*', { count: 'exact' });
+
+      if (productSearchTerm) {
+        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
+        .order('product_name');
+
+      if (error) throw error;
+      setProducts(data);
+      setTotalProducts(count);
+    } catch (error) {
+      console.error('Error fetching products:', error.message);
+    }
   };
 
-  const handleDownload = () => {
-    const csvContent = [
-      ['Name', 'Contact No', 'Date Created', 'Stage'],
-      ...filteredData.map(contact => [
-        contact.name,
-        contact.mobilenumber1,
-        contact.created_at,
-        contact.stage,
-      ]),
-    ]
-      .map(row => row.join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, 'contacts.csv');
+  const handleEditEnquiry = (enquiry) => {
+    setEditingEnquiry(enquiry);
+    setDialogOpen(true);
+    setSelectedProducts(parseProducts(enquiry.products));
   };
 
-  const handleChangePage = (newPage) => {
-    setCurrentPage(newPage);
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingEnquiry(null);
   };
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setCurrentPage(1);
+  const handleFormSubmit = async (updatedEnquiry) => {
+    try {
+      const { error } = await supabase
+        .from('enquiries')
+        .update(updatedEnquiry)
+        .eq('id', updatedEnquiry.id);
+      if (error) throw error;
+      fetchEnquiries();
+      showSnackbar('Enquiry updated successfully', 'success');
+    } catch (error) {
+      console.error('Error updating enquiry:', error);
+      showSnackbar('Error updating enquiry', 'error');
+    }
+    handleDialogClose();
   };
 
-  const isSelected = (contact) => selectedRows.includes(contact.mobilenumber1);
-
-  const handleSelectRow = (contact) => {
-    setSelectedRows(prev =>
-      isSelected(contact)
-        ? prev.filter(row => row !== contact.mobilenumber1)
-        : [...prev, contact.mobilenumber1]
-    );
+  const handleDeleteEnquiry = async (id) => {
+    if (window.confirm('Are you sure you want to delete this enquiry?')) {
+      try {
+        const { error } = await supabase.from('enquiries').delete().eq('id', id);
+        if (error) throw error;
+        fetchEnquiries();
+        showSnackbar('Enquiry deleted successfully', 'success');
+      } catch (error) {
+        console.error('Error deleting enquiry:', error);
+        showSnackbar('Error deleting enquiry', 'error');
+      }
+    }
   };
 
-  const handleSelectAllRows = (event) => {
-    setSelectedRows(event.target.checked ? paginatedData.map(contact => contact.mobilenumber1) : []);
+  const showSnackbar = (message, severity) => {
+    setSnackbar({ open: true, message, severity });
   };
 
-  const handleMenuOpen = (event, contact) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedContact(contact);
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbar({ ...snackbar, open: false });
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleEdit = () => {
-    console.log('Editing:', selectedContact);
-    handleMenuClose();
-  };
-
-  const handleDelete = () => {
-    console.log('Deleting:', selectedContact);
-    handleMenuClose();
+  const parseProducts = (products) => {
+    if (!products) return {};
+    if (typeof products === 'string') {
+      try {
+        const cleanedProducts = products
+          .replace(/""/g, '"')
+          .replace(/\\\\"/g, '"')
+          .replace(/"({)/g, '$1')
+          .replace(/(})"/g, '$1');
+        return JSON.parse(cleanedProducts);
+      } catch (error) {
+        console.error('Error parsing products:', error);
+        return {};
+      }
+    }
+    return products; // If it's already an object, return as is
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
-      <Paper sx={{ borderRadius: 2, position: 'sticky', top: 0, zIndex: 1 }}>
-        <Box sx={{ p: 3, bgcolor: '#ffffff', minWidth: 1200 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-              <TextField
-                label="Name"
-                name="name"
-                variant="outlined"
-                size="small"
-                value={filters.name}
-                onChange={handleFilterChange}
-                sx={{ width: '150px' }}
-              />
-              <TextField
-                label="Mobile No"
-                name="contactNo"
-                variant="outlined"
-                size="small"
-                value={filters.contactNo}
-                onChange={handleFilterChange}
-                sx={{ width: '150px' }}
-              />
-              <FormControl variant="outlined" size="small" sx={{ width: '150px' }}>
-                <InputLabel>Stage</InputLabel>
-                <Select
-                  value={filters.stage}
-                  name="stage"
-                  onChange={handleFilterChange}
-                  label="Stage"
-                >
-                  <MenuItem value="">All Stages</MenuItem>
-                  {columns.map(column => (
-                    <MenuItem key={column.name} value={column.name}>{column.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="From Date"
-                name="dateFrom"
-                variant="outlined"
-                size="small"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateFrom}
-                onChange={handleFilterChange}
-                sx={{ width: '150px' }}
-              />
-              <TextField
-                label="To Date"
-                name="dateTo"
-                variant="outlined"
-                size="small"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={filters.dateTo}
-                onChange={handleFilterChange}
-                sx={{ width: '150px' }}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="outlined"
-                startIcon={<ClearIcon />}
-                onClick={handleClearFilters}
-              >
-                Clear
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<DownloadIcon />}
-                onClick={handleDownload}
-              >
-                Download
-              </Button>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
-      <Box sx={{ width: '100%', overflowX: 'auto' }}>
-        <Paper elevation={3} sx={{ borderRadius: 2, mb: 3 }}>
-          <Box sx={{ maxHeight: '600px', overflowY: 'auto' }}>
-            <TableContainer component={Paper}>
-              <Table stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        indeterminate={selectedRows.length > 0 && selectedRows.length < paginatedData.length}
-                        checked={paginatedData.length > 0 && selectedRows.length === paginatedData.length}
-                        onChange={handleSelectAllRows}
-                      />
-                    </TableCell>
-                    <TableCell>Actions</TableCell>
-                    {visibleFields.name && <TableCell>Name</TableCell>}
-                    {visibleFields.mobilenumber1 && <TableCell>Mobile Number</TableCell>}
-                    {visibleFields.stage && <TableCell>Stage</TableCell>}
-                    {visibleFields.leadsource && <TableCell>Lead Source</TableCell>}
-                    {visibleFields.priority && <TableCell>Priority</TableCell>}
-                    {visibleFields.invoiced && <TableCell>Invoiced</TableCell>}
-                    {visibleFields.collected && <TableCell>Collected</TableCell>}
-                    {visibleFields.created_at && <TableCell>Created At</TableCell>}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginatedData.length > 0 ? paginatedData.map((contact, index) => (
-                    <TableRow key={index} hover selected={isSelected(contact)}>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          checked={isSelected(contact)}
-                          onChange={() => handleSelectRow(contact)}
-                        />
-                      </TableCell>
+    <Box className="flex flex-col min-h-screen bg-gray-100">
+      <Box className="flex-grow p-4">
+        <TableContainer component={Paper} className="shadow-md rounded-lg overflow-hidden">
+          <Table stickyHeader>
+            <TableHead>
+              <TableRow>
+                {visibleFields.name && <StyledTableCell>Name</StyledTableCell>}
+                {visibleFields.mobilenumber1 && <StyledTableCell>Mobile Number 1</StyledTableCell>}
+                {visibleFields.mobilenumber2 && <StyledTableCell>Mobile Number 2</StyledTableCell>}
+                {visibleFields.address && <StyledTableCell>Address</StyledTableCell>}
+                {visibleFields.location && <StyledTableCell>Location</StyledTableCell>}
+                {visibleFields.stage && <StyledTableCell>Stage</StyledTableCell>}
+                {visibleFields.mailid && <StyledTableCell>Mail ID</StyledTableCell>}
+                {visibleFields.leadsource && <StyledTableCell>Lead Source</StyledTableCell>}
+                {visibleFields.assignedto && <StyledTableCell>Assigned To</StyledTableCell>}
+                {visibleFields.remarks && <StyledTableCell>Remarks</StyledTableCell>}
+                {visibleFields.priority && <StyledTableCell>Priority</StyledTableCell>}
+                {visibleFields.invoiced && <StyledTableCell>Invoiced</StyledTableCell>}
+                {visibleFields.collected && <StyledTableCell>Collected</StyledTableCell>}
+                {visibleFields.products && <StyledTableCell>Products</StyledTableCell>}
+                {visibleFields.created_at && <StyledTableCell>Created At</StyledTableCell>}
+                {visibleFields.salesflow_code && <StyledTableCell>Salesflow Code</StyledTableCell>}
+                {visibleFields.last_updated && <StyledTableCell>Last Updated</StyledTableCell>}
+                <StyledTableCell>Actions</StyledTableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {enquiries.length > 0 ? (
+                enquiries.map((enquiry) => (
+                  <StyledTableRow key={enquiry.id}>
+                    {visibleFields.name && <TableCell>{enquiry.name}</TableCell>}
+                    {visibleFields.mobilenumber1 && <TableCell>{enquiry.mobilenumber1}</TableCell>}
+                    {visibleFields.mobilenumber2 && <TableCell>{enquiry.mobilenumber2}</TableCell>}
+                    {visibleFields.address && <TableCell>{enquiry.address}</TableCell>}
+                    {visibleFields.location && <TableCell>{enquiry.location}</TableCell>}
+                    {visibleFields.stage && <TableCell>{enquiry.stage}</TableCell>}
+                    {visibleFields.mailid && <TableCell>{enquiry.mailid}</TableCell>}
+                    {visibleFields.leadsource && <TableCell>{enquiry.leadsource}</TableCell>}
+                    {visibleFields.assignedto && <TableCell>{enquiry.assignedto}</TableCell>}
+                    {visibleFields.remarks && <TableCell>{enquiry.remarks}</TableCell>}
+                    {visibleFields.priority && <TableCell>{enquiry.priority}</TableCell>}
+                    {visibleFields.invoiced && <TableCell>{enquiry.invoiced ? 'Yes' : 'No'}</TableCell>}
+                    {visibleFields.collected && <TableCell>{enquiry.collected ? 'Yes' : 'No'}</TableCell>}
+                    {visibleFields.products && (
                       <TableCell>
-                        <IconButton onClick={(event) => handleMenuOpen(event, contact)}>
-                          <MoreVertIcon />
-                        </IconButton>
+                        {Object.values(parseProducts(enquiry.products)).map((product, index) => (
+                          <Typography key={index} variant="body2">
+                            {product.product_name} ({product.quantity})
+                          </Typography>
+                        ))}
                       </TableCell>
-                      {visibleFields.name && <TableCell>{contact.name}</TableCell>}
-                      {visibleFields.mobilenumber1 && <TableCell>{contact.mobilenumber1}</TableCell>}
-                      {visibleFields.stage && <TableCell>{contact.stage}</TableCell>}
-                      {visibleFields.leadsource && <TableCell>{contact.leadsource}</TableCell>}
-                      {visibleFields.priority && <TableCell>{contact.priority}</TableCell>}
-                      {visibleFields.invoiced && <TableCell>{contact.invoiced ? 'Yes' : 'No'}</TableCell>}
-                      {visibleFields.collected && <TableCell>{contact.collected ? 'Yes' : 'No'}</TableCell>}
-                      {visibleFields.created_at && (
-                        <TableCell>
-                          {isValid(parseISO(contact.created_at))
-                            ? format(parseISO(contact.created_at), 'dd-MM-yyyy')
-                            : 'Invalid date'}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={10} align="center">No contacts found</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        </Paper>
+                    )}
+                    {visibleFields.created_at && <TableCell>{new Date(enquiry.created_at).toLocaleString()}</TableCell>}
+                    {visibleFields.salesflow_code && <TableCell>{enquiry.salesflow_code}</TableCell>}
+                    {visibleFields.last_updated && <TableCell>{new Date(enquiry.last_updated).toLocaleString()}</TableCell>}
+                    <TableCell>
+                      <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton onClick={() => handleDeleteEnquiry(enquiry.id)} color="error">
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </StyledTableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    No data to display
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Box>
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <Typography variant="body2" sx={{ mr: 2 }}>
-          {`${(currentPage - 1) * rowsPerPage + 1}-${Math.min(currentPage * rowsPerPage, filteredData.length)} of ${filteredData.length}`}
-        </Typography>
-        <FormControl variant="outlined" size="small" sx={{ width: '100px', mr: 2 }}>
-          <Select
-            value={rowsPerPage}
-            onChange={handleChangeRowsPerPage}
-          >
-            {[5, 10, 25, 50].map(option => (
-              <MenuItem key={option} value={option}>{option} per page</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <IconButton onClick={() => handleChangePage(currentPage - 1)} disabled={currentPage === 1}>
-          <PrevIcon />
-        </IconButton>
-        <IconButton onClick={() => handleChangePage(currentPage + 1)} disabled={currentPage === pageCount}>
-          <NextIcon />
-        </IconButton>
-      </Box>
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
+
+      {editingEnquiry && (
+        <EditEnquiryDialog
+          dialogOpen={dialogOpen}
+          enquiryData={editingEnquiry}
+          handleDialogClose={handleDialogClose}
+          handleFormSubmit={handleFormSubmit}
+          users={[]} // Replace with actual users data if available
+          products={products} // Pass fetched products
+          selectedProducts={selectedProducts}
+          handleProductToggle={(product) => {
+            setSelectedProducts((prev) => {
+              const newSelected = { ...prev };
+              if (newSelected[product.product_id]) {
+                delete newSelected[product.product_id];
+              } else {
+                newSelected[product.product_id] = { ...product, quantity: 1 };
+              }
+              return newSelected;
+            });
+          }}
+          handleQuantityChange={(productId, change) => {
+            setSelectedProducts((prev) => ({
+              ...prev,
+              [productId]: {
+                ...prev[productId],
+                quantity: Math.max(1, prev[productId].quantity + change),
+              },
+            }));
+          }}
+          productSearchTerm={productSearchTerm}
+          handleProductSearchChange={(e) => setProductSearchTerm(e.target.value)}
+          page={page}
+          handlePageChange={(event, value) => setPage(value)}
+          totalEstimate={Object.values(selectedProducts).reduce((sum, product) => sum + product.price * product.quantity, 0)}
+          ITEMS_PER_PAGE={ITEMS_PER_PAGE}
+          totalProducts={totalProducts}
+          currentUserId={null} // Replace with actual current user ID if available
+        />
+      )}
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={2000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <MenuItem onClick={handleEdit}>
-          <ListItemIcon>
-            <EditIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleDelete}>
-          <ListItemIcon>
-            <DeleteIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
-        </MenuItem>
-      </Menu>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+
+      <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <DialogTitle>Customize Contact Card Fields</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Select which fields to display in the contact card and table.</DialogContentText>
+          {Object.keys(visibleFields).map((field) => (
+            <FormControlLabel
+              key={field}
+              control={
+                <Checkbox
+                  checked={visibleFields[field]}
+                  onChange={(e) => setVisibleFields({ ...visibleFields, [field]: e.target.checked })}
+                  name={field}
+                />
+              }
+              label={field.charAt(0).toUpperCase() + field.slice(1)}
+            />
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSettingsOpen(false)} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
