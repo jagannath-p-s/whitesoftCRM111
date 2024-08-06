@@ -13,12 +13,12 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TaskCard from './TaskCard';
+import InnerTaskContactCard from './InnerTaskContactCard';
 import { supabase } from '../supabaseClient';
 
 const Activities = ({ userId, userRole }) => {
-  const initialExpandedColumns = [];
+  const initialExpandedColumns = ['New', 'Ongoing', 'Completed', 'Overdue'];
   const [expanded, setExpanded] = useState(initialExpandedColumns);
-  const [view, setView] = useState('cards');
   const [columns, setColumns] = useState([]);
   const [users, setUsers] = useState({});
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -29,11 +29,31 @@ const Activities = ({ userId, userRole }) => {
     completion_status: true,
     type: true,
     assignedto: false,
+    name: true,
+    mobilenumber1: true,
+    mobilenumber2: false,
+    address: false,
+    location: false,
+    stage: false,
+    mailid: false,
+    leadsource: false,
+    remarks: false,
+    priority: true,
+    invoiced: true,
+    collected: false,
+    products: true,
+    created_at: true,
+    salesflow_code: true,
+    last_updated: true,
   });
+  const [contactOpen, setContactOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: tasks, error: tasksError } = await supabase.from('tasks').select('*');
+      const { data: tasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*, enquiries(*)');
 
       const { data: usersData, error: usersError } = await supabase
         .from('users')
@@ -84,12 +104,7 @@ const Activities = ({ userId, userRole }) => {
     if (expanded.includes(column)) {
       setExpanded(expanded.filter((c) => c !== column));
     } else {
-      if (expanded.length < 4) {
-        setExpanded([...expanded, column]);
-      } else {
-        const [first, ...rest] = expanded;
-        setExpanded([...rest, column]);
-      }
+      setExpanded([...expanded, column]);
     }
   };
 
@@ -97,32 +112,34 @@ const Activities = ({ userId, userRole }) => {
     if (!result.destination) return;
 
     const { source, destination } = result;
-    if (source.droppableId !== destination.droppableId) {
-      const sourceColumn = columns.find(column => column.name === source.droppableId);
-      const destinationColumn = columns.find(column => column.name === destination.droppableId);
-      const sourceItems = Array.from(sourceColumn.tasks);
-      const [movedItem] = sourceItems.splice(source.index, 1);
-      const destinationItems = Array.from(destinationColumn.tasks);
-      destinationItems.splice(destination.index, 0, movedItem);
+    if (destination.droppableId === 'Overdue') {
+      return; // Prevent manual dragging to the Overdue column
+    }
 
-      movedItem.completion_status = destination.droppableId.toLowerCase();
+    const sourceColumn = columns.find(column => column.name === source.droppableId);
+    const destinationColumn = columns.find(column => column.name === destination.droppableId);
+    const sourceItems = Array.from(sourceColumn.tasks);
+    const [movedItem] = sourceItems.splice(source.index, 1);
+    const destinationItems = Array.from(destinationColumn.tasks);
+    destinationItems.splice(destination.index, 0, movedItem);
 
-      setColumns(columns.map(column => {
-        if (column.name === source.droppableId) {
-          column.tasks = sourceItems;
-        } else if (column.name === destination.droppableId) {
-          column.tasks = destinationItems;
-        }
-        return column;
-      }));
+    movedItem.completion_status = destination.droppableId.toLowerCase();
 
-      const { error } = await supabase
-        .from('tasks')
-        .update({ completion_status: destination.droppableId.toLowerCase() })
-        .eq('id', movedItem.id);
-      if (error) {
-        console.error('Error updating status:', error);
+    setColumns(columns.map(column => {
+      if (column.name === source.droppableId) {
+        column.tasks = sourceItems;
+      } else if (column.name === destination.droppableId) {
+        column.tasks = destinationItems;
       }
+      return column;
+    }));
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({ completion_status: destination.droppableId.toLowerCase() })
+      .eq('id', movedItem.id);
+    if (error) {
+      console.error('Error updating status:', error);
     }
   };
 
@@ -136,6 +153,15 @@ const Activities = ({ userId, userRole }) => {
 
   const handleFieldChange = (event) => {
     setVisibleFields({ ...visibleFields, [event.target.name]: event.target.checked });
+  };
+
+  const handleContactOpen = (contact) => {
+    setSelectedContact(contact);
+    setContactOpen(true);
+  };
+
+  const handleContactClose = () => {
+    setContactOpen(false);
   };
 
   const getTextColorClass = (color) => {
@@ -249,7 +275,13 @@ const Activities = ({ userId, userRole }) => {
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                 >
-                                  <TaskCard task={task} user={users[task.assigned_to]} color={column.color} visibleFields={visibleFields} />
+                                  <TaskCard
+                                    task={task}
+                                    user={users[task.assigned_to]}
+                                    color={column.color}
+                                    visibleFields={visibleFields}
+                                    handleContactOpen={handleContactOpen}
+                                  />
                                 </div>
                               )}
                             </Draggable>
@@ -288,6 +320,20 @@ const Activities = ({ userId, userRole }) => {
           ))}
         </DragDropContext>
       </div>
+
+      {selectedContact && (
+        <Dialog open={contactOpen} onClose={handleContactClose} fullWidth maxWidth="md">
+          <DialogTitle>Contact Details</DialogTitle>
+          <DialogContent>
+            <InnerTaskContactCard contact={selectedContact} visibleFields={visibleFields} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleContactClose} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </div>
   );
 };

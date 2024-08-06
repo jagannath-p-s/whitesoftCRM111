@@ -56,7 +56,7 @@ create table
 
 create table
   public.enquiries (
-    id uuid not null default uuid_generate_v4 (),
+    id uuid not null default extensions.uuid_generate_v4 (),
     name text not null,
     mobilenumber1 text not null,
     mobilenumber2 text null,
@@ -76,6 +76,46 @@ create table
     won_date timestamp with time zone null,
     pipeline_id integer null,
     current_stage_id integer null,
+    last_updated timestamp with time zone null default now(),
+    state character varying(255) null,
+    district character varying(255) null,
+    expected_completion_date timestamp with time zone null,
     constraint enquiries_pkey primary key (id),
     constraint enquiries_pipeline_id_fkey foreign key (pipeline_id) references pipelines (pipeline_id)
+  ) tablespace pg_default;
+
+create trigger set_last_updated before
+update on enquiries for each row
+execute function update_last_updated_column (); , 
+
+create table
+  public.tasks (
+    id uuid not null default extensions.uuid_generate_v4 (),
+    task_name text not null,
+    task_message text not null,
+    enquiry_id uuid not null,
+    type text not null,
+    submission_date timestamp with time zone not null default (now() + '1 day'::interval),
+    assigned_by integer not null,
+    assigned_to integer not null,
+    completion_status text not null default 'new'::text,
+    constraint tasks_pkey primary key (id),
+    constraint tasks_enquiry_id_fkey foreign key (enquiry_id) references enquiries (id),
+    constraint tasks_completion_status_check check (
+      (
+        completion_status = any (
+          array[
+            'new'::text,
+            'ongoing'::text,
+            'completed'::text,
+            'overdue'::text
+          ]
+        )
+      )
+    ),
+    constraint tasks_type_check check (
+      (
+        type = any (array['service'::text, 'product'::text])
+      )
+    )
   ) tablespace pg_default;

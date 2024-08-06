@@ -299,7 +299,7 @@ const Services = () => {
         <Box className="max-w-7xl mx-auto flex justify-between items-center">
           <Box className="flex items-center space-x-4">
             <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-            <h1 className="text-xl font-semibold ml-2">Upload Files</h1>
+            <h1 className="text-xl font-semibold ml-2">Service</h1>
             <FilterSelect
               label="Date Range"
               value={dateFilter}

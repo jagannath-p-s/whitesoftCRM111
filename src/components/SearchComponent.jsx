@@ -1,61 +1,68 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Card, 
-  CardContent, 
-  Grid, 
-  Snackbar, 
-  Alert, 
-  Chip,
-  LinearProgress,
-  Pagination
+import {
+  Box, Typography, Grid, Snackbar, Alert, LinearProgress, Pagination
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
+import InfoCard from './InfoCard';
 
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  transition: 'all 0.3s',
-  '&:hover': {
-    transform: 'translateY(-5px)',
-    boxShadow: theme.shadows[4],
-  },
-}));
-
-const StyledCardContent = styled(CardContent)({
-  flexGrow: 1,
-});
+const ITEMS_PER_PAGE = 12;
 
 const SearchComponent = ({ searchTerm }) => {
   const [enquiries, setEnquiries] = useState([]);
+  const [serviceEnquiries, setServiceEnquiries] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
-    fetchEnquiries();
+    fetchAllData();
   }, [page, searchTerm]);
 
-  const fetchEnquiries = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const { data, error, count } = await supabase
+      // Fetch enquiries
+      const { data: enquiryData, error: enquiryError, count: enquiryCount } = await supabase
         .from('enquiries')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
-      if (error) throw error;
-      setEnquiries(data);
-      setTotalPages(Math.ceil(count / ITEMS_PER_PAGE));
+      if (enquiryError) {
+        throw new Error('Error fetching enquiries: ' + enquiryError.message);
+      }
+
+      // Fetch service enquiries
+      const { data: serviceEnquiryData, error: serviceEnquiryError, count: serviceEnquiryCount } = await supabase
+        .from('service_enquiries')
+        .select('*', { count: 'exact' })
+        .order('date', { ascending: false })
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+      if (serviceEnquiryError) {
+        throw new Error('Error fetching service enquiries: ' + serviceEnquiryError.message);
+      }
+
+      // Fetch tasks
+      const { data: taskData, error: taskError, count: taskCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact' })
+        .order('submission_date', { ascending: false })
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+      if (taskError) {
+        throw new Error('Error fetching tasks: ' + taskError.message);
+      }
+
+      setEnquiries(enquiryData);
+      setServiceEnquiries(serviceEnquiryData);
+      setTasks(taskData);
+      setTotalPages(Math.ceil((enquiryCount + serviceEnquiryCount + taskCount) / ITEMS_PER_PAGE));
     } catch (error) {
-      console.error('Error fetching enquiries:', error.message);
-      setSnackbar({ open: true, message: 'Error fetching enquiries: ' + error.message, severity: 'error' });
+      console.error('Error fetching data:', error.message);
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -70,6 +77,23 @@ const SearchComponent = ({ searchTerm }) => {
     );
   }, [enquiries, searchTerm]);
 
+  const filteredServiceEnquiries = useMemo(() => {
+    if (!searchTerm) return serviceEnquiries;
+    return serviceEnquiries.filter((serviceEnquiry) =>
+      serviceEnquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      serviceEnquiry.customer_mobile.includes(searchTerm) ||
+      serviceEnquiry.job_card_no.includes(searchTerm)
+    );
+  }, [serviceEnquiries, searchTerm]);
+
+  const filteredTasks = useMemo(() => {
+    if (!searchTerm) return tasks;
+    return tasks.filter((task) =>
+      task.task_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.task_message.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tasks, searchTerm]);
+
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
   };
@@ -78,65 +102,48 @@ const SearchComponent = ({ searchTerm }) => {
     setPage(value);
   };
 
-  const parseProducts = (products) => {
-    if (!products) return {};
-    try {
-      return JSON.parse(products.replace(/""/g, '"'));
-    } catch (error) {
-      console.error('Error parsing products:', error);
-      return {};
-    }
+  const handleEdit = (item) => {
+    console.log("Edit item", item);
+    // Implement your edit logic here
   };
 
   return (
     <Box sx={{ width: '100%', maxWidth: 1200, margin: 'auto', padding: 2 }}>
-      <Typography variant="h4" gutterBottom>
-        Enquiries {searchTerm && `(Filtered by: ${searchTerm})`}
-      </Typography>
-      
+   
       {loading ? (
         <LinearProgress />
       ) : (
         <>
           <Grid container spacing={3}>
-            {filteredEnquiries.map((enquiry) => {
-              const products = parseProducts(enquiry.products);
-              return (
-                <Grid item xs={12} sm={6} md={4} key={enquiry.id}>
-                  <StyledCard>
-                    <StyledCardContent>
-                      <Typography variant="h6" gutterBottom>{enquiry.name}</Typography>
-                      <Typography variant="body2">Contact: {enquiry.mobilenumber1}</Typography>
-                      {enquiry.mobilenumber2 && (
-                        <Typography variant="body2">Alternate: {enquiry.mobilenumber2}</Typography>
-                      )}
-                      <Typography variant="body2">Email: {enquiry.mailid}</Typography>
-                      <Box mt={1}>
-                        <Chip label={enquiry.stage} color="primary" size="small" />
-                        <Chip label={enquiry.priority} color="secondary" size="small" sx={{ ml: 1 }} />
-                      </Box>
-                      <Typography variant="body2" mt={1}>
-                        Date: {new Date(enquiry.created_at).toLocaleString()}
-                      </Typography>
-                      <Typography variant="body2" noWrap>Remarks: {enquiry.remarks}</Typography>
-                      {Object.values(products).length > 0 && (
-                        <Box mt={2}>
-                          <Typography variant="body2">Products:</Typography>
-                          {Object.values(products).map((product) => (
-                            <Chip
-                              key={product.product_id}
-                              label={`${product.product_name} (${product.quantity})`}
-                              size="small"
-                              sx={{ mr: 1, mt: 1 }}
-                            />
-                          ))}
-                        </Box>
-                      )}
-                    </StyledCardContent>
-                  </StyledCard>
-                </Grid>
-              );
-            })}
+            {filteredEnquiries.map((enquiry) => (
+              <Grid item xs={12} sm={6} md={4} key={enquiry.id}>
+                <InfoCard 
+                  data={enquiry} 
+                  type="enquiry" 
+                  onEdit={handleEdit}
+                />
+              </Grid>
+            ))}
+
+            {filteredServiceEnquiries.map((serviceEnquiry) => (
+              <Grid item xs={12} sm={6} md={4} key={serviceEnquiry.id}>
+                <InfoCard 
+                  data={serviceEnquiry} 
+                  type="serviceEnquiry" 
+                  onEdit={handleEdit}
+                />
+              </Grid>
+            ))}
+
+            {filteredTasks.map((task) => (
+              <Grid item xs={12} sm={6} md={4} key={task.id}>
+                <InfoCard 
+                  data={task} 
+                  type="task" 
+                  onEdit={handleEdit}
+                />
+              </Grid>
+            ))}
           </Grid>
           
           <Box mt={4} display="flex" justifyContent="center">

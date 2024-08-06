@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import Tooltip from '@mui/material/Tooltip';
+import {
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
+  Typography,
+  Box,
+  Tooltip,
+  Snackbar,
+  Alert,
+  Chip,
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
-import CommentIcon from '@mui/icons-material/Comment';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
+import PipelineIcon from '@mui/icons-material/SettingsOutlined';
 import { supabase } from '../supabaseClient';
 import AddTaskDialog from './AddTaskDialog';
-import PipelineFormJSON from './PipelineFormJSON';
+import EditEnquiryDialog from './EditEnquiryDialog';
 
 const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [open, setOpen] = useState(false);
@@ -31,6 +29,13 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [error, setError] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [selectedProducts, setSelectedProducts] = useState({});
+  const [products, setProducts] = useState([]);
+  const [productSearchTerm, setProductSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+
+  const ITEMS_PER_PAGE = 10;
 
   const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'J';
   const username = user?.username ? user.username : 'Unknown User';
@@ -38,6 +43,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
   useEffect(() => {
     fetchPipelines();
     fetchUserTasks(user.id);
+    fetchProducts();
     const taskSubscription = supabase
       .channel('public:tasks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${user.id}` }, (payload) => {
@@ -81,6 +87,26 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      let query = supabase.from('products').select('*', { count: 'exact' });
+
+      if (productSearchTerm) {
+        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
+      }
+
+      const { data, error, count } = await query
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
+        .order('product_name');
+
+      if (error) throw error;
+      setProducts(data);
+      setTotalProducts(count);
+    } catch (error) {
+      console.error('Error fetching products:', error.message);
+    }
+  };
+
   const handleInitialClick = async () => {
     await fetchUserTasks(user.id);
     setOpen(true);
@@ -90,7 +116,11 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     setOpen(false);
   };
 
-  const handleEditClick = () => setEditOpen(true);
+  const handleEditClick = () => {
+    setSelectedProducts(parseProducts(contact.products));
+    setEditOpen(true);
+  };
+
   const handleEditClose = () => setEditOpen(false);
   const handleAddClick = () => setAddTaskOpen(true);
   const handleAddTaskClose = () => setAddTaskOpen(false);
@@ -99,14 +129,15 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     setSelectedPipeline(event.target.value);
   };
 
-  const handleSave = async () => {
+  const handleSave = async (updatedEnquiry) => {
     try {
       const { error } = await supabase
         .from('enquiries')
-        .update({ pipeline_id: selectedPipeline })
+        .update(updatedEnquiry)
         .eq('id', contact.id);
       if (error) throw error;
       setEditOpen(false);
+      fetchUserTasks(user.id);
     } catch (error) {
       console.error('Error updating pipeline:', error);
       setError('Failed to update pipeline. Please try again later.');
@@ -128,7 +159,12 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     if (!products) return {};
     if (typeof products === 'string') {
       try {
-        return JSON.parse(products.replace(/""/g, '"').replace(/\\/g, ''));
+        const cleanedProducts = products
+          .replace(/""/g, '"')
+          .replace(/\\\\"/g, '"')
+          .replace(/"({)/g, '$1')
+          .replace(/(})"/g, '$1');
+        return JSON.parse(cleanedProducts);
       } catch (error) {
         console.error('Error parsing products:', error);
         return {};
@@ -137,7 +173,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     return products; // If it's already an object, return as is
   };
 
-  const products = parseProducts(contact?.products);
+  const productsData = parseProducts(contact?.products);
 
   if (!contact || !user) {
     return <div>Error: contact or user data is missing.</div>;
@@ -162,11 +198,11 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         {visibleFields.collected && <p className="text-sm mb-1">Collected: {contact.collected ? 'Yes' : 'No'}</p>}
         {visibleFields.created_at && <p className="text-sm mb-1">Date Created: {new Date(contact.created_at).toLocaleDateString()}</p>}
         {visibleFields.salesflow_code && <p className="text-sm mb-1">Salesflow Code: {contact.salesflow_code}</p>}
-        {visibleFields.last_updated && <p className="text-sm mb-1">Last Updated: {new Date(contact.last_updated).toLocaleString()}</p>} {/* Last updated field */}
-        {visibleFields.products && Object.values(products).length > 0 && (
+        {visibleFields.last_updated && <p className="text-sm mb-1">Last Updated: {new Date(contact.last_updated).toLocaleString()}</p>}
+        {visibleFields.products && Object.values(productsData).length > 0 && (
           <Box mt={2}>
             <Typography variant="body2">Products:</Typography>
-            {Object.values(products).map((product, index) => (
+            {Object.values(productsData).map((product, index) => (
               <Chip 
                 key={index}
                 label={`${product.product_name} (${product.quantity})`}
@@ -188,9 +224,9 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
             <EditIcon fontSize="small" />
           </button>
         </Tooltip>
-        <Tooltip title="Comment">
-          <button className="p-1 rounded-full hover:bg-gray-200">
-            <CommentIcon fontSize="small" />
+        <Tooltip title="Pipeline">
+          <button className="p-1 rounded-full hover:bg-gray-200" onClick={() => setPipelineOpen(true)}>
+            <PipelineIcon fontSize="small" />
           </button>
         </Tooltip>
         <Tooltip title="Assigned To">
@@ -227,30 +263,43 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={editOpen} onClose={handleEditClose} fullWidth maxWidth="md">
-        <DialogTitle>Edit Contact</DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Pipeline</InputLabel>
-            <Select value={selectedPipeline} onChange={handlePipelineChange}>
-              {pipelines.map((pipeline) => (
-                <MenuItem key={pipeline.pipeline_id} value={pipeline.pipeline_id}>
-                  {pipeline.pipeline_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <PipelineFormJSON enquiryId={contact.id} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditClose} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleSave} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <EditEnquiryDialog
+        dialogOpen={editOpen}
+        enquiryData={contact}
+        handleDialogClose={handleEditClose}
+        handleFormSubmit={handleSave}
+        users={[]} // Replace with actual users data if available
+        products={products} // Pass fetched products if available
+        selectedProducts={selectedProducts}
+        handleProductToggle={(product) => {
+          setSelectedProducts((prev) => {
+            const newSelected = { ...prev };
+            if (newSelected[product.product_id]) {
+              delete newSelected[product.product_id];
+            } else {
+              newSelected[product.product_id] = { ...product, quantity: 1 };
+            }
+            return newSelected;
+          });
+        }}
+        handleQuantityChange={(productId, change) => {
+          setSelectedProducts((prev) => ({
+            ...prev,
+            [productId]: {
+              ...prev[productId],
+              quantity: Math.max(1, prev[productId].quantity + change),
+            },
+          }));
+        }}
+        productSearchTerm={productSearchTerm}
+        handleProductSearchChange={(e) => setProductSearchTerm(e.target.value)}
+        page={page}
+        handlePageChange={(event, value) => setPage(value)}
+        totalEstimate={Object.values(selectedProducts).reduce((sum, product) => sum + product.price * product.quantity, 0)}
+        ITEMS_PER_PAGE={ITEMS_PER_PAGE}
+        totalProducts={totalProducts}
+        currentUserId={user.id}
+      />
 
       <AddTaskDialog
         open={addTaskOpen}

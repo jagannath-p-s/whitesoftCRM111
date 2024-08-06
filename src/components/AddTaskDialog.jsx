@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import {
   Dialog,
@@ -16,7 +16,10 @@ import {
   FormControlLabel,
   Box,
   Snackbar,
-  Alert
+  Alert,
+  Typography,
+  Grid,
+  Paper
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -32,13 +35,17 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
   const [dateTimeOption, setDateTimeOption] = useState('days');
   const [daysToComplete, setDaysToComplete] = useState('');
   const [submissionDate, setSubmissionDate] = useState(dayjs());
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [incompleteTasks, setIncompleteTasks] = useState(0);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const calendarRef = useRef(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username');
+        .select('id, username, employee_code');
 
       if (error) {
         console.error('Error fetching users:', error);
@@ -68,17 +75,29 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
   const handleAssignedToChange = async (e) => {
     const userId = e.target.value;
     const tasks = await fetchUserTasks(userId);
+    setIncompleteTasks(tasks.length);
+    setSelectedUser(userId);
 
     if (tasks.length > 0) {
-      setSnackbar({
-        open: true,
-        message: 'This user has incomplete tasks. Please complete existing tasks first.',
-        severity: 'warning'
-      });
-      return;
+      setConfirmDialogOpen(true);
+    } else {
+      setAssignedTo(userId);
     }
+  };
 
-    setAssignedTo(userId);
+  const handleConfirmDialogClose = (confirm) => {
+    setConfirmDialogOpen(false);
+    if (confirm) {
+      setAssignedTo(selectedUser);
+    }
+    setSelectedUser(null);
+  };
+
+  const handleDateTimeOptionChange = (e) => {
+    setDateTimeOption(e.target.value);
+    if (e.target.value === 'datetime' && calendarRef.current) {
+      calendarRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const handleSubmit = async () => {
@@ -171,100 +190,122 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
   };
 
   const handleCloseSnackbar = () => {
-    setSnackbar({ open: false, message: '', severity: 'success' });
+    setSnackbar({ open: false, message: '', severity: 'info' });
   };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle>Add New Task</DialogTitle>
+        <DialogTitle>
+          <Typography variant="h5" component="div" gutterBottom>
+            Add New Task
+          </Typography>
+        </DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Task Name"
-            type="text"
-            fullWidth
-            value={taskName}
-            onChange={(e) => setTaskName(e.target.value)}
-          />
-          <TextField
-            margin="dense"
-            label="Task Message"
-            type="text"
-            fullWidth
-            multiline
-            rows={4}
-            value={taskMessage}
-            onChange={(e) => setTaskMessage(e.target.value)}
-          />
-          <FormControl fullWidth margin="dense">
-            <InputLabel>Assigned To</InputLabel>
-            <Select
-              value={assignedTo}
-              onChange={handleAssignedToChange}
-            >
-              {users.map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.username}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth margin="dense">
-            <InputLabel>Stage</InputLabel>
-            <Select
-              value={stage}
-              onChange={(e) => setStage(e.target.value)}
-            >
-              <MenuItem value="Lead">Lead</MenuItem>
-              <MenuItem value="Prospect">Prospect</MenuItem>
-              <MenuItem value="Opportunity">Opportunity</MenuItem>
-              <MenuItem value="Customer-Won">Customer-Won</MenuItem>
-              <MenuItem value="Lost/Rejected">Lost/Rejected</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl component="fieldset" fullWidth margin="dense">
-            <RadioGroup
-              value={dateTimeOption}
-              onChange={(e) => setDateTimeOption(e.target.value)}
-            >
-              <FormControlLabel
-                value="days"
-                control={<Radio />}
-                label="Days to Complete"
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <TextField
+                autoFocus
+                label="Task Name"
+                type="text"
+                fullWidth
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
+                variant="outlined"
               />
-              <FormControlLabel
-                value="datetime"
-                control={<Radio />}
-                label="Pick Date & Time"
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Task Message"
+                type="text"
+                fullWidth
+                multiline
+                rows={4}
+                value={taskMessage}
+                onChange={(e) => setTaskMessage(e.target.value)}
+                variant="outlined"
               />
-            </RadioGroup>
-          </FormControl>
-          {dateTimeOption === 'days' ? (
-            <TextField
-              margin="dense"
-              label="Days to Complete"
-              type="number"
-              fullWidth
-              value={daysToComplete}
-              onChange={(e) => setDaysToComplete(e.target.value)}
-            />
-          ) : (
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-              <StaticDateTimePicker
-                displayStaticWrapperAs="desktop"
-                openTo="day"
-                value={submissionDate}
-                onChange={(newValue) => setSubmissionDate(newValue)}
-                renderInput={(params) => <TextField {...params} />}
-              />
-            </Box>
-          )}
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Assign To</InputLabel>
+                <Select
+                  value={assignedTo}
+                  onChange={handleAssignedToChange}
+                  label="Assign To"
+                >
+                  {users.map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.username} ({user.employee_code})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Stage</InputLabel>
+                <Select
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                  label="Stage"
+                >
+                  <MenuItem value="Lead">Lead</MenuItem>
+                  <MenuItem value="Prospect">Prospect</MenuItem>
+                  <MenuItem value="Opportunity">Opportunity</MenuItem>
+                  <MenuItem value="Customer-Won">Customer-Won</MenuItem>
+                  <MenuItem value="Lost/Rejected">Lost/Rejected</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <Paper elevation={3} sx={{ p: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Task Completion Time
+                </Typography>
+                <RadioGroup
+                  value={dateTimeOption}
+                  onChange={handleDateTimeOptionChange}
+                >
+                  <FormControlLabel
+                    value="days"
+                    control={<Radio />}
+                    label="Days to Complete"
+                  />
+                  <FormControlLabel
+                    value="datetime"
+                    control={<Radio />}
+                    label="Pick Date & Time"
+                  />
+                </RadioGroup>
+                {dateTimeOption === 'days' ? (
+                  <TextField
+                    margin="dense"
+                    label="Days to Complete"
+                    type="number"
+                    fullWidth
+                    value={daysToComplete}
+                    onChange={(e) => setDaysToComplete(e.target.value)}
+                    variant="outlined"
+                  />
+                ) : (
+                  <Box ref={calendarRef} sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                    <StaticDateTimePicker
+                      displayStaticWrapperAs="desktop"
+                      openTo="day"
+                      value={submissionDate}
+                      onChange={(newValue) => setSubmissionDate(newValue)}
+                      renderInput={(params) => <TextField {...params} />}
+                    />
+                  </Box>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>Add Task</Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleClose} variant="outlined">Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary">Add Task</Button>
         </DialogActions>
       </Dialog>
       <Snackbar
@@ -277,6 +318,27 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => handleConfirmDialogClose(false)}
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
+      >
+        <DialogTitle id="confirm-dialog-title">Confirm Task Assignment</DialogTitle>
+        <DialogContent>
+          <Typography id="confirm-dialog-description">
+            This user already has {incompleteTasks} incomplete tasks. Do you still want to assign a new task to this user?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => handleConfirmDialogClose(false)} color="primary">
+            No
+          </Button>
+          <Button onClick={() => handleConfirmDialogClose(true)} color="primary" autoFocus>
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </LocalizationProvider>
   );
 };

@@ -12,7 +12,8 @@ import {
   Pagination
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { supabase } from './supabaseClient';
+import { supabase } from '../supabaseClient';
+import AddTaskDialog from './AddTaskDialog';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   height: '100%',
@@ -31,6 +32,8 @@ const StyledCardContent = styled(CardContent)({
 
 const SearchComponent = ({ searchTerm }) => {
   const [enquiries, setEnquiries] = useState([]);
+  const [serviceEnquiries, setServiceEnquiries] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [page, setPage] = useState(1);
@@ -38,24 +41,44 @@ const SearchComponent = ({ searchTerm }) => {
   const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
-    fetchEnquiries();
+    fetchAllData();
   }, [page, searchTerm]);
 
-  const fetchEnquiries = async () => {
+  const fetchAllData = async () => {
     setLoading(true);
     try {
-      const { data, error, count } = await supabase
+      // Fetch enquiries
+      const { data: enquiryData, error: enquiryError, count: enquiryCount } = await supabase
         .from('enquiries')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
-      if (error) throw error;
-      setEnquiries(data);
-      setTotalPages(Math.ceil(count / ITEMS_PER_PAGE));
+      // Fetch service enquiries
+      const { data: serviceEnquiryData, error: serviceEnquiryError, count: serviceEnquiryCount } = await supabase
+        .from('service_enquiries')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+      // Fetch tasks
+      const { data: taskData, error: taskError, count: taskCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact' })
+        .order('submission_date', { ascending: false })
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+      if (enquiryError || serviceEnquiryError || taskError) {
+        throw new Error('Error fetching data');
+      }
+
+      setEnquiries(enquiryData);
+      setServiceEnquiries(serviceEnquiryData);
+      setTasks(taskData);
+      setTotalPages(Math.ceil((enquiryCount + serviceEnquiryCount + taskCount) / ITEMS_PER_PAGE));
     } catch (error) {
-      console.error('Error fetching enquiries:', error.message);
-      setSnackbar({ open: true, message: 'Error fetching enquiries: ' + error.message, severity: 'error' });
+      console.error('Error fetching data:', error.message);
+      setSnackbar({ open: true, message: 'Error fetching data: ' + error.message, severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -69,6 +92,23 @@ const SearchComponent = ({ searchTerm }) => {
       enquiry.mobilenumber2?.includes(searchTerm)
     );
   }, [enquiries, searchTerm]);
+
+  const filteredServiceEnquiries = useMemo(() => {
+    if (!searchTerm) return serviceEnquiries;
+    return serviceEnquiries.filter((serviceEnquiry) =>
+      serviceEnquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      serviceEnquiry.customer_mobile.includes(searchTerm) ||
+      serviceEnquiry.job_card_no.includes(searchTerm)
+    );
+  }, [serviceEnquiries, searchTerm]);
+
+  const filteredTasks = useMemo(() => {
+    if (!searchTerm) return tasks;
+    return tasks.filter((task) =>
+      task.task_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      task.task_message.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tasks, searchTerm]);
 
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
@@ -91,7 +131,7 @@ const SearchComponent = ({ searchTerm }) => {
   return (
     <Box sx={{ width: '100%', maxWidth: 1200, margin: 'auto', padding: 2 }}>
       <Typography variant="h4" gutterBottom>
-        Enquiries {searchTerm && `(Filtered by: ${searchTerm})`}
+        Search Results {searchTerm && `(Filtered by: ${searchTerm})`}
       </Typography>
       
       {loading ? (
@@ -137,6 +177,33 @@ const SearchComponent = ({ searchTerm }) => {
                 </Grid>
               );
             })}
+
+            {filteredServiceEnquiries.map((serviceEnquiry) => (
+              <Grid item xs={12} sm={6} md={4} key={serviceEnquiry.id}>
+                <StyledCard>
+                  <StyledCardContent>
+                    <Typography variant="h6" gutterBottom>{serviceEnquiry.customer_name}</Typography>
+                    <Typography variant="body2">Job Card No: {serviceEnquiry.job_card_no}</Typography>
+                    <Typography variant="body2">Contact: {serviceEnquiry.customer_mobile}</Typography>
+                    <Typography variant="body2">Date: {new Date(serviceEnquiry.date).toLocaleString()}</Typography>
+                    <Typography variant="body2">Status: {serviceEnquiry.status}</Typography>
+                  </StyledCardContent>
+                </StyledCard>
+              </Grid>
+            ))}
+
+            {filteredTasks.map((task) => (
+              <Grid item xs={12} sm={6} md={4} key={task.id}>
+                <StyledCard>
+                  <StyledCardContent>
+                    <Typography variant="h6" gutterBottom>{task.task_name}</Typography>
+                    <Typography variant="body2">Message: {task.task_message}</Typography>
+                    <Typography variant="body2">Date: {new Date(task.submission_date).toLocaleString()}</Typography>
+                    <Typography variant="body2">Status: {task.completion_status}</Typography>
+                  </StyledCardContent>
+                </StyledCard>
+              </Grid>
+            ))}
           </Grid>
           
           <Box mt={4} display="flex" justifyContent="center">
