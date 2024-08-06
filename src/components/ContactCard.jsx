@@ -19,11 +19,13 @@ import PipelineIcon from '@mui/icons-material/SettingsOutlined';
 import { supabase } from '../supabaseClient';
 import AddTaskDialog from './AddTaskDialog';
 import EditEnquiryDialog from './EditEnquiryDialog';
+import PipelineFormJSON from './PipelineFormJSON'; // Import PipelineFormJSON
 
 const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [pipelineOpen, setPipelineOpen] = useState(false); // State for pipeline form
   const [pipelines, setPipelines] = useState([]);
   const [selectedPipeline, setSelectedPipeline] = useState(contact?.pipeline_id || '');
   const [error, setError] = useState(null);
@@ -125,6 +127,9 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
   const handleAddClick = () => setAddTaskOpen(true);
   const handleAddTaskClose = () => setAddTaskOpen(false);
 
+  const handlePipelineClick = () => setPipelineOpen(true);
+  const handlePipelineClose = () => setPipelineOpen(false);
+
   const handlePipelineChange = (event) => {
     setSelectedPipeline(event.target.value);
   };
@@ -225,7 +230,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
           </button>
         </Tooltip>
         <Tooltip title="Pipeline">
-          <button className="p-1 rounded-full hover:bg-gray-200" onClick={() => setPipelineOpen(true)}>
+          <button className="p-1 rounded-full hover:bg-gray-200" onClick={handlePipelineClick}>
             <PipelineIcon fontSize="small" />
           </button>
         </Tooltip>
@@ -307,6 +312,18 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         enquiryId={contact.id}
         assignedBy={user.id}
       />
+
+      <Dialog open={pipelineOpen} onClose={handlePipelineClose} maxWidth="md" fullWidth>
+        <DialogTitle>Pipeline Form</DialogTitle>
+        <DialogContent>
+          <PipelineFormJSON enquiryId={contact.id} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handlePipelineClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
