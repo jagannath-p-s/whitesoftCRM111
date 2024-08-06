@@ -10,7 +10,6 @@ const ITEMS_PER_PAGE = 12;
 const SearchComponent = ({ searchTerm }) => {
   const [enquiries, setEnquiries] = useState([]);
   const [serviceEnquiries, setServiceEnquiries] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [page, setPage] = useState(1);
@@ -27,6 +26,7 @@ const SearchComponent = ({ searchTerm }) => {
       const { data: enquiryData, error: enquiryError, count: enquiryCount } = await supabase
         .from('enquiries')
         .select('*', { count: 'exact' })
+        .or(`name.ilike.%${searchTerm}%,mobilenumber1.ilike.%${searchTerm}%,mobilenumber2.ilike.%${searchTerm}%`)
         .order('created_at', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
@@ -38,6 +38,7 @@ const SearchComponent = ({ searchTerm }) => {
       const { data: serviceEnquiryData, error: serviceEnquiryError, count: serviceEnquiryCount } = await supabase
         .from('service_enquiries')
         .select('*', { count: 'exact' })
+        .or(`customer_name.ilike.%${searchTerm}%,customer_mobile.ilike.%${searchTerm}%,job_card_no.ilike.%${searchTerm}%`)
         .order('date', { ascending: false })
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
 
@@ -45,21 +46,9 @@ const SearchComponent = ({ searchTerm }) => {
         throw new Error('Error fetching service enquiries: ' + serviceEnquiryError.message);
       }
 
-      // Fetch tasks
-      const { data: taskData, error: taskError, count: taskCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact' })
-        .order('submission_date', { ascending: false })
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
-
-      if (taskError) {
-        throw new Error('Error fetching tasks: ' + taskError.message);
-      }
-
       setEnquiries(enquiryData);
       setServiceEnquiries(serviceEnquiryData);
-      setTasks(taskData);
-      setTotalPages(Math.ceil((enquiryCount + serviceEnquiryCount + taskCount) / ITEMS_PER_PAGE));
+      setTotalPages(Math.ceil((enquiryCount + serviceEnquiryCount) / ITEMS_PER_PAGE));
     } catch (error) {
       console.error('Error fetching data:', error.message);
       setSnackbar({ open: true, message: error.message, severity: 'error' });
@@ -86,14 +75,6 @@ const SearchComponent = ({ searchTerm }) => {
     );
   }, [serviceEnquiries, searchTerm]);
 
-  const filteredTasks = useMemo(() => {
-    if (!searchTerm) return tasks;
-    return tasks.filter((task) =>
-      task.task_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.task_message.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tasks, searchTerm]);
-
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
   };
@@ -105,11 +86,11 @@ const SearchComponent = ({ searchTerm }) => {
   const handleEdit = (item) => {
     console.log("Edit item", item);
     // Implement your edit logic here
+    fetchAllData(); // Refresh data after edit
   };
 
   return (
     <Box sx={{ width: '100%', maxWidth: 1200, margin: 'auto', padding: 2 }}>
-   
       {loading ? (
         <LinearProgress />
       ) : (
@@ -130,16 +111,6 @@ const SearchComponent = ({ searchTerm }) => {
                 <InfoCard 
                   data={serviceEnquiry} 
                   type="serviceEnquiry" 
-                  onEdit={handleEdit}
-                />
-              </Grid>
-            ))}
-
-            {filteredTasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
-                <InfoCard 
-                  data={task} 
-                  type="task" 
                   onEdit={handleEdit}
                 />
               </Grid>

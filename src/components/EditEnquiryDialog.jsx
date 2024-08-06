@@ -180,8 +180,8 @@ const EditEnquiryDialog = ({
             <MenuItem value="Lead">Lead</MenuItem>
             <MenuItem value="Prospect">Prospect</MenuItem>
             <MenuItem value="Opportunity">Opportunity</MenuItem>
-            <MenuItem value="Customer Won">Customer Won</MenuItem>
-            <MenuItem value="Customer Lost">Customer Lost</MenuItem>
+            {/* <MenuItem value="Customer Won">Customer Won</MenuItem>
+            <MenuItem value="Customer Lost">Customer Lost</MenuItem> */}
           </Select>
         </FormControl>
         <TextField

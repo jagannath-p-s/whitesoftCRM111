@@ -11,20 +11,16 @@ import {
   CardActions,
   Chip,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { supabase } from '../supabaseClient';
-import AddTaskDialog from './AddTaskDialog';
 import EditEnquiryDialog from './EditEnquiryDialog';
 
 const InfoCard = ({ data, type, onEdit }) => {
   const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [error, setError] = useState(null);
-  const [tasks, setTasks] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [selectedProducts, setSelectedProducts] = useState({});
   const [products, setProducts] = useState([]);
@@ -35,43 +31,10 @@ const InfoCard = ({ data, type, onEdit }) => {
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
-    if (type === 'task' || type === 'enquiry') {
-      fetchUserTasks(data.assigned_to);
-    }
     if (type === 'enquiry') {
       fetchProducts();
     }
-    const taskSubscription = supabase
-      .channel('public:tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${data.assigned_to}` }, (payload) => {
-        fetchUserTasks(data.assigned_to);
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(taskSubscription);
-    };
-  }, [type, data.assigned_to]);
-
-  const fetchUserTasks = async (userId) => {
-    try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('assigned_to', userId)
-        .not('completion_status', 'eq', 'completed');
-
-      if (error) throw error;
-      setTasks(data);
-    } catch (error) {
-      console.error('Error fetching user tasks:', error);
-      setSnackbar({
-        open: true,
-        message: 'Failed to fetch tasks. Please try again later.',
-        severity: 'error'
-      });
-      setTasks([]);
-    }
-  };
+  }, [type, productSearchTerm, page]);
 
   const fetchProducts = async () => {
     try {
@@ -103,8 +66,6 @@ const InfoCard = ({ data, type, onEdit }) => {
   };
 
   const handleEditClose = () => setEditOpen(false);
-  const handleAddClick = () => setAddTaskOpen(true);
-  const handleAddTaskClose = () => setAddTaskOpen(false);
 
   const handleSave = async (updatedEnquiry) => {
     try {
@@ -115,10 +76,19 @@ const InfoCard = ({ data, type, onEdit }) => {
       if (error) throw error;
       setEditOpen(false);
       onEdit(updatedEnquiry);
-      fetchUserTasks(data.assigned_to);
+      setSnackbar({
+        open: true,
+        message: 'Enquiry updated successfully',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Error updating enquiry:', error);
       setError('Failed to update enquiry. Please try again later.');
+      setSnackbar({
+        open: true,
+        message: 'Failed to update enquiry',
+        severity: 'error'
+      });
     }
   };
 
@@ -194,40 +164,18 @@ const InfoCard = ({ data, type, onEdit }) => {
             )}
           </>
         );
-      case 'task':
-        return (
-          <>
-            <Typography variant="h6" component="div">{data.task_name}</Typography>
-            <Typography variant="body2">Submission Date: {new Date(data.submission_date).toLocaleDateString()}</Typography>
-            <Typography variant="body2">Assigned To: {data.assigned_to}</Typography>
-            {expanded && (
-              <>
-                <Typography variant="body2">Task Message: {data.task_message}</Typography>
-                <Typography variant="body2">Completion Status: {data.completion_status}</Typography>
-                <Typography variant="body2">Type: {data.type}</Typography>
-              </>
-            )}
-          </>
-        );
       default:
         return null;
     }
   };
 
   return (
-    <Card sx={{ minHeight: '200px', height: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <Card sx={{ minHeight: '200px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flexGrow: 1, overflow: 'hidden' }}>
         {error && <Typography color="error">{error}</Typography>}
         {renderCardContent()}
       </CardContent>
       <CardActions sx={{ justifyContent: 'flex-end' }}>
-        {/* {type === 'task' && (
-          <Tooltip title="Add Task">
-            <IconButton onClick={handleAddClick}>
-              <AddIcon />
-            </IconButton>
-          </Tooltip>
-        )} */}
         {type === 'enquiry' && (
           <Tooltip title="Edit">
             <IconButton onClick={handleEditClick}>
@@ -278,13 +226,6 @@ const InfoCard = ({ data, type, onEdit }) => {
         ITEMS_PER_PAGE={ITEMS_PER_PAGE}
         totalProducts={totalProducts}
         currentUserId={data.assigned_to}
-      />
-
-      <AddTaskDialog
-        open={addTaskOpen}
-        handleClose={handleAddTaskClose}
-        enquiryId={data.id}
-        assignedBy={data.assigned_to}
       />
 
       <Snackbar

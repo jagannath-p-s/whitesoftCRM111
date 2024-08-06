@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
-import AddTaskDialog from './AddTaskDialog';
+import InfoCard from './InfoCard';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   height: '100%',
@@ -47,26 +47,23 @@ const SearchComponent = ({ searchTerm }) => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      // Fetch enquiries
-      const { data: enquiryData, error: enquiryError, count: enquiryCount } = await supabase
-        .from('enquiries')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
-
-      // Fetch service enquiries
-      const { data: serviceEnquiryData, error: serviceEnquiryError, count: serviceEnquiryCount } = await supabase
-        .from('service_enquiries')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
-
-      // Fetch tasks
-      const { data: taskData, error: taskError, count: taskCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact' })
-        .order('submission_date', { ascending: false })
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+      const [{ data: enquiryData, error: enquiryError, count: enquiryCount }, { data: serviceEnquiryData, error: serviceEnquiryError, count: serviceEnquiryCount }, { data: taskData, error: taskError, count: taskCount }] = await Promise.all([
+        supabase
+          .from('enquiries')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1),
+        supabase
+          .from('service_enquiries')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1),
+        supabase
+          .from('tasks')
+          .select('*', { count: 'exact' })
+          .order('submission_date', { ascending: false })
+          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1),
+      ]);
 
       if (enquiryError || serviceEnquiryError || taskError) {
         throw new Error('Error fetching data');
@@ -118,16 +115,6 @@ const SearchComponent = ({ searchTerm }) => {
     setPage(value);
   };
 
-  const parseProducts = (products) => {
-    if (!products) return {};
-    try {
-      return JSON.parse(products.replace(/""/g, '"'));
-    } catch (error) {
-      console.error('Error parsing products:', error);
-      return {};
-    }
-  };
-
   return (
     <Box sx={{ width: '100%', maxWidth: 1200, margin: 'auto', padding: 2 }}>
       <Typography variant="h4" gutterBottom>
@@ -139,69 +126,21 @@ const SearchComponent = ({ searchTerm }) => {
       ) : (
         <>
           <Grid container spacing={3}>
-            {filteredEnquiries.map((enquiry) => {
-              const products = parseProducts(enquiry.products);
-              return (
-                <Grid item xs={12} sm={6} md={4} key={enquiry.id}>
-                  <StyledCard>
-                    <StyledCardContent>
-                      <Typography variant="h6" gutterBottom>{enquiry.name}</Typography>
-                      <Typography variant="body2">Contact: {enquiry.mobilenumber1}</Typography>
-                      {enquiry.mobilenumber2 && (
-                        <Typography variant="body2">Alternate: {enquiry.mobilenumber2}</Typography>
-                      )}
-                      <Typography variant="body2">Email: {enquiry.mailid}</Typography>
-                      <Box mt={1}>
-                        <Chip label={enquiry.stage} color="primary" size="small" />
-                        <Chip label={enquiry.priority} color="secondary" size="small" sx={{ ml: 1 }} />
-                      </Box>
-                      <Typography variant="body2" mt={1}>
-                        Date: {new Date(enquiry.created_at).toLocaleString()}
-                      </Typography>
-                      <Typography variant="body2" noWrap>Remarks: {enquiry.remarks}</Typography>
-                      {Object.values(products).length > 0 && (
-                        <Box mt={2}>
-                          <Typography variant="body2">Products:</Typography>
-                          {Object.values(products).map((product) => (
-                            <Chip
-                              key={product.product_id}
-                              label={`${product.product_name} (${product.quantity})`}
-                              size="small"
-                              sx={{ mr: 1, mt: 1 }}
-                            />
-                          ))}
-                        </Box>
-                      )}
-                    </StyledCardContent>
-                  </StyledCard>
-                </Grid>
-              );
-            })}
+            {filteredEnquiries.map((enquiry) => (
+              <Grid item xs={12} sm={6} md={4} key={enquiry.id}>
+                <InfoCard data={enquiry} type="enquiry" onEdit={() => fetchAllData()} />
+              </Grid>
+            ))}
 
             {filteredServiceEnquiries.map((serviceEnquiry) => (
               <Grid item xs={12} sm={6} md={4} key={serviceEnquiry.id}>
-                <StyledCard>
-                  <StyledCardContent>
-                    <Typography variant="h6" gutterBottom>{serviceEnquiry.customer_name}</Typography>
-                    <Typography variant="body2">Job Card No: {serviceEnquiry.job_card_no}</Typography>
-                    <Typography variant="body2">Contact: {serviceEnquiry.customer_mobile}</Typography>
-                    <Typography variant="body2">Date: {new Date(serviceEnquiry.date).toLocaleString()}</Typography>
-                    <Typography variant="body2">Status: {serviceEnquiry.status}</Typography>
-                  </StyledCardContent>
-                </StyledCard>
+                <InfoCard data={serviceEnquiry} type="serviceEnquiry" onEdit={() => fetchAllData()} />
               </Grid>
             ))}
 
             {filteredTasks.map((task) => (
               <Grid item xs={12} sm={6} md={4} key={task.id}>
-                <StyledCard>
-                  <StyledCardContent>
-                    <Typography variant="h6" gutterBottom>{task.task_name}</Typography>
-                    <Typography variant="body2">Message: {task.task_message}</Typography>
-                    <Typography variant="body2">Date: {new Date(task.submission_date).toLocaleString()}</Typography>
-                    <Typography variant="body2">Status: {task.completion_status}</Typography>
-                  </StyledCardContent>
-                </StyledCard>
+                <InfoCard data={task} type="task" onEdit={() => fetchAllData()} />
               </Grid>
             ))}
           </Grid>
