@@ -339,7 +339,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
               )}
             </Box>
 
-            <StyledTypography variant="h6">Complaints</StyledTypography>
+            <StyledTypography variant="h6">Machine type & Complaints</StyledTypography>
             {formData.complaints.map((complaint, index) => (
               <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TextField

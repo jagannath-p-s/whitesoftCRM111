@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Button,
   Typography,
   Box,
   Tooltip,
   Snackbar,
   Alert,
+  IconButton,
+  Card,
+  CardContent,
+  CardActions,
   Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { supabase } from '../supabaseClient';
 import AddTaskDialog from './AddTaskDialog';
 import EditEnquiryDialog from './EditEnquiryDialog';
 
 const InfoCard = ({ data, type, onEdit }) => {
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
   const [error, setError] = useState(null);
@@ -34,11 +34,8 @@ const InfoCard = ({ data, type, onEdit }) => {
 
   const ITEMS_PER_PAGE = 10;
 
-  const userInitial = data?.username ? data.username.charAt(0).toUpperCase() : 'J';
-  const username = data?.username ? data.username : 'Unknown User';
-
   useEffect(() => {
-    if (type === 'task') {
+    if (type === 'task' || type === 'enquiry') {
       fetchUserTasks(data.assigned_to);
     }
     if (type === 'enquiry') {
@@ -53,7 +50,7 @@ const InfoCard = ({ data, type, onEdit }) => {
     return () => {
       supabase.removeChannel(taskSubscription);
     };
-  }, []);
+  }, [type, data.assigned_to]);
 
   const fetchUserTasks = async (userId) => {
     try {
@@ -96,13 +93,8 @@ const InfoCard = ({ data, type, onEdit }) => {
     }
   };
 
-  const handleInitialClick = async () => {
-    await fetchUserTasks(data.assigned_to);
-    setOpen(true);
-  };
-
-  const handleClose = () => {
-    setOpen(false);
+  const handleExpandClick = () => {
+    setExpanded(!expanded);
   };
 
   const handleEditClick = () => {
@@ -122,6 +114,7 @@ const InfoCard = ({ data, type, onEdit }) => {
         .eq('id', data.id);
       if (error) throw error;
       setEditOpen(false);
+      onEdit(updatedEnquiry);
       fetchUserTasks(data.assigned_to);
     } catch (error) {
       console.error('Error updating enquiry:', error);
@@ -144,119 +137,110 @@ const InfoCard = ({ data, type, onEdit }) => {
         return {};
       }
     }
-    return products; // If it's already an object, return as is
+    return products;
   };
 
-  const productsData = parseProducts(data?.products);
+  const renderCardContent = () => {
+    const productsData = parseProducts(data?.products);
 
-  if (!data) {
-    return <div>Error: Data is missing.</div>;
-  }
+    switch (type) {
+      case 'enquiry':
+        return (
+          <>
+            <Typography variant="h6" component="div">{data.name}</Typography>
+            <Typography variant="body2">Date: {new Date(data.created_at).toLocaleDateString()}</Typography>
+            <Typography variant="body2">Contact: {data.mobilenumber1}</Typography>
+            {expanded && (
+              <>
+                <Typography variant="body2">Address: {data.address}</Typography>
+                <Typography variant="body2">Location: {data.location}</Typography>
+                <Typography variant="body2">Stage: {data.stage}</Typography>
+                <Typography variant="body2">Email: {data.mailid}</Typography>
+                <Typography variant="body2">Lead Source: {data.leadsource}</Typography>
+                <Typography variant="body2">Assigned To: {data.assignedto}</Typography>
+                <Typography variant="body2">Remarks: {data.remarks}</Typography>
+                <Typography variant="body2">Priority: {data.priority}</Typography>
+                <Typography variant="body2">Invoiced: {data.invoiced ? 'Yes' : 'No'}</Typography>
+                <Typography variant="body2">Collected: {data.collected ? 'Yes' : 'No'}</Typography>
+                <Typography variant="body2">Salesflow Code: {data.salesflow_code}</Typography>
+                {Object.values(productsData).length > 0 && (
+                  <Box mt={2}>
+                    <Typography variant="body2">Products:</Typography>
+                    {Object.values(productsData).map((product, index) => (
+                      <Chip 
+                        key={index}
+                        label={`${product.product_name} (${product.quantity})`}
+                        size="small"
+                        sx={{ mr: 1, mt: 1 }}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </>
+            )}
+          </>
+        );
+      case 'serviceEnquiry':
+        return (
+          <>
+            <Typography variant="h6" component="div">{data.customer_name}</Typography>
+            <Typography variant="body2">Date: {new Date(data.date).toLocaleDateString()}</Typography>
+            <Typography variant="body2">Job Card No: {data.job_card_no}</Typography>
+            {expanded && (
+              <>
+                <Typography variant="body2">Customer Mobile: {data.customer_mobile}</Typography>
+                <Typography variant="body2">Service Details: {data.service_details}</Typography>
+              </>
+            )}
+          </>
+        );
+      case 'task':
+        return (
+          <>
+            <Typography variant="h6" component="div">{data.task_name}</Typography>
+            <Typography variant="body2">Submission Date: {new Date(data.submission_date).toLocaleDateString()}</Typography>
+            <Typography variant="body2">Assigned To: {data.assigned_to}</Typography>
+            {expanded && (
+              <>
+                <Typography variant="body2">Task Message: {data.task_message}</Typography>
+                <Typography variant="body2">Completion Status: {data.completion_status}</Typography>
+                <Typography variant="body2">Type: {data.type}</Typography>
+              </>
+            )}
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="mb-4 p-4 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col justify-between">
-      {error && <div className="text-red-500 mb-2">{error}</div>}
-      <div>
-        {type === 'enquiry' && (
-          <>
-            <div className={`text-sm font-bold mb-2`}>{data.name}</div>
-            <p className="text-sm mb-1">Contact No: {data.mobilenumber1}</p>
-            {data.mobilenumber2 && <p className="text-sm mb-1">Contact No 2: {data.mobilenumber2}</p>}
-            <p className="text-sm mb-1">Address: {data.address}</p>
-            <p className="text-sm mb-1">Location: {data.location}</p>
-            <p className="text-sm mb-1">Stage: {data.stage}</p>
-            <p className="text-sm mb-1">Email: {data.mailid}</p>
-            <p className="text-sm mb-1">Lead Source: {data.leadsource}</p>
-            <p className="text-sm mb-1">Assigned To: {username}</p>
-            <p className="text-sm mb-1">Remarks: {data.remarks}</p>
-            <p className="text-sm mb-1">Priority: {data.priority}</p>
-            <p className="text-sm mb-1">Invoiced: {data.invoiced ? 'Yes' : 'No'}</p>
-            <p className="text-sm mb-1">Collected: {data.collected ? 'Yes' : 'No'}</p>
-            <p className="text-sm mb-1">Date Created: {new Date(data.created_at).toLocaleDateString()}</p>
-            <p className="text-sm mb-1">Salesflow Code: {data.salesflow_code}</p>
-            {Object.values(productsData).length > 0 && (
-              <Box mt={2}>
-                <Typography variant="body2">Products:</Typography>
-                {Object.values(productsData).map((product, index) => (
-                  <Chip 
-                    key={index}
-                    label={`${product.product_name} (${product.quantity})`}
-                    size="small"
-                    sx={{ mr: 1, mt: 1 }}
-                  />
-                ))}
-              </Box>
-            )}
-          </>
-        )}
-        {type === 'task' && (
-          <>
-            <p className="text-sm mb-1">Task Name: {data.task_name}</p>
-            <p className="text-sm mb-1">Task Message: {data.task_message}</p>
-            <p className="text-sm mb-1">Completion Status: {data.completion_status}</p>
-            <p className="text-sm mb-1">Type: {data.type}</p>
-          </>
-        )}
-        {type === 'serviceEnquiry' && (
-          <>
-            <p className="text-sm mb-1">Customer Name: {data.customer_name}</p>
-            <p className="text-sm mb-1">Customer Mobile: {data.customer_mobile}</p>
-            <p className="text-sm mb-1">Job Card No: {data.job_card_no}</p>
-            <p className="text-sm mb-1">Service Details: {data.service_details}</p>
-            <p className="text-sm mb-1">Date: {new Date(data.date).toLocaleDateString()}</p>
-          </>
-        )}
-      </div>
-      <div className="flex justify-end items-center space-x-2 mt-2">
-        {type === 'task' && (
+    <Card sx={{ minHeight: '200px', height: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flexGrow: 1, overflow: 'hidden' }}>
+        {error && <Typography color="error">{error}</Typography>}
+        {renderCardContent()}
+      </CardContent>
+      <CardActions sx={{ justifyContent: 'flex-end' }}>
+        {/* {type === 'task' && (
           <Tooltip title="Add Task">
-            <button className="p-1 rounded-full hover:bg-gray-200" onClick={handleAddClick}>
-              <AddIcon fontSize="small" />
-            </button>
+            <IconButton onClick={handleAddClick}>
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
+        )} */}
+        {type === 'enquiry' && (
+          <Tooltip title="Edit">
+            <IconButton onClick={handleEditClick}>
+              <EditIcon />
+            </IconButton>
           </Tooltip>
         )}
-        <Tooltip title="Edit">
-          <button className="p-1 rounded-full hover:bg-gray-200" onClick={handleEditClick}>
-            <EditIcon fontSize="small" />
-          </button>
+        <Tooltip title={expanded ? "Show Less" : "Show More"}>
+          <IconButton onClick={handleExpandClick}>
+            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
         </Tooltip>
-        {type === 'task' && (
-          <Tooltip title="Assigned To">
-            <div 
-              className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center cursor-pointer"
-              onClick={handleInitialClick}
-            >
-              {userInitial}
-            </div>
-          </Tooltip>
-        )}
-      </div>
-
-      {type === 'task' && (
-        <Dialog open={open} onClose={handleClose}>
-          <DialogTitle>Assigned Tasks</DialogTitle>
-          <DialogContent>
-            {tasks.length > 0 ? (
-              tasks.map((task) => (
-                <Box key={task.id} mb={2}>
-                  <Typography variant="body1"><strong>Task Name:</strong> {task.task_name}</Typography>
-                  <Typography variant="body2"><strong>Task Message:</strong> {task.task_message}</Typography>
-                  <Typography variant="body2"><strong>Completion Status:</strong> {task.completion_status}</Typography>
-                </Box>
-              ))
-            ) : (
-              <DialogContentText>
-                No tasks assigned currently. Assigned to: {username}
-              </DialogContentText>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleClose} color="primary">
-              Close
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
+      </CardActions>
 
       <EditEnquiryDialog
         dialogOpen={editOpen}
@@ -264,7 +248,7 @@ const InfoCard = ({ data, type, onEdit }) => {
         handleDialogClose={handleEditClose}
         handleFormSubmit={handleSave}
         users={[]} // Replace with actual users data if available
-        products={products} // Pass fetched products if available
+        products={products}
         selectedProducts={selectedProducts}
         handleProductToggle={(product) => {
           setSelectedProducts((prev) => {
@@ -313,7 +297,7 @@ const InfoCard = ({ data, type, onEdit }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </div>
+    </Card>
   );
 };
 

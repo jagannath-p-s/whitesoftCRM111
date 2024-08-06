@@ -300,7 +300,7 @@ const Services = () => {
           <Box className="flex items-center space-x-4">
             <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
             <h1 className="text-xl font-semibold ml-2">Service</h1>
-            <FilterSelect
+            {/* <FilterSelect
               label="Date Range"
               value={dateFilter}
               handleChange={handleDateFilterChange}
@@ -310,7 +310,7 @@ const Services = () => {
               endDate={endDate}
               handleStartDateChange={setStartDate}
               handleEndDateChange={setEndDate}
-            />
+            /> */}
           </Box>
           <Box className="flex items-center space-x-4">
             <TextField

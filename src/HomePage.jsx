@@ -234,11 +234,11 @@ const HomePage = () => {
                 <SearchBar onSearch={handleSearchClick} currentUserId={user.id} />
               </div>
               <div className="flex items-center space-x-4">
-                <Tooltip title="Notifications">
+                {/* <Tooltip title="Notifications">
                   <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
                     <NotificationsNoneIcon />
                   </button>
-                </Tooltip>
+                </Tooltip> */}
                 <Menu
                   anchorEl={addMenuAnchorEl}
                   open={Boolean(addMenuAnchorEl)}
