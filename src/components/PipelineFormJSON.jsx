@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import {
   TextField,
@@ -13,9 +13,6 @@ import {
   Step,
   StepLabel,
   CircularProgress,
-  Card,
-  CardContent,
-  CardActions,
   Snackbar,
   Alert,
   Dialog,
@@ -25,7 +22,22 @@ import {
   Checkbox,
   FormControlLabel,
   Grid,
+  IconButton,
+  Paper,
 } from '@mui/material';
+import { Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon } from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
+  marginBottom: theme.spacing(2),
+  backgroundColor: theme.palette.background.default,
+  minHeight: '120px',
+}));
+
+const StyledFormControl = styled(FormControl)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+}));
 
 const PipelineFormJSON = ({ enquiryId }) => {
   const [pipelines, setPipelines] = useState([]);
@@ -35,10 +47,11 @@ const PipelineFormJSON = ({ enquiryId }) => {
   const [fields, setFields] = useState([]);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
+  const [editingFields, setEditingFields] = useState({});
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [filePreviewDialog, setFilePreviewDialog] = useState({ open: false, url: '', type: '' });
   const [activeStep, setActiveStep] = useState(0);
+  const fieldRefs = useRef({});
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
@@ -122,6 +135,7 @@ const PipelineFormJSON = ({ enquiryId }) => {
 
       if (error) throw error;
       setFields(data);
+      setEditingFields({});
     } catch (error) {
       showSnackbar('Failed to fetch fields', 'error');
       console.error('Error fetching fields:', error);
@@ -161,7 +175,22 @@ const PipelineFormJSON = ({ enquiryId }) => {
     setFormData({});
     setCurrentStage(null);
     setActiveStep(0);
-    await fetchStages(pipelineId);
+
+    // Save the selected pipeline to the database
+    try {
+      const { error } = await supabase
+        .from('enquiries')
+        .update({ pipeline_id: pipelineId })
+        .eq('id', enquiryId);
+
+      if (error) throw error;
+
+      showSnackbar('Pipeline selected successfully', 'success');
+      await fetchStages(pipelineId);
+    } catch (error) {
+      showSnackbar('Failed to save selected pipeline', 'error');
+      console.error('Error saving selected pipeline:', error);
+    }
   };
 
   const handleStageChange = async (stageId, index) => {
@@ -247,25 +276,60 @@ const PipelineFormJSON = ({ enquiryId }) => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!selectedPipeline) {
-      showSnackbar('Please select a pipeline before saving', 'error');
-      return;
-    }
+  const handleEditField = (fieldId) => {
+    setEditingFields((prev) => ({ ...prev, [fieldId]: true }));
+    setTimeout(() => {
+      fieldRefs.current[fieldId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+  };
 
-    if (!currentStage) {
-      showSnackbar('Please select a stage before saving', 'error');
+  const handleSaveField = async (fieldId) => {
+    try {
+      const { error } = await supabase
+        .from('pipeline_data_json')
+        .upsert({
+          enquiry_id: enquiryId,
+          pipeline_id: selectedPipeline,
+          stage_id: currentStage,
+          data: { ...formData[currentStage], [fieldId]: formData[currentStage]?.[fieldId] },
+        }, { onConflict: ['enquiry_id', 'pipeline_id', 'stage_id'] });
+
+      if (error) throw error;
+
+      setEditingFields((prev) => ({ ...prev, [fieldId]: false }));
+      showSnackbar('Field updated successfully', 'success');
+    } catch (error) {
+      showSnackbar(`Failed to save field: ${error.message}`, 'error');
+      console.error('Error saving field:', error);
+    }
+  };
+
+  const handleCancelEdit = (fieldId) => {
+    setEditingFields((prev) => ({ ...prev, [fieldId]: false }));
+    // Revert changes
+    setFormData((prevData) => ({
+      ...prevData,
+      [currentStage]: {
+        ...prevData[currentStage],
+        [fieldId]: prevData[currentStage]?.[fieldId] || '',
+      },
+    }));
+  };
+
+  const handleSaveStage = async () => {
+    if (!selectedPipeline || !currentStage) {
+      showSnackbar('Please select a pipeline and stage before saving', 'error');
       return;
     }
 
     try {
       const { error: saveDataError } = await supabase.from('pipeline_data_json').upsert(
-        Object.entries(formData).map(([stageId, data]) => ({
+        {
           enquiry_id: enquiryId,
           pipeline_id: selectedPipeline,
-          stage_id: parseInt(stageId),
-          data: data,
-        })),
+          stage_id: currentStage,
+          data: formData[currentStage] || {},
+        },
         { onConflict: ['enquiry_id', 'pipeline_id', 'stage_id'] }
       );
 
@@ -281,35 +345,68 @@ const PipelineFormJSON = ({ enquiryId }) => {
 
       if (updateEnquiryError) throw updateEnquiryError;
 
-      setIsEditing(false);
-      showSnackbar('Data and stage saved successfully', 'success');
+      showSnackbar('Stage data saved successfully', 'success');
     } catch (error) {
-      showSnackbar(`Failed to save data: ${error.message}`, 'error');
-      console.error('Error saving data:', error);
+      showSnackbar(`Failed to save stage data: ${error.message}`, 'error');
+      console.error('Error saving stage data:', error);
     }
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    fetchPipelineData(selectedPipeline);
   };
 
   const renderFieldValue = (field) => {
     const value = formData[currentStage]?.[field.field_id];
+    const isEditing = editingFields[field.field_id];
+
+    if (isEditing) {
+      switch (field.field_type) {
+        case 'textfield':
+          return (
+            <TextField
+              fullWidth
+              value={value || ''}
+              onChange={(e) => handleInputChange(field.field_id, e.target.value)}
+            />
+          );
+        case 'checkbox':
+          return (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={value || false}
+                  onChange={(e) => handleInputChange(field.field_id, e.target.checked)}
+                />
+              }
+              label="Yes"
+            />
+          );
+        case 'file':
+          return (
+            <input
+              type="file"
+              onChange={(e) => handleFileUpload(field.field_id, e.target.files[0])}
+            />
+          );
+        default:
+          return null;
+      }
+    }
 
     if (field.field_type === 'file' && value) {
       return (
-        <Box>
-          <Button variant="outlined" onClick={() => handleFileView(value)} sx={{ mr: 1 }}>
-            View File
-          </Button>
-          <Button variant="outlined" onClick={() => handleFileDownload(value)}>
-            Download File
-          </Button>
+        <Box display="flex" justifyContent="space-between" width="100%">
+          <Button
+        variant="outlined"
+        onClick={() => handleFileView(value)}
+        sx={{ width: '48%' }}
+      >
+        View File
+      </Button>
+      <Button
+        variant="outlined"
+        onClick={() => handleFileDownload(value)}
+        sx={{ width: '48%' }}
+      >
+        Download
+      </Button>
         </Box>
       );
     }
@@ -323,23 +420,50 @@ const PipelineFormJSON = ({ enquiryId }) => {
     return value || 'N/A';
   };
 
-  useEffect(() => {
-    const fieldContainer = document.getElementById('field-container');
-    if (fieldContainer) {
-      fieldContainer.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [fields]);
+  const renderField = (field) => {
+    const isEditing = editingFields[field.field_id];
+
+    return (
+      <Grid item xs={12} sm={6} md={4} key={field.field_id} ref={el => fieldRefs.current[field.field_id] = el}>
+        <StyledPaper elevation={3}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              {field.field_name}
+            </Typography>
+            <Box>
+              {isEditing ? (
+                <>
+                  <IconButton onClick={() => handleSaveField(field.field_id)} color="primary">
+                    <SaveIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleCancelEdit(field.field_id)} color="secondary">
+                    <CancelIcon />
+                  </IconButton>
+                </>
+              ) : (
+                <IconButton onClick={() => handleEditField(field.field_id)} color="primary">
+                  <EditIcon />
+                </IconButton>
+              )}
+            </Box>
+          </Box>
+          <Box minHeight="50px">
+            {renderFieldValue(field)}
+          </Box>
+        </StyledPaper>
+      </Grid>
+    );
+  };
 
   if (loading) return <CircularProgress />;
 
   return (
     <Box>
-      <FormControl fullWidth margin="normal">
+      <StyledFormControl fullWidth>
         <InputLabel>Pipeline</InputLabel>
         <Select
           value={selectedPipeline || ''}
           onChange={handlePipelineChange}
-          disabled={isEditing}
         >
           {pipelines.map((pipeline) => (
             <MenuItem key={pipeline.pipeline_id} value={pipeline.pipeline_id}>
@@ -347,93 +471,41 @@ const PipelineFormJSON = ({ enquiryId }) => {
             </MenuItem>
           ))}
         </Select>
-      </FormControl>
+      </StyledFormControl>
 
-      {selectedPipeline ? (
+      {selectedPipeline && (
         <>
           <Stepper activeStep={activeStep} alternativeLabel sx={{ mt: 4, mb: 4 }}>
             {stages.map((stage, index) => (
-              <Step key={stage.stage_id} onClick={() => handleStageChange(stage.stage_id, index)}>
-                <StepLabel>{stage.stage_name}</StepLabel>
+              <Step key={stage.stage_id} completed={index < activeStep}>
+                <StepLabel onClick={() => handleStageChange(stage.stage_id, index)} style={{ cursor: 'pointer' }}>
+                  {stage.stage_name}
+                </StepLabel>
               </Step>
             ))}
           </Stepper>
 
-          <Card>
-            <CardContent id="field-container">
-              <Grid container spacing={4}>
-                {fields.map((field) => (
-                  <Grid item xs={12} sm={6} key={field.field_id}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                      {field.field_name}
-                    </Typography>
-                    {isEditing ? (
-                      <FormControl fullWidth margin="normal">
-                        {field.field_type === 'textfield' && (
-                          <TextField
-                            value={formData[currentStage]?.[field.field_id] || ''}
-                            onChange={(e) => handleInputChange(field.field_id, e.target.value)}
-                          />
-                        )}
-                        {field.field_type === 'checkbox' && (
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={formData[currentStage]?.[field.field_id] || false}
-                                onChange={(e) => handleInputChange(field.field_id, e.target.checked)}
-                              />
-                            }
-                            label="Yes"
-                          />
-                        )}
-                        {field.field_type === 'file' && (
-                          <input
-                            type="file"
-                            onChange={(e) => handleFileUpload(field.field_id, e.target.files[0])}
-                          />
-                        )}
-                      </FormControl>
-                    ) : (
-                      <Typography>{renderFieldValue(field)}</Typography>
-                    )}
-                  </Grid>
-                ))}
-              </Grid>
-            </CardContent>
-            <CardActions>
-              {isEditing ? (
-                <>
-                  <Button variant="contained" color="primary" onClick={handleSubmit}>
-                    Save
-                  </Button>
-                  <Button variant="outlined" onClick={handleCancel}>
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                <Button variant="contained" color="primary" onClick={handleEdit}>
-                  Edit
-                </Button>
-              )}
-            </CardActions>
-          </Card>
-          <Box display="flex" justifyContent="flex-end" sx={{ mt: 2 }}>
-            <Button variant="contained" color="primary" onClick={handleSubmit}>
-              Save Stage Changes
+          <Grid container spacing={2}>
+            {fields.map(renderField)}
+          </Grid>
+
+          <Box mt={4} display="flex" justifyContent="flex-end">
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={handleSaveStage}
+            >
+              Save Stage
             </Button>
           </Box>
         </>
-      ) : (
-        <Typography variant="body1" sx={{ mt: 2 }}>
-          Please select a pipeline from the dropdown to view and edit stages.
-        </Typography>
       )}
 
       <Snackbar
         open={snackbar.open}
-        anchorOrigin={{ vertical: 'center', horizontal: 'center' }}
-        autoHideDuration={2000}
+        autoHideDuration={6000}
         onClose={closeSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={closeSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
@@ -457,7 +529,7 @@ const PipelineFormJSON = ({ enquiryId }) => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFilePreviewDialog({ open: false, url: '', type: '' })} color="primary">
+          <Button onClick={() => setFilePreviewDialog({ open: false, url: '', type: '' })} color="secondary">
             Close
           </Button>
         </DialogActions>

@@ -269,9 +269,7 @@ const Dash = () => {
   return (
     <Container maxWidth="lg">
       <Box sx={{ flexGrow: 1, mt: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Bill Dashboard
-        </Typography>
+       
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <Card>
