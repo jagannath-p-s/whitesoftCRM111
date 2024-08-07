@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, Button } from '@mui/material';
-import { ExpandMore, ExpandLess } from '@mui/icons-material';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+
+import { ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries }) => {
   const [expanded, setExpanded] = useState(false);
@@ -48,36 +50,62 @@ const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries 
   };
 
   return (
-    <Box className="bg-white shadow-md p-4 mb-4 border-t border-gray-200">
-      <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h6">Quick Report</Typography>
-        <Box display="flex" alignItems="center">
-          <Button variant="contained" color="primary" onClick={handleDownloadPDF} style={{ marginRight: '8px' }}>
-            Download Report
-          </Button>
-          <IconButton onClick={() => setExpanded(!expanded)}>
-            {expanded ? <ExpandLess /> : <ExpandMore />}
-          </IconButton>
-        </Box>
-      </Box>
+    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-800">Quick Report</h2>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleDownloadPDF}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Report
+            </button>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              {expanded ? (
+                <ChevronUp className="w-6 h-6 text-gray-600" />
+              ) : (
+                <ChevronDown className="w-6 h-6 text-gray-600" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+      
       {expanded && (
-        <Box mt={2}>
-          <Typography variant="subtitle1" gutterBottom>
-            Total Service Income: {totalIncome.toFixed(2)}
-          </Typography>
-          {Object.keys(technicianPerformance).map((technician) => (
-            <Box key={technician} mb={1}>
-              <Typography variant="subtitle1">
-                {technician}: {technicianPerformance[technician].total} enquiries
-              </Typography>
-              <Typography variant="body2" color="textSecondary">
-                {technicianPerformance[technician].completed} completed, {technicianPerformance[technician].ongoing} ongoing
-              </Typography>
-            </Box>
-          ))}
-        </Box>
+        <div className="p-4 space-y-4">
+          <Alert>
+            <AlertTitle>Total Service Income</AlertTitle>
+            <AlertDescription className="text-2xl font-bold">
+              ${totalIncome.toFixed(2)}
+            </AlertDescription>
+          </Alert>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(technicianPerformance).map(([technician, data]) => (
+              <div key={technician} className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold mb-2">{technician}</h3>
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-600">
+                    Total Enquiries: <span className="font-medium">{data.total}</span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Completed: <span className="font-medium text-green-600">{data.completed}</span>
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Ongoing: <span className="font-medium text-yellow-600">{data.ongoing}</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   );
 };
 
