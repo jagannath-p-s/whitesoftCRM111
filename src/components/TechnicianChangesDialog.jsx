@@ -29,11 +29,11 @@ const TechnicianChangesDialog = ({ open, onClose, enquiry }) => {
 
   const parseChanges = (change) => {
     try {
-      const parsed = JSON.parse(change.replace(/""/g, '"'));
-      const oldTechnicians = parsed.oldTechnicians || [];
-      const newTechnicians = parsed.newTechnicians || [];
+      const parsed = JSON.parse(change);
+      const { oldTechnicians, newTechnicians, changedAt } = parsed;
       const added = newTechnicians.filter(tech => !oldTechnicians.includes(tech));
       const removed = oldTechnicians.filter(tech => !newTechnicians.includes(tech));
+
       return (
         <div>
           {added.length > 0 && (
@@ -47,7 +47,7 @@ const TechnicianChangesDialog = ({ open, onClose, enquiry }) => {
             </Typography>
           )}
           <Typography variant="body2">
-            <strong>Changed At:</strong> {new Date(parsed.changedAt).toLocaleString()}
+            <strong>Changed At:</strong> {new Date(changedAt).toLocaleString()}
           </Typography>
         </div>
       );
