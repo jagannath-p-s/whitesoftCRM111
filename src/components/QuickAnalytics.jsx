@@ -27,7 +27,7 @@ const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries 
       enquiry.customer_name,
       enquiry.customer_mobile,
       enquiry.technician_name,
-      `₹${enquiry.total_amount?.toFixed(2) || 'N/A'}`,
+      `${enquiry.total_amount?.toFixed(2) || 'N/A'}`,
       enquiry.status,
       new Date(enquiry.expected_completion_date).toLocaleDateString(),
     ]);
@@ -63,7 +63,7 @@ const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries 
       {expanded && (
         <Box mt={2}>
           <Typography variant="subtitle1" gutterBottom>
-            Total Service Income: ₹{totalIncome.toFixed(2)}
+            Total Service Income: {totalIncome.toFixed(2)}
           </Typography>
           {Object.keys(technicianPerformance).map((technician) => (
             <Box key={technician} mb={1}>

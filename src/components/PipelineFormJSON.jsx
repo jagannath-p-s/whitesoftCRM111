@@ -35,6 +35,12 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   minHeight: '120px',
 }));
 
+const BlueCheckbox = styled(Checkbox)({
+  '&.Mui-checked': {
+    color: '#007BFF', // Your preferred shade of blue
+  },
+});
+
 const StyledFormControl = styled(FormControl)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
@@ -413,7 +419,7 @@ const PipelineFormJSON = ({ enquiryId }) => {
 
     if (field.field_type === 'checkbox') {
       return (
-        <Checkbox checked={Boolean(value)} disabled />
+        <BlueCheckbox checked={Boolean(value)} disabled />
       );
     }
 
