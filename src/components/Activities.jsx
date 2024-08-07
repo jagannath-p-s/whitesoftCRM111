@@ -15,6 +15,13 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import TaskCard from './TaskCard';
 import InnerTaskContactCard from './InnerTaskContactCard';
 import { supabase } from '../supabaseClient';
+import dayjs from 'dayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import FilterSelect from './FilterSelect'; // Assuming you have this component created
+
+const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Activities = ({ userId, userRole }) => {
   const initialExpandedColumns = ['New', 'Ongoing', 'Completed', 'Overdue'];
@@ -48,57 +55,49 @@ const Activities = ({ userId, userRole }) => {
   });
   const [contactOpen, setContactOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [dateFilter, setDateFilter] = useState('Last 30 Days');
+  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
+  const [endDate, setEndDate] = useState(dayjs());
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*, enquiries(*)');
-
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, username');
-
-      if (tasksError || usersError) {
-        console.error('Error fetching data:', tasksError || usersError);
-      } else {
-        const categorizedData = [
-          { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
-          { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
-          { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
-          { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
-        ];
-
-        tasks.forEach((task) => {
-          const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
-          if (category) {
-            category.tasks.push(task);
-          }
-        });
-
-        const usersMap = usersData.reduce((acc, user) => {
-          acc[user.id] = user;
-          return acc;
-        }, {});
-
-        setUsers(usersMap);
-        setColumns(categorizedData);
-      }
-    };
-
     fetchData();
+  }, []);
 
-    const taskSubscription = supabase
-      .channel('public:tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-        fetchData();
-      })
-      .subscribe();
+  const fetchData = async () => {
+    const { data: tasks, error: tasksError } = await supabase
+      .from('tasks')
+      .select('*, enquiries(*)');
 
-    return () => {
-      supabase.removeChannel(taskSubscription);
-    };
-  }, [userId, userRole]);
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, username');
+
+    if (tasksError || usersError) {
+      console.error('Error fetching data:', tasksError || usersError);
+    } else {
+      const categorizedData = [
+        { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
+        { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
+        { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
+        { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
+      ];
+
+      tasks.forEach((task) => {
+        const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
+        if (category) {
+          category.tasks.push(task);
+        }
+      });
+
+      const usersMap = usersData.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {});
+
+      setUsers(usersMap);
+      setColumns(categorizedData);
+    }
+  };
 
   const toggleExpand = (column) => {
     if (expanded.includes(column)) {
@@ -164,6 +163,18 @@ const Activities = ({ userId, userRole }) => {
     setContactOpen(false);
   };
 
+  const handleDateFilterChange = (value) => {
+    setDateFilter(value);
+  };
+
+  const handleStartDateChange = (date) => {
+    setStartDate(date);
+  };
+
+  const handleEndDateChange = (date) => {
+    setEndDate(date);
+  };
+
   const getTextColorClass = (color) => {
     switch (color) {
       case 'blue':
@@ -181,6 +192,30 @@ const Activities = ({ userId, userRole }) => {
     }
   };
 
+  const filteredColumns = columns.map(column => {
+    let filteredTasks = column.tasks;
+
+    if (dateFilter === 'This Month') {
+      filteredTasks = filteredTasks.filter(task =>
+        dayjs(task.submission_date).isAfter(dayjs().startOf('month'))
+      );
+    } else if (dateFilter === 'Last 30 Days') {
+      filteredTasks = filteredTasks.filter(task =>
+        dayjs(task.submission_date).isAfter(dayjs().subtract(30, 'day'))
+      );
+    } else if (dateFilter === 'Last 60 Days') {
+      filteredTasks = filteredTasks.filter(task =>
+        dayjs(task.submission_date).isAfter(dayjs().subtract(60, 'day'))
+      );
+    } else if (dateFilter === 'Custom Date Range') {
+      filteredTasks = filteredTasks.filter(task =>
+        dayjs(task.submission_date).isAfter(startDate) && dayjs(task.submission_date).isBefore(endDate)
+      );
+    }
+
+    return { ...column, tasks: filteredTasks };
+  });
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
@@ -194,6 +229,17 @@ const Activities = ({ userId, userRole }) => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <FilterSelect
+                label="Date Range"
+                value={dateFilter}
+                handleChange={handleDateFilterChange}
+                options={dateOptions}
+                withDatePicker={dateFilter === 'Custom Date Range'}
+                startDate={startDate}
+                endDate={endDate}
+                handleStartDateChange={handleStartDateChange}
+                handleEndDateChange={handleEndDateChange}
+              />
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
@@ -233,7 +279,7 @@ const Activities = ({ userId, userRole }) => {
       {/* Content */}
       <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
         <DragDropContext onDragEnd={onDragEnd}>
-          {columns.map((column) => (
+          {filteredColumns.map((column) => (
             <Droppable key={column.name} droppableId={column.name}>
               {(provided) => (
                 <div

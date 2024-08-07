@@ -24,6 +24,7 @@ import {
   DialogActions,
   Checkbox,
   FormControlLabel,
+  Grid,
 } from '@mui/material';
 
 const PipelineFormJSON = ({ enquiryId }) => {
@@ -93,17 +94,11 @@ const PipelineFormJSON = ({ enquiryId }) => {
       setStages(data);
 
       if (data.length > 0) {
-        if (currentStageId) {
-          const stageIndex = data.findIndex(stage => stage.stage_id === currentStageId);
-          if (stageIndex !== -1) {
-            setCurrentStage(currentStageId);
-            setActiveStep(stageIndex);
-            await fetchFields(currentStageId);
-          } else {
-            setCurrentStage(data[0].stage_id);
-            setActiveStep(0);
-            await fetchFields(data[0].stage_id);
-          }
+        const stageIndex = data.findIndex(stage => stage.stage_id === currentStageId);
+        if (stageIndex !== -1) {
+          setCurrentStage(currentStageId);
+          setActiveStep(stageIndex);
+          await fetchFields(currentStageId);
         } else {
           setCurrentStage(data[0].stage_id);
           setActiveStep(0);
@@ -328,16 +323,19 @@ const PipelineFormJSON = ({ enquiryId }) => {
     return value || 'N/A';
   };
 
+  useEffect(() => {
+    const fieldContainer = document.getElementById('field-container');
+    if (fieldContainer) {
+      fieldContainer.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [fields]);
+
   if (loading) return <CircularProgress />;
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        Edit Contact
-      </Typography>
-
       <FormControl fullWidth margin="normal">
-        <InputLabel>Select Pipeline</InputLabel>
+        <InputLabel>Pipeline</InputLabel>
         <Select
           value={selectedPipeline || ''}
           onChange={handlePipelineChange}
@@ -362,43 +360,45 @@ const PipelineFormJSON = ({ enquiryId }) => {
           </Stepper>
 
           <Card>
-            <CardContent>
-              {fields.map((field) => (
-                <Box key={field.field_id} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                    {field.field_name}
-                  </Typography>
-                  {isEditing ? (
-                    <FormControl fullWidth margin="normal">
-                      {field.field_type === 'textfield' && (
-                        <TextField
-                          value={formData[currentStage]?.[field.field_id] || ''}
-                          onChange={(e) => handleInputChange(field.field_id, e.target.value)}
-                        />
-                      )}
-                      {field.field_type === 'checkbox' && (
-                        <FormControlLabel
-                          control={
-                            <Checkbox
-                              checked={formData[currentStage]?.[field.field_id] || false}
-                              onChange={(e) => handleInputChange(field.field_id, e.target.checked)}
-                            />
-                          }
-                          label="Yes"
-                        />
-                      )}
-                      {field.field_type === 'file' && (
-                        <input
-                          type="file"
-                          onChange={(e) => handleFileUpload(field.field_id, e.target.files[0])}
-                        />
-                      )}
-                    </FormControl>
-                  ) : (
-                    <Typography>{renderFieldValue(field)}</Typography>
-                  )}
-                </Box>
-              ))}
+            <CardContent id="field-container">
+              <Grid container spacing={4}>
+                {fields.map((field) => (
+                  <Grid item xs={12} sm={6} key={field.field_id}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      {field.field_name}
+                    </Typography>
+                    {isEditing ? (
+                      <FormControl fullWidth margin="normal">
+                        {field.field_type === 'textfield' && (
+                          <TextField
+                            value={formData[currentStage]?.[field.field_id] || ''}
+                            onChange={(e) => handleInputChange(field.field_id, e.target.value)}
+                          />
+                        )}
+                        {field.field_type === 'checkbox' && (
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={formData[currentStage]?.[field.field_id] || false}
+                                onChange={(e) => handleInputChange(field.field_id, e.target.checked)}
+                              />
+                            }
+                            label="Yes"
+                          />
+                        )}
+                        {field.field_type === 'file' && (
+                          <input
+                            type="file"
+                            onChange={(e) => handleFileUpload(field.field_id, e.target.files[0])}
+                          />
+                        )}
+                      </FormControl>
+                    ) : (
+                      <Typography>{renderFieldValue(field)}</Typography>
+                    )}
+                  </Grid>
+                ))}
+              </Grid>
             </CardContent>
             <CardActions>
               {isEditing ? (
@@ -429,19 +429,31 @@ const PipelineFormJSON = ({ enquiryId }) => {
         </Typography>
       )}
 
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={closeSnackbar}>
+      <Snackbar
+        open={snackbar.open}
+        anchorOrigin={{ vertical: 'center', horizontal: 'center' }}
+        autoHideDuration={2000}
+        onClose={closeSnackbar}
+      >
         <Alert onClose={closeSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
 
-      <Dialog open={filePreviewDialog.open} onClose={() => setFilePreviewDialog({ open: false, url: '', type: '' })} maxWidth="md" fullWidth>
+      <Dialog
+        open={filePreviewDialog.open}
+        onClose={() => setFilePreviewDialog({ open: false, url: '', type: '' })}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>File Preview</DialogTitle>
         <DialogContent>
           {filePreviewDialog.type.startsWith('image/') ? (
             <img src={filePreviewDialog.url} alt="File preview" style={{ width: '100%', height: 'auto' }} />
           ) : (
-            <Typography>This file type cannot be previewed. Please download the file to view its contents.</Typography>
+            <Typography>
+              This file type cannot be previewed. Please download the file to view its contents.
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>

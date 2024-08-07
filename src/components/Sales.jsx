@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Tooltip from '@mui/material/Tooltip';
 import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -18,7 +18,14 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import PrintBillDialog from './PrintBillDialog';
-import Dash from './Dash'; 
+import Dash from './Dash';
+import dayjs from 'dayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import FilterSelect from './FilterSelect'; // Assuming you have this component created
+
+const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Sales = () => {
   const initialExpandedColumns = ['Lead', 'Prospect', 'Opportunity', 'Customer-Won', 'Lost/Rejected'];
@@ -50,6 +57,9 @@ const Sales = () => {
   const [customerDetails, setCustomerDetails] = useState(null);
   const [dragResult, setDragResult] = useState(null);
   const [viewCompletedSales, setViewCompletedSales] = useState(false); // State for viewing completed sales
+  const [dateFilter, setDateFilter] = useState('Last 30 Days');
+  const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
+  const [endDate, setEndDate] = useState(dayjs());
 
   useEffect(() => {
     fetchData();
@@ -199,6 +209,42 @@ const Sales = () => {
     setVisibleFields({ ...visibleFields, [event.target.name]: event.target.checked });
   };
 
+  const handleDateFilterChange = (value) => {
+    setDateFilter(value);
+  };
+
+  const handleStartDateChange = (date) => {
+    setStartDate(date);
+  };
+
+  const handleEndDateChange = (date) => {
+    setEndDate(date);
+  };
+
+  const filteredColumns = columns.map(column => {
+    let filteredContacts = column.contacts;
+
+    if (dateFilter === 'This Month') {
+      filteredContacts = filteredContacts.filter(contact =>
+        dayjs(contact.date).isAfter(dayjs().startOf('month'))
+      );
+    } else if (dateFilter === 'Last 30 Days') {
+      filteredContacts = filteredContacts.filter(contact =>
+        dayjs(contact.date).isAfter(dayjs().subtract(30, 'day'))
+      );
+    } else if (dateFilter === 'Last 60 Days') {
+      filteredContacts = filteredContacts.filter(contact =>
+        dayjs(contact.date).isAfter(dayjs().subtract(60, 'day'))
+      );
+    } else if (dateFilter === 'Custom Date Range') {
+      filteredContacts = filteredContacts.filter(contact =>
+        dayjs(contact.date).isAfter(startDate) && dayjs(contact.date).isBefore(endDate)
+      );
+    }
+
+    return { ...column, contacts: filteredContacts };
+  });
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
@@ -212,6 +258,17 @@ const Sales = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <FilterSelect
+                label="Date Range"
+                value={dateFilter}
+                handleChange={handleDateFilterChange}
+                options={dateOptions}
+                withDatePicker={dateFilter === 'Custom Date Range'}
+                startDate={startDate}
+                endDate={endDate}
+                handleStartDateChange={handleStartDateChange}
+                handleEndDateChange={handleEndDateChange}
+              />
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
@@ -282,7 +339,7 @@ const Sales = () => {
         <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
           <DragDropContext onDragEnd={onDragEnd}>
             {view === 'cards' ? (
-              columns.map((column) => (
+              filteredColumns.map((column) => (
                 <Column
                   key={column.name}
                   column={column}
@@ -293,7 +350,7 @@ const Sales = () => {
                 />
               ))
             ) : (
-              <TableView columns={columns} users={users} visibleFields={visibleFields} />
+              <TableView columns={filteredColumns} users={users} visibleFields={visibleFields} />
             )}
           </DragDropContext>
         </div>

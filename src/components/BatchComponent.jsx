@@ -15,7 +15,13 @@ import {
   TableRow,
   Snackbar,
   Alert,
-  InputAdornment
+  InputAdornment,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +44,8 @@ const BatchComponent = () => {
   const [filter, setFilter] = useState('');
   const [customExpiryDate, setCustomExpiryDate] = useState(null);
   const [productSearch, setProductSearch] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState(null);
 
   useEffect(() => {
     fetchBatches();
@@ -144,6 +152,21 @@ const BatchComponent = () => {
     }
 
     try {
+      // Fetch the current stock for each product and update it
+      const updatedStocks = await Promise.all(batchesToAdd.map(async batch => {
+        const { data: productData, error: productError } = await supabase
+          .from('products')
+          .select('current_stock')
+          .eq('product_id', batch.productId)
+          .single();
+
+        if (productError) throw productError;
+
+        const newStock = productData.current_stock + parseInt(batch.currentStock, 10);
+        return { productId: batch.productId, newStock };
+      }));
+
+      // Insert the new batches
       const payloads = batchesToAdd.map(batch => {
         let expiryDate = null;
         if (batch.hasExpiryDate && batch.expiryDate) {
@@ -159,12 +182,21 @@ const BatchComponent = () => {
         };
       });
 
-      const { error } = await supabase.from('batches').insert(payloads);
+      const { error: batchError } = await supabase.from('batches').insert(payloads);
+      if (batchError) throw batchError;
 
-      if (error) throw error;
+      // Update the stock in the products table
+      await Promise.all(updatedStocks.map(async ({ productId, newStock }) => {
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ current_stock: newStock })
+          .eq('product_id', productId);
+        if (updateError) throw updateError;
+      }));
 
       showSnackbar('Batches saved successfully', 'success');
       fetchBatches(); // Refresh the batches after adding new ones
+      fetchProducts(); // Refresh the products to get updated stock
       handleCloseBatchDialog();
     } catch (error) {
       console.error('Error adding batches:', error.message);
@@ -172,14 +204,47 @@ const BatchComponent = () => {
     }
   };
 
-  const handleDeleteBatch = async (batch_id) => {
-    const { error } = await supabase.from('batches').delete().eq('batch_id', batch_id);
-    if (error) {
-      showSnackbar(`Error deleting batch: ${error.message}`, 'error');
-    } else {
+  const handleDeleteBatch = async () => {
+    const { batch_id, product_id, current_stock } = batchToDelete;
+    try {
+      // Fetch the current stock for the product
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .select('current_stock')
+        .eq('product_id', product_id)
+        .single();
+
+      if (productError) throw productError;
+
+      const newStock = productData.current_stock - current_stock;
+      if (newStock < 0) throw new Error('Stock cannot be negative');
+
+      // Delete the batch
+      const { error: batchError } = await supabase.from('batches').delete().eq('batch_id', batch_id);
+      if (batchError) throw batchError;
+
+      // Update the stock in the products table
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ current_stock: newStock })
+        .eq('product_id', product_id);
+      if (updateError) throw updateError;
+
       showSnackbar('Batch deleted successfully', 'success');
-      fetchBatches();
+      fetchBatches(); // Refresh the batches after deleting one
+      fetchProducts(); // Refresh the products to get updated stock
+    } catch (error) {
+      console.error('Error deleting batch:', error.message);
+      showSnackbar(`Error deleting batch: ${error.message}`, 'error');
+    } finally {
+      setDeleteDialogOpen(false);
+      setBatchToDelete(null);
     }
+  };
+
+  const confirmDeleteBatch = (batch) => {
+    setBatchToDelete(batch);
+    setDeleteDialogOpen(true);
   };
 
   const showSnackbar = (message, severity) => {
@@ -254,6 +319,7 @@ const BatchComponent = () => {
           <Table stickyHeader className="min-w-full">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>No.</TableCell> {/* New column for numbering */}
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Batch Code</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Expiry Date</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>
@@ -263,8 +329,9 @@ const BatchComponent = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filterBatches(batches).map((batch) => (
+              {filterBatches(batches).map((batch, index) => (
                 <TableRow key={batch.batch_id} className="bg-white border-b">
+                  <TableCell>{index + 1}</TableCell> {/* Displaying the index */}
                   <TableCell>{batch.batch_code}</TableCell>
                   <TableCell>{batch.expiry_date}</TableCell>
                   <TableCell>{batch.current_stock}</TableCell>
@@ -272,7 +339,7 @@ const BatchComponent = () => {
                   <TableCell>{products.find((product) => product.product_id === batch.product_id)?.item_alias}</TableCell>
                   <TableCell>
                     <Tooltip title="Delete">
-                      <IconButton onClick={() => handleDeleteBatch(batch.batch_id)}>
+                      <IconButton onClick={() => confirmDeleteBatch(batch)}>
                         <DeleteIcon />
                       </IconButton>
                     </Tooltip>
@@ -290,6 +357,28 @@ const BatchComponent = () => {
         onSave={handleSaveBatch}
         products={products}
       />
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Confirm Delete"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            Are you sure you want to delete this batch? This action will also reduce the product stock accordingly.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteBatch} color="secondary" autoFocus>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

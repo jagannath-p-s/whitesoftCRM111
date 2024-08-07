@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, IconButton, TextField, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Menu, MenuItem, Tooltip, Snackbar, Alert
+  Box, IconButton, TextField, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Menu, MenuItem, Tooltip, Snackbar, Alert, Pagination
 } from '@mui/material';
 import {
   Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Build as BuildIcon, ArrowDropDown as ArrowDropDownIcon
@@ -14,6 +14,8 @@ import dayjs from 'dayjs';
 import { supabase } from '../supabaseClient';
 import ServiceEnquiryDialog from './ServiceEnquiryDialog';
 import TechnicianDialog from './TechnicianDialog';
+import TechnicianChangesDialog from './TechnicianChangesDialog';
+import QuickAnalytics from './QuickAnalytics';
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontWeight: 'bold',
@@ -97,6 +99,8 @@ const Services = () => {
   const [filteredEnquiries, setFilteredEnquiries] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [technicianDialogOpen, setTechnicianDialogOpen] = useState(false);
+  const [technicianChangesDialogOpen, setTechnicianChangesDialogOpen] = useState(false);
+  const [selectedEnquiry, setSelectedEnquiry] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [technicianFilter, setTechnicianFilter] = useState('See All');
   const [statusFilter, setStatusFilter] = useState('See All');
@@ -110,6 +114,8 @@ const Services = () => {
   const [techniciansOptions, setTechniciansOptions] = useState([]);
   const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState(null);
   const [statusMenuEnquiry, setStatusMenuEnquiry] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 50;
 
   const fetchEnquiries = useCallback(async () => {
     setLoading(true);
@@ -270,19 +276,101 @@ const Services = () => {
   };
 
   const handleStatusChange = async (status) => {
-    try {
-      const { error } = await supabase
-        .from('service_enquiries')
-        .update({ status })
-        .eq('id', statusMenuEnquiry.id);
-      if (error) throw error;
-      fetchEnquiries();
-      showSnackbar('Status updated successfully', 'success');
-      handleStatusMenuClose();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      showSnackbar('Error updating status', 'error');
-      handleStatusMenuClose();
+    if (status === 'completed') {
+      if (!window.confirm('Are you sure you want to set the status to completed? This action cannot be undone and will adjust the stock accordingly.')) {
+        handleStatusMenuClose();
+        return;
+      }
+
+      // Adjust the stock
+      const parts = statusMenuEnquiry.service_enquiry_parts;
+      try {
+        for (const part of parts) {
+          let remainingQty = part.qty;
+
+          while (remainingQty > 0) {
+            const { data: batchData, error: batchError } = await supabase
+              .from('batches')
+              .select('*')
+              .eq('product_id', part.part_id)
+              .gt('current_stock', 0)
+              .order('expiry_date', { ascending: true })
+              .limit(1)
+              .single();
+
+            if (batchError) throw batchError;
+
+            if (!batchData) throw new Error(`Not enough stock for part ${part.part_name}`);
+
+            const batchUpdate = {
+              current_stock: batchData.current_stock - remainingQty,
+            };
+
+            if (batchUpdate.current_stock < 0) {
+              remainingQty = -batchUpdate.current_stock;
+              batchUpdate.current_stock = 0;
+            } else {
+              remainingQty = 0;
+            }
+
+            const { error: updateError } = await supabase
+              .from('batches')
+              .update(batchUpdate)
+              .eq('batch_id', batchData.batch_id);
+
+            if (updateError) throw updateError;
+
+            const { data: productData, error: productError } = await supabase
+              .from('products')
+              .select('current_stock')
+              .eq('product_id', part.part_id)
+              .single();
+
+            if (productError) throw productError;
+
+            const productUpdate = {
+              current_stock: productData.current_stock - part.qty,
+            };
+
+            const { error: productUpdateError } = await supabase
+              .from('products')
+              .update(productUpdate)
+              .eq('product_id', part.part_id);
+
+            if (productUpdateError) throw productUpdateError;
+          }
+        }
+
+        const { error: statusUpdateError } = await supabase
+          .from('service_enquiries')
+          .update({ status })
+          .eq('id', statusMenuEnquiry.id);
+
+        if (statusUpdateError) throw statusUpdateError;
+
+        fetchEnquiries();
+        showSnackbar('Status updated successfully', 'success');
+        handleStatusMenuClose();
+      } catch (error) {
+        console.error('Error updating status:', error);
+        showSnackbar('Error updating status', 'error');
+        handleStatusMenuClose();
+      }
+    } else {
+      try {
+        const { error } = await supabase
+          .from('service_enquiries')
+          .update({ status })
+          .eq('id', statusMenuEnquiry.id);
+        if (error) throw error;
+        fetchEnquiries();
+        showSnackbar('Status updated successfully', 'success');
+        handleStatusMenuClose();
+      } catch (error) {
+        console.error('Error updating status:', error);
+        showSnackbar('Error updating status', 'error');
+        handleStatusMenuClose();
+      }
     }
   };
 
@@ -290,8 +378,42 @@ const Services = () => {
     setTechnicianDialogOpen(true);
   };
 
+  const handleTechnicianFieldClick = (enquiry) => {
+    setSelectedEnquiry(enquiry);
+    setTechnicianChangesDialogOpen(true);
+  };
+
+  const handleTechnicianChangesDialogClose = () => {
+    setTechnicianChangesDialogOpen(false);
+    setSelectedEnquiry(null);
+  };
+
+  const getTechnicianPerformance = () => {
+    const performance = {};
+    filteredEnquiries.forEach((enquiry) => {
+      const technicians = enquiry.technician_name ? enquiry.technician_name.split(', ') : [];
+      technicians.forEach((technician) => {
+        if (!performance[technician]) {
+          performance[technician] = { completed: 0, ongoing: 0, total: 0 };
+        }
+        performance[technician].total += 1;
+        if (enquiry.status === 'completed') {
+          performance[technician].completed += 1;
+        } else {
+          performance[technician].ongoing += 1;
+        }
+      });
+    });
+    return performance;
+  };
+
   if (loading) return <Typography>Loading...</Typography>;
   if (error) return <Typography color="error">Error: {error}</Typography>;
+
+  const technicianPerformance = getTechnicianPerformance();
+  const totalIncome = filteredEnquiries.reduce((acc, enquiry) => acc + (enquiry.total_amount || 0), 0);
+  const totalPages = Math.ceil(filteredEnquiries.length / entriesPerPage);
+  const displayedEnquiries = filteredEnquiries.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
   return (
     <Box className="flex flex-col min-h-screen bg-gray-100">
@@ -300,7 +422,7 @@ const Services = () => {
           <Box className="flex items-center space-x-4">
             <BuildIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
             <h1 className="text-xl font-semibold ml-2">Service</h1>
-            {/* <FilterSelect
+            <FilterSelect
               label="Date Range"
               value={dateFilter}
               handleChange={handleDateFilterChange}
@@ -310,7 +432,7 @@ const Services = () => {
               endDate={endDate}
               handleStartDateChange={setStartDate}
               handleEndDateChange={setEndDate}
-            /> */}
+            />
           </Box>
           <Box className="flex items-center space-x-4">
             <TextField
@@ -340,11 +462,18 @@ const Services = () => {
         </Box>
       </Box>
 
+      <QuickAnalytics 
+        totalIncome={totalIncome} 
+        technicianPerformance={technicianPerformance} 
+        filteredEnquiries={filteredEnquiries} 
+      />
+
       <Box className="flex-grow p-4">
         <TableContainer component={Paper} className="shadow-md rounded-lg overflow-hidden">
           <Table stickyHeader>
             <TableHead>
               <TableRow>
+                <StyledTableCell>No.</StyledTableCell>
                 <StyledTableCell>Date</StyledTableCell>
                 <StyledTableCell>Job Card No</StyledTableCell>
                 <StyledTableCell>Customer Name</StyledTableCell>
@@ -371,16 +500,24 @@ const Services = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredEnquiries.length > 0 ? (
-                filteredEnquiries.map(enquiry => (
+              {displayedEnquiries.length > 0 ? (
+                displayedEnquiries.map((enquiry, index) => (
                   <StyledTableRow key={enquiry.id}>
+                    <TableCell align="center">{(currentPage - 1) * entriesPerPage + index + 1}</TableCell>
                     <TableCell>{new Date(enquiry.date).toLocaleDateString()}</TableCell>
                     <TableCell>{enquiry.job_card_no}</TableCell>
                     <TableCell>{enquiry.customer_name}</TableCell>
                     <TableCell>{enquiry.customer_mobile}</TableCell>
-                    <TableCell>{enquiry.technician_name}</TableCell>
                     <TableCell>
-                      {enquiry.total_amount != null ? `₹${enquiry.total_amount.toFixed(2)}` : 'N/A'}
+                      <span
+                        style={{ cursor: 'pointer', color: 'blue' }}
+                        onClick={() => handleTechnicianFieldClick(enquiry)}
+                      >
+                        {enquiry.technician_name}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {enquiry.total_amount != null ? `${enquiry.total_amount.toFixed(2)}` : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Box display="flex" alignItems="center">
@@ -414,7 +551,7 @@ const Services = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
+                  <TableCell colSpan={10} align="center">
                     No data to display
                   </TableCell>
                 </TableRow>
@@ -422,6 +559,15 @@ const Services = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        <Box display="flex" justifyContent="center" mt={2}>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={(e, page) => setCurrentPage(page)}
+            variant="outlined"
+            color="primary"
+          />
+        </Box>
       </Box>
 
       <ServiceEnquiryDialog
@@ -435,6 +581,12 @@ const Services = () => {
       <TechnicianDialog
         open={technicianDialogOpen}
         onClose={() => setTechnicianDialogOpen(false)}
+      />
+
+      <TechnicianChangesDialog
+        open={technicianChangesDialogOpen}
+        onClose={handleTechnicianChangesDialogClose}
+        enquiry={selectedEnquiry}
       />
 
       <Snackbar

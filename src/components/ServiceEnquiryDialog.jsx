@@ -221,11 +221,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
   const handleSubmit = async () => {
     try {
       console.log('Submitting form data:', formData);
-
+    
       const complaintsJson = JSON.stringify(formData.complaints);
       const complaintTypeJson = JSON.stringify(formData.complaintType);
       const chargesJson = JSON.stringify(formData.charges);
-
+    
       const serviceEnquiryData = {
         date: formData.date.toISOString(),
         job_card_no: formData.jobCardNo,
@@ -241,7 +241,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         expected_completion_date: formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null,
         status: formData.status
       };
-
+    
       let serviceEnquiry;
       if (editingEnquiry) {
         const { data, error: serviceEnquiryError } = await supabase
@@ -250,10 +250,24 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           .eq('id', editingEnquiry.id)
           .select()
           .single();
-        
+          
         if (serviceEnquiryError) throw serviceEnquiryError;
         serviceEnquiry = data;
-
+    
+        // Track and save technician changes
+        const oldTechnicians = editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ') : [];
+        const newTechnicians = formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name);
+        if (JSON.stringify(oldTechnicians) !== JSON.stringify(newTechnicians)) {
+          const changes = {
+            oldTechnicians,
+            newTechnicians,
+            changedAt: new Date().toISOString()
+          };
+          await supabase
+            .from('technician_changes')
+            .insert({ service_id: serviceEnquiry.id, changes: JSON.stringify(changes) });
+        }
+    
         // Delete old parts and insert new parts
         await supabase.from('service_enquiry_parts').delete().eq('service_enquiry_id', editingEnquiry.id);
       } else {
@@ -262,11 +276,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           .insert(serviceEnquiryData)
           .select()
           .single();
-
+    
         if (serviceEnquiryError) throw serviceEnquiryError;
         serviceEnquiry = data;
       }
-
+    
       const partsData = formData.parts.map(part => ({
         service_enquiry_id: serviceEnquiry.id,
         part_id: parseInt(part.partId),
@@ -276,15 +290,15 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         rate: parseFloat(part.rate),
         amount: parseFloat(part.amount)
       }));
-
+    
       const { data: parts, error: partsError } = await supabase
         .from('service_enquiry_parts')
         .insert(partsData);
-
+    
       if (partsError) throw partsError;
-
+    
       console.log('Parts inserted:', parts);
-
+    
       handleFormSubmit();
       handleDialogClose();
     } catch (error) {
@@ -292,6 +306,9 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       // Handle the error, e.g., show a notification to the user
     }
   };
+  
+  
+  
 
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
