@@ -24,6 +24,10 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import FilterSelect from './FilterSelect'; // Assuming you have this component created
+import FilterAltOffOutlinedIcon from '@mui/icons-material/FilterAltOffOutlined';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
@@ -60,16 +64,32 @@ const Sales = () => {
   const [dateFilter, setDateFilter] = useState('Last 30 Days');
   const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
   const [endDate, setEndDate] = useState(dayjs());
+  const [pipelines, setPipelines] = useState([]);
+  const [selectedPipeline, setSelectedPipeline] = useState('All');
+  const [anchorEl, setAnchorEl] = useState(null); // Anchor for menu
 
   useEffect(() => {
     fetchData();
-  }, []);
+    fetchPipelines();
+  }, [selectedPipeline]);
+
+  const fetchPipelines = async () => {
+    const { data: pipelineData, error } = await supabase.from('pipelines').select('*');
+    if (error) {
+      console.error('Error fetching pipelines:', error);
+    } else {
+      setPipelines([{ pipeline_id: 'All', pipeline_name: 'All Pipelines' }, ...pipelineData]);
+    }
+  };
 
   const fetchData = async () => {
-    const { data: enquiries, error: enquiriesError } = await supabase
-      .from('enquiries')
-      .select('*');
+    let query = supabase.from('enquiries').select('*');
 
+    if (selectedPipeline !== 'All') {
+      query = query.or(`pipeline_id.eq.${selectedPipeline},pipeline_id.is.null`);
+    }
+
+    const { data: enquiries, error: enquiriesError } = await query;
     const { data: usersData, error: usersError } = await supabase
       .from('users')
       .select('id, username');
@@ -121,7 +141,7 @@ const Sales = () => {
     const { source, destination } = result;
     const sourceColumn = columns.find(column => column.name === source.droppableId);
     const destinationColumn = columns.find(column => column.name === destination.droppableId);
-    
+
     // Prevent moving cards out of "Customer-Won"
     if (sourceColumn.name === 'Customer-Won' && destinationColumn.name !== 'Customer-Won') {
       return;
@@ -165,10 +185,10 @@ const Sales = () => {
       const movedItem = columns
         .find(column => column.name === destination.droppableId)
         .contacts.find(contact => contact.id === customerDetails.id);
-      
+
       movedItem.stage = destination.droppableId;
       movedItem.won_date = new Date().toISOString();
-      
+
       const { error } = await supabase
         .from('enquiries')
         .update({ stage: destination.droppableId, won_date: movedItem.won_date })
@@ -221,6 +241,19 @@ const Sales = () => {
     setEndDate(date);
   };
 
+  const handlePipelineChange = (pipelineId) => {
+    setSelectedPipeline(pipelineId);
+    setAnchorEl(null);
+  };
+
+  const handleFilterIconClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
   const filteredColumns = columns.map(column => {
     let filteredContacts = column.contacts;
 
@@ -254,11 +287,8 @@ const Sales = () => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
                 <ShoppingBagOutlinedIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-                <h1 className="text-xl font-semibold ml-2">Sales</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <FilterSelect
+                <h1 className="text-xl font-semibold ml-2 mr-2">Sales</h1>
+                <FilterSelect
                 label="Date Range"
                 value={dateFilter}
                 handleChange={handleDateFilterChange}
@@ -269,6 +299,28 @@ const Sales = () => {
                 handleStartDateChange={handleStartDateChange}
                 handleEndDateChange={handleEndDateChange}
               />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+
+          
+                          <Tooltip title="Filter Pipelines">
+  <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleFilterIconClick}>
+    <FilterAltOutlinedIcon style={{ fontSize: '1.75rem' }} /> 
+  </button>
+</Tooltip>
+
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+              >
+                {pipelines.map((pipeline) => (
+                  <MenuItem key={pipeline.pipeline_id} onClick={() => handlePipelineChange(pipeline.pipeline_id)}>
+                    {pipeline.pipeline_name}
+                  </MenuItem>
+                ))}
+              </Menu>
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />

@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-
 import { ChevronDown, ChevronUp, Download } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
+import { Alert, AlertTitle } from '@mui/material';
 
 const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries }) => {
   const [expanded, setExpanded] = useState(false);
@@ -41,7 +39,7 @@ const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries 
     });
 
     doc.autoTable({
-      head: [['No.', 'Date', 'Job Card No', 'Customer Name', 'Customer Mobile', 'Technician Name', 'Total Amount', 'Status', 'Expected Completion']],
+      head: [['No.', 'Enquiry Date', 'Job Card No', 'Customer Name', 'Customer Mobile', 'Technician Name', 'Total Amount', 'Status', 'Expected Completion']],
       body: enquiryData,
       startY: doc.lastAutoTable.finalY + 10,
     });
@@ -50,7 +48,7 @@ const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries 
   };
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    <div className="bg-white shadow-md border-t border-gray-300 overflow-hidden">
       <div className="p-4 border-b border-gray-200">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">Quick Report</h2>
@@ -78,11 +76,11 @@ const QuickAnalytics = ({ totalIncome, technicianPerformance, filteredEnquiries 
       
       {expanded && (
         <div className="p-4 space-y-4">
-          <Alert>
+          <Alert severity="info">
             <AlertTitle>Total Service Income</AlertTitle>
-            <AlertDescription className="text-2xl font-bold">
-              ${totalIncome.toFixed(2)}
-            </AlertDescription>
+            <div className="text-2xl font-bold">
+              ₹{totalIncome.toFixed(2)}
+            </div>
           </Alert>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

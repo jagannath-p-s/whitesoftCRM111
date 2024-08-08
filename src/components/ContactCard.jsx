@@ -12,24 +12,32 @@ import {
   Snackbar,
   Alert,
   Chip,
+  Card,
+  CardContent,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import PipelineIcon from '@mui/icons-material/SettingsOutlined';
+import Assignment from '@mui/icons-material/Assignment';
+import CalendarToday from '@mui/icons-material/CalendarToday';
+import Person from '@mui/icons-material/Person';
+import ReportProblem from '@mui/icons-material/ReportProblem';
 import { supabase } from '../supabaseClient';
 import AddTaskDialog from './AddTaskDialog';
 import EditEnquiryDialog from './EditEnquiryDialog';
-import PipelineFormJSON from './PipelineFormJSON'; // Import PipelineFormJSON
+import PipelineFormJSON from './PipelineFormJSON';
+import dayjs from 'dayjs';
 
 const ContactCard = ({ contact, user, color, visibleFields }) => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
-  const [pipelineOpen, setPipelineOpen] = useState(false); // State for pipeline form
+  const [pipelineOpen, setPipelineOpen] = useState(false);
   const [pipelines, setPipelines] = useState([]);
   const [selectedPipeline, setSelectedPipeline] = useState(contact?.pipeline_id || '');
   const [error, setError] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [users, setUsers] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [selectedProducts, setSelectedProducts] = useState({});
   const [products, setProducts] = useState([]);
@@ -45,6 +53,7 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
   useEffect(() => {
     fetchPipelines();
     fetchUserTasks(user.id);
+    fetchUsers();
     fetchProducts();
     const taskSubscription = supabase
       .channel('public:tasks')
@@ -86,6 +95,21 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         severity: 'error'
       });
       setTasks([]);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase.from('users').select('*');
+      if (error) throw error;
+      setUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch users. Please try again later.',
+        severity: 'error'
+      });
     }
   };
 
@@ -180,6 +204,22 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
 
   const productsData = parseProducts(contact?.products);
 
+  const getRemainingDays = (submissionDate) => {
+    const now = dayjs();
+    const submission = dayjs(submissionDate);
+    const diff = submission.diff(now, 'day');
+    if (diff >= 0) {
+      return diff;
+    } else {
+      return `Overdue by ${Math.abs(diff)} days`;
+    }
+  };
+
+  const getUsername = (userId) => {
+    const user = users.find(user => user.id === userId);
+    return user ? user.username : 'Unknown User';
+  };
+
   if (!contact || !user) {
     return <div>Error: contact or user data is missing.</div>;
   }
@@ -249,11 +289,30 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         <DialogContent>
           {tasks.length > 0 ? (
             tasks.map((task) => (
-              <Box key={task.id} mb={2}>
-                <Typography variant="body1"><strong>Task Name:</strong> {task.task_name}</Typography>
-                <Typography variant="body2"><strong>Task Message:</strong> {task.task_message}</Typography>
-                <Typography variant="body2"><strong>Completion Status:</strong> {task.completion_status}</Typography>
-              </Box>
+              <Card key={task.id} variant="outlined" sx={{ mb: 3, p: 2,  }}>
+                <CardContent>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <Assignment sx={{ mr: 1, fontSize: 20 }} />
+                    <Typography variant="h6"><strong>Task Name:</strong> {task.task_name}</Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <ReportProblem sx={{ mr: 1, fontSize: 20,  }} />
+                    <Typography variant="body1"><strong>Task Message:</strong> {task.task_message}</Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <ReportProblem sx={{ mr: 1, fontSize: 20,  }} />
+                    <Typography variant="body2"><strong>Completion Status:</strong> {task.completion_status}</Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <Person sx={{ mr: 1, fontSize: 20,  }} />
+                    <Typography variant="body2"><strong>Assigned To:</strong> {getUsername(task.assigned_to)}</Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <CalendarToday sx={{ mr: 1, fontSize: 20,  }} />
+                    <Typography variant="body2"><strong>Remaining Days:</strong> {getRemainingDays(task.submission_date)}</Typography>
+                  </Box>
+                </CardContent>
+              </Card>
             ))
           ) : (
             <DialogContentText>
