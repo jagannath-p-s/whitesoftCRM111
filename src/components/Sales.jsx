@@ -28,7 +28,6 @@ import FilterAltOffOutlinedIcon from '@mui/icons-material/FilterAltOffOutlined';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
-
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Sales = () => {
