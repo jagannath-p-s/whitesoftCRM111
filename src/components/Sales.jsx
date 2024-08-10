@@ -19,15 +19,17 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import PrintBillDialog from './PrintBillDialog';
 import Dash from './Dash';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import dayjs from 'dayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import FilterSelect from './FilterSelect'; // Assuming you have this component created
-import FilterAltOffOutlinedIcon from '@mui/icons-material/FilterAltOffOutlined';
+import FilterSelect from './FilterSelect';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Sales = () => {
@@ -54,23 +56,27 @@ const Sales = () => {
     products: true,
     created_at: true,
     salesflow_code: true,
-    last_updated: true, // Added last updated field
+    last_updated: true,
   });
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [customerDetails, setCustomerDetails] = useState(null);
   const [dragResult, setDragResult] = useState(null);
-  const [viewCompletedSales, setViewCompletedSales] = useState(false); // State for viewing completed sales
+  const [viewCompletedSales, setViewCompletedSales] = useState(false);
   const [dateFilter, setDateFilter] = useState('Last 30 Days');
   const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
   const [endDate, setEndDate] = useState(dayjs());
   const [pipelines, setPipelines] = useState([]);
   const [selectedPipeline, setSelectedPipeline] = useState('All');
-  const [anchorEl, setAnchorEl] = useState(null); // Anchor for menu
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  useEffect(() => {
+    fetchPipelines();
+  }, []);
 
   useEffect(() => {
     fetchData();
-    fetchPipelines();
-  }, [selectedPipeline]);
+  }, [selectedPipeline, viewCompletedSales]);
 
   const fetchPipelines = async () => {
     const { data: pipelineData, error } = await supabase.from('pipelines').select('*');
@@ -81,11 +87,15 @@ const Sales = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     let query = supabase.from('enquiries').select('*');
 
     if (selectedPipeline !== 'All') {
       query = query.or(`pipeline_id.eq.${selectedPipeline},pipeline_id.is.null`);
+    }
+
+    if (viewCompletedSales) {
+      query = query.eq('stage', 'Customer-Won');
     }
 
     const { data: enquiries, error: enquiriesError } = await query;
@@ -119,7 +129,7 @@ const Sales = () => {
       setUsers(usersMap);
       setColumns(categorizedData);
     }
-  };
+  }, [selectedPipeline, viewCompletedSales]);
 
   const toggleExpand = (column) => {
     if (expanded.includes(column)) {
@@ -173,6 +183,8 @@ const Sales = () => {
         .eq('id', movedItem.id);
       if (error) {
         console.error('Error updating stage:', error);
+      } else {
+        fetchData(); // Refresh data after update
       }
     }
   };
@@ -253,6 +265,43 @@ const Sales = () => {
     setAnchorEl(null);
   };
 
+  const handleFormSubmit = async (updatedEnquiry) => {
+    try {
+      const { error } = await supabase
+        .from('enquiries')
+        .update(updatedEnquiry)
+        .eq('id', updatedEnquiry.id);
+
+      if (error) throw error;
+
+      // Find the column and update the specific enquiry
+      setColumns((prevColumns) => {
+        return prevColumns.map((column) => {
+          if (column.name === updatedEnquiry.stage) {
+            const updatedContacts = column.contacts.map((contact) =>
+              contact.id === updatedEnquiry.id ? updatedEnquiry : contact
+            );
+            return { ...column, contacts: updatedContacts };
+          }
+          return column;
+        });
+      });
+
+      setSnackbar({
+        open: true,
+        message: 'Enquiry updated successfully!',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Error updating enquiry:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update enquiry',
+        severity: 'error',
+      });
+    }
+  };
+
   const filteredColumns = columns.map(column => {
     let filteredContacts = column.contacts;
 
@@ -288,27 +337,24 @@ const Sales = () => {
                 <ShoppingBagOutlinedIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
                 <h1 className="text-xl font-semibold ml-2 mr-2">Sales</h1>
                 <FilterSelect
-                label="Date Range"
-                value={dateFilter}
-                handleChange={handleDateFilterChange}
-                options={dateOptions}
-                withDatePicker={dateFilter === 'Custom Date Range'}
-                startDate={startDate}
-                endDate={endDate}
-                handleStartDateChange={handleStartDateChange}
-                handleEndDateChange={handleEndDateChange}
-              />
+                  label="Date Range"
+                  value={dateFilter}
+                  handleChange={handleDateFilterChange}
+                  options={dateOptions}
+                  withDatePicker={dateFilter === 'Custom Date Range'}
+                  startDate={startDate}
+                  endDate={endDate}
+                  handleStartDateChange={handleStartDateChange}
+                  handleEndDateChange={handleEndDateChange}
+                />
               </div>
             </div>
             <div className="flex items-center space-x-2">
-
-          
-                          <Tooltip title="Filter Pipelines">
-  <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleFilterIconClick}>
-    <FilterAltOutlinedIcon style={{ fontSize: '1.75rem' }} /> 
-  </button>
-</Tooltip>
-
+              <Tooltip title="Filter Pipelines">
+                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleFilterIconClick}>
+                  <FilterAltOutlinedIcon style={{ fontSize: '1.75rem' }} />
+                </button>
+              </Tooltip>
               <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
@@ -380,24 +426,36 @@ const Sales = () => {
         open={printDialogOpen}
         handleClose={(shouldMove) => handlePrintClose(shouldMove)}
         customer={customerDetails}
-        onCustomerUpdate={fetchData} // Add this line to update the data when customer is updated
+        onCustomerUpdate={fetchData}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Content */}
       {viewCompletedSales ? (
-        <Dash />  // Render the Dash component when viewing completed sales
+        <Dash />
       ) : (
         <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
           <DragDropContext onDragEnd={onDragEnd}>
             {view === 'cards' ? (
               filteredColumns.map((column) => (
                 <Column
-                  key={column.name}
+                  key={column.name + column.contacts.length} // Use a unique key
                   column={column}
                   expanded={expanded}
                   toggleExpand={toggleExpand}
                   users={users}
                   visibleFields={visibleFields}
+                  onCardUpdate={handleFormSubmit} // Pass the handleFormSubmit function
                 />
               ))
             ) : (

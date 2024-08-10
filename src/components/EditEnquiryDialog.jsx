@@ -180,8 +180,6 @@ const EditEnquiryDialog = ({
             <MenuItem value="Lead">Lead</MenuItem>
             <MenuItem value="Prospect">Prospect</MenuItem>
             <MenuItem value="Opportunity">Opportunity</MenuItem>
-            {/* <MenuItem value="Customer Won">Customer Won</MenuItem>
-            <MenuItem value="Customer Lost">Customer Lost</MenuItem> */}
           </Select>
         </FormControl>
         <TextField
@@ -296,15 +294,19 @@ const EditEnquiryDialog = ({
           value={localEnquiryData.expected_completion_date || ''}
           onChange={handleEnquiryDataChange}
         />
-        <TextField
-          name="salesflow_code"
-          label="Salesflow Code"
-          variant="outlined"
-          fullWidth
-          margin="dense"
-          value={localEnquiryData.salesflow_code || ''}
-          onChange={handleEnquiryDataChange}
-        />
+       <TextField
+  name="salesflow_code"
+  label="Salesflow Code"
+  variant="outlined"
+  fullWidth
+  margin="dense"
+  value={localEnquiryData.salesflow_code || ''}
+  onChange={handleEnquiryDataChange}
+  InputProps={{
+    readOnly: true,
+  }}
+/>
+
         {products.length > 0 && (
           <>
             <TextField
@@ -384,6 +386,5 @@ const EditEnquiryDialog = ({
     </Dialog>
   );
 };
-
 
 export default EditEnquiryDialog;

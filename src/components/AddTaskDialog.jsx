@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import {
   Dialog,
@@ -19,11 +19,12 @@ import {
   Alert,
   Typography,
   Grid,
-  Paper
+  Paper,
+  CircularProgress
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { StaticDateTimePicker } from '@mui/x-date-pickers/StaticDateTimePicker';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import dayjs from 'dayjs';
 
 const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
@@ -39,19 +40,23 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [incompleteTasks, setIncompleteTasks] = useState(0);
   const [selectedUser, setSelectedUser] = useState(null);
-  const calendarRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     const fetchUsers = async () => {
+      setLoading(true);
       const { data, error } = await supabase
         .from('users')
         .select('id, username, employee_code');
 
       if (error) {
         console.error('Error fetching users:', error);
+        setSnackbar({ open: true, message: 'Failed to fetch users', severity: 'error' });
       } else {
         setUsers(data);
       }
+      setLoading(false);
     };
 
     fetchUsers();
@@ -74,6 +79,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
 
   const handleAssignedToChange = async (e) => {
     const userId = e.target.value;
+    setLoading(true);
     const tasks = await fetchUserTasks(userId);
     setIncompleteTasks(tasks.length);
     setSelectedUser(userId);
@@ -83,6 +89,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
     } else {
       setAssignedTo(userId);
     }
+    setLoading(false);
   };
 
   const handleConfirmDialogClose = (confirm) => {
@@ -95,18 +102,28 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
 
   const handleDateTimeOptionChange = (e) => {
     setDateTimeOption(e.target.value);
-    if (e.target.value === 'datetime' && calendarRef.current) {
-      calendarRef.current.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!taskName.trim()) newErrors.taskName = 'Task name is required';
+    if (!assignedTo) newErrors.assignedTo = 'Please assign the task to a user';
+    if (dateTimeOption === 'days' && !daysToComplete) {
+      newErrors.daysToComplete = 'Please specify the number of days';
     }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
     const calculatedSubmissionDate = dateTimeOption === 'days'
       ? dayjs().add(daysToComplete, 'day')
       : submissionDate;
 
     try {
-      // Insert the new task
       const { data: taskData, error: taskError } = await supabase
         .from('tasks')
         .insert({
@@ -120,9 +137,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
         });
 
       if (taskError) throw taskError;
-      console.log('Task added successfully:', taskData);
 
-      // Fetch the current enquiry data
       const { data: enquiryData, error: enquiryFetchError } = await supabase
         .from('enquiries')
         .select('salesflow_code, assignedto')
@@ -131,13 +146,10 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
 
       if (enquiryFetchError) throw enquiryFetchError;
 
-      // Determine all users who have participated
       let participants = enquiryData.salesflow_code ? enquiryData.salesflow_code.split('-') : [];
-
-      // Add points to the previous user if there is one
       const previousUser = enquiryData.assignedto;
+
       if (previousUser) {
-        // Check if the previous user already received points for this enquiry
         const { data: pointsData, error: pointsCheckError } = await supabase
           .from('salesman_points')
           .select('*')
@@ -147,37 +159,28 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
         if (pointsCheckError) throw pointsCheckError;
 
         if (pointsData.length === 0) {
-          // Add points to the previous user if they haven't received points for this enquiry
-          const { data: newPointsData, error: pointsAddError } = await supabase
+          await supabase
             .from('salesman_points')
             .insert({
               user_id: previousUser,
               points: 1,
               enquiry_id: enquiryId
             });
-
-          if (pointsAddError) throw pointsAddError;
-          console.log('Points added to previous user:', newPointsData);
         }
       }
 
-      // Prevent multiple points to the same user for the same enquiry
       if (!participants.includes(assignedTo.toString())) {
         participants.push(assignedTo);
       }
 
-      // Update the salesflow_code with the new assigned user
       const salesflow_code = participants.join('-');
 
-      // Update the stage, salesflow_code, and assignedto of the enquiry
-      const { data: updatedEnquiryData, error: enquiryUpdateError } = await supabase
+      await supabase
         .from('enquiries')
         .update({ stage, salesflow_code, assignedto: assignedTo })
         .eq('id', enquiryId);
 
-      if (enquiryUpdateError) throw enquiryUpdateError;
-      console.log('Enquiry stage and assignedto updated successfully:', updatedEnquiryData);
-
+      setSnackbar({ open: true, message: 'Task added successfully', severity: 'success' });
       handleClose();
     } catch (error) {
       console.error('Error adding task or updating enquiry:', error);
@@ -186,6 +189,8 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
         message: `Failed to add task or update enquiry: ${error.message}`,
         severity: 'error'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -202,7 +207,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
           </Typography>
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={3}>
+        <Grid container spacing={3} sx={{ mt: 1 }}> {/* Added mt: 2 for more top margin */}
             <Grid item xs={12}>
               <TextField
                 autoFocus
@@ -212,6 +217,9 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
                 value={taskName}
                 onChange={(e) => setTaskName(e.target.value)}
                 variant="outlined"
+                error={!!errors.taskName}
+                helperText={errors.taskName}
+                required
               />
             </Grid>
             <Grid item xs={12}>
@@ -227,7 +235,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth variant="outlined">
+              <FormControl fullWidth variant="outlined" error={!!errors.assignedTo} required>
                 <InputLabel>Assign To</InputLabel>
                 <Select
                   value={assignedTo}
@@ -240,6 +248,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
                     </MenuItem>
                   ))}
                 </Select>
+                {errors.assignedTo && <Typography color="error">{errors.assignedTo}</Typography>}
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -287,15 +296,17 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
                     value={daysToComplete}
                     onChange={(e) => setDaysToComplete(e.target.value)}
                     variant="outlined"
+                    error={!!errors.daysToComplete}
+                    helperText={errors.daysToComplete}
+                    required
                   />
                 ) : (
-                  <Box ref={calendarRef} sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                    <StaticDateTimePicker
-                      displayStaticWrapperAs="desktop"
-                      openTo="day"
+                  <Box sx={{ mt: 2 }}>
+                    <DateTimePicker
+                      label="Submission Date & Time"
                       value={submissionDate}
                       onChange={(newValue) => setSubmissionDate(newValue)}
-                      renderInput={(params) => <TextField {...params} />}
+                      renderInput={(params) => <TextField {...params} fullWidth />}
                     />
                   </Box>
                 )}
@@ -304,8 +315,16 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy }) => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleClose} variant="outlined">Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">Add Task</Button>
+          <Button onClick={handleClose} variant="outlined" disabled={loading}>Cancel</Button>
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained" 
+            color="primary" 
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} /> : null}
+          >
+            {loading ? 'Adding Task...' : 'Add Task'}
+          </Button>
         </DialogActions>
       </Dialog>
       <Snackbar

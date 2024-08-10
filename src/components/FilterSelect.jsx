@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Menu, MenuItem, TextField, Tooltip } from '@mui/material';
+import { Box, Menu, MenuItem, TextField, Tooltip, Divider } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -29,7 +29,16 @@ const FilterSelect = ({
 
   const handleSelect = (selectedValue) => {
     handleChange(selectedValue);
-    handleClose();
+    if (selectedValue !== 'Custom Date Range') {
+      handleClose();
+    }
+  };
+
+  const handleDateChange = (setter, date) => {
+    setter(date);
+    if (startDate && endDate) {
+      handleClose();
+    }
   };
 
   return (
@@ -47,29 +56,45 @@ const FilterSelect = ({
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleClose}
+        PaperProps={{
+          style: {
+            padding: '10px',
+            minWidth: '200px',
+          },
+        }}
       >
         {options.map((option) => (
-          <MenuItem key={option} onClick={() => handleSelect(option)}>
+          <MenuItem
+            key={option}
+            onClick={() => handleSelect(option)}
+            style={{
+              padding: '8px 16px',
+              margin: '4px 0',
+            }}
+          >
             {option}
           </MenuItem>
         ))}
-        {withDatePicker && (
-          <Box p={2}>
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <DatePicker
-                label="Start Date"
-                value={startDate}
-                onChange={handleStartDateChange}
-                renderInput={(params) => <TextField {...params} size="small" />}
-              />
-              <DatePicker
-                label="End Date"
-                value={endDate}
-                onChange={handleEndDateChange}
-                renderInput={(params) => <TextField {...params} size="small" />}
-              />
-            </LocalizationProvider>
-          </Box>
+        {withDatePicker && value === 'Custom Date Range' && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <Box px={1} py={1} display="flex" flexDirection="column" gap={1}>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Start Date"
+                  value={startDate}
+                  onChange={(date) => handleDateChange(handleStartDateChange, date)}
+                  renderInput={(params) => <TextField {...params} size="small" margin="normal" />}
+                />
+                <DatePicker
+                  label="End Date"
+                  value={endDate}
+                  onChange={(date) => handleDateChange(handleEndDateChange, date)}
+                  renderInput={(params) => <TextField {...params} size="small" margin="normal" />}
+                />
+              </LocalizationProvider>
+            </Box>
+          </>
         )}
       </Menu>
     </Box>

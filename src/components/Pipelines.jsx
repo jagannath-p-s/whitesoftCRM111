@@ -472,7 +472,7 @@ const Pipelines = () => {
             />
             {dialogType === 'field' && (
               <FormControl fullWidth margin="normal">
-                <InputLabel>Type</InputLabel>
+               
                 <Select
                   value={formData.type}
                   onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}

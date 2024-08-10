@@ -225,11 +225,8 @@ const Activities = ({ userId, userRole }) => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
                 <EventNoteIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-                <h1 className="text-xl font-semibold ml-2">Activities</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <FilterSelect
+                <h1 className="text-xl font-semibold ml-2 mr-2">Activities</h1>
+                <FilterSelect 
                 label="Date Range"
                 value={dateFilter}
                 handleChange={handleDateFilterChange}
@@ -240,6 +237,10 @@ const Activities = ({ userId, userRole }) => {
                 handleStartDateChange={handleStartDateChange}
                 handleEndDateChange={handleEndDateChange}
               />
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+           
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />

@@ -269,20 +269,22 @@ const BatchComponent = () => {
               <h1 className="text-xl font-semibold ml-2">Batches</h1>
             </div>
             <div className="flex items-center space-x-2">
-              <TextField
-                variant="outlined"
-                placeholder="Search Product or Batch Code"
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                size="small"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
+            <TextField
+  variant="outlined"
+  placeholder="Search Product / Batch"
+  value={productSearch}
+  onChange={(e) => setProductSearch(e.target.value)}
+  size="small"
+  sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }} // Add this line to style like the second TextField
+  InputProps={{
+    startAdornment: (
+      <InputAdornment position="start">
+        {/* Add any adornments here */}
+      </InputAdornment>
+    ),
+  }}
+/>
+
               <Tooltip title="Filter">
                 <IconButton onClick={handleFilterMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <FilterListIcon style={{ fontSize: '1.75rem' }} />

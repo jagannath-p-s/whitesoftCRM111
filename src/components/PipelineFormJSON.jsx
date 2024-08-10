@@ -5,7 +5,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Button,
   Typography,
   Box,
@@ -37,7 +36,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 
 const BlueCheckbox = styled(Checkbox)({
   '&.Mui-checked': {
-    color: '#007BFF', // Your preferred shade of blue
+    color: '#007BFF',
   },
 });
 
@@ -182,7 +181,6 @@ const PipelineFormJSON = ({ enquiryId }) => {
     setCurrentStage(null);
     setActiveStep(0);
 
-    // Save the selected pipeline to the database
     try {
       const { error } = await supabase
         .from('enquiries')
@@ -312,7 +310,6 @@ const PipelineFormJSON = ({ enquiryId }) => {
 
   const handleCancelEdit = (fieldId) => {
     setEditingFields((prev) => ({ ...prev, [fieldId]: false }));
-    // Revert changes
     setFormData((prevData) => ({
       ...prevData,
       [currentStage]: {
@@ -400,19 +397,19 @@ const PipelineFormJSON = ({ enquiryId }) => {
       return (
         <Box display="flex" justifyContent="space-between" width="100%">
           <Button
-        variant="outlined"
-        onClick={() => handleFileView(value)}
-        sx={{ width: '48%' }}
-      >
-        View File
-      </Button>
-      <Button
-        variant="outlined"
-        onClick={() => handleFileDownload(value)}
-        sx={{ width: '48%' }}
-      >
-        Download
-      </Button>
+            variant="outlined"
+            onClick={() => handleFileView(value)}
+            sx={{ width: '48%' }}
+          >
+            View File
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => handleFileDownload(value)}
+            sx={{ width: '48%' }}
+          >
+            Download
+          </Button>
         </Box>
       );
     }
@@ -466,7 +463,6 @@ const PipelineFormJSON = ({ enquiryId }) => {
   return (
     <Box>
       <StyledFormControl fullWidth>
-        <InputLabel>Pipeline</InputLabel>
         <Select
           value={selectedPipeline || ''}
           onChange={handlePipelineChange}
@@ -478,10 +474,10 @@ const PipelineFormJSON = ({ enquiryId }) => {
           ))}
         </Select>
       </StyledFormControl>
-
+  
       {selectedPipeline && (
         <>
-          <Stepper activeStep={activeStep} alternativeLabel sx={{ mt: 4, mb: 4 }}>
+          <Stepper activeStep={activeStep} alternativeLabel sx={{ mt: 4, mb: 2 }}>
             {stages.map((stage, index) => (
               <Step key={stage.stage_id} completed={index < activeStep}>
                 <StepLabel onClick={() => handleStageChange(stage.stage_id, index)} style={{ cursor: 'pointer' }}>
@@ -490,12 +486,8 @@ const PipelineFormJSON = ({ enquiryId }) => {
               </Step>
             ))}
           </Stepper>
-
-          <Grid container spacing={2}>
-            {fields.map(renderField)}
-          </Grid>
-
-          <Box mt={4} display="flex" justifyContent="flex-end">
+  
+          <Box mt={2} display="flex" justifyContent="flex-end">
             <Button 
               variant="contained" 
               color="primary" 
@@ -504,9 +496,13 @@ const PipelineFormJSON = ({ enquiryId }) => {
               Save Stage
             </Button>
           </Box>
+  
+          <Grid container spacing={2} sx={{ mt: 4 }}>
+            {fields.map(renderField)}
+          </Grid>
         </>
       )}
-
+  
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -517,7 +513,7 @@ const PipelineFormJSON = ({ enquiryId }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-
+  
       <Dialog
         open={filePreviewDialog.open}
         onClose={() => setFilePreviewDialog({ open: false, url: '', type: '' })}

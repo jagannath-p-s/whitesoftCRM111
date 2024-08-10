@@ -28,7 +28,7 @@ import EditEnquiryDialog from './EditEnquiryDialog';
 import PipelineFormJSON from './PipelineFormJSON';
 import dayjs from 'dayjs';
 
-const ContactCard = ({ contact, user, color, visibleFields }) => {
+const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
@@ -147,7 +147,11 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
     setEditOpen(true);
   };
 
-  const handleEditClose = () => setEditOpen(false);
+  const handleEditClose = () => {
+    fetchUpdatedContact(); // Fetch updated contact after closing edit dialog
+    setEditOpen(false);
+  };
+
   const handleAddClick = () => setAddTaskOpen(true);
   const handleAddTaskClose = () => setAddTaskOpen(false);
 
@@ -166,10 +170,24 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         .eq('id', contact.id);
       if (error) throw error;
       setEditOpen(false);
-      fetchUserTasks(user.id);
+      fetchUpdatedContact(); // Refresh contact data after save
     } catch (error) {
-      console.error('Error updating pipeline:', error);
-      setError('Failed to update pipeline. Please try again later.');
+      console.error('Error updating enquiry:', error);
+      setError('Failed to update enquiry. Please try again later.');
+    }
+  };
+
+  const fetchUpdatedContact = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('enquiries')
+        .select('*')
+        .eq('id', contact.id)
+        .single();
+      if (error) throw error;
+      onUpdate(data); // Trigger update in the parent component
+    } catch (error) {
+      console.error('Error fetching updated contact:', error);
     }
   };
 
@@ -332,8 +350,8 @@ const ContactCard = ({ contact, user, color, visibleFields }) => {
         enquiryData={contact}
         handleDialogClose={handleEditClose}
         handleFormSubmit={handleSave}
-        users={[]} // Replace with actual users data if available
-        products={products} // Pass fetched products if available
+        users={users}
+        products={products}
         selectedProducts={selectedProducts}
         handleProductToggle={(product) => {
           setSelectedProducts((prev) => {

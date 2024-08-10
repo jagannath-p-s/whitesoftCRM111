@@ -4,7 +4,7 @@ import Tooltip from '@mui/material/Tooltip';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import ContactCard from './ContactCard';
 
-const Column = ({ column, expanded, toggleExpand, users, visibleFields }) => {
+const Column = ({ column, expanded, toggleExpand, users, visibleFields, onCardUpdate }) => {
   const getTextColorClass = (color) => {
     switch (color) {
       case 'blue':
@@ -64,7 +64,13 @@ const Column = ({ column, expanded, toggleExpand, users, visibleFields }) => {
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
                         >
-                          <ContactCard contact={contact} user={users[contact.assignedto]} color={column.color} visibleFields={visibleFields} />
+                          <ContactCard
+                            contact={contact}
+                            user={users[contact.assignedto]}
+                            color={column.color}
+                            visibleFields={visibleFields}
+                            onUpdate={onCardUpdate} // Pass the onUpdate function
+                          />
                         </div>
                       )}
                     </Draggable>
@@ -91,7 +97,7 @@ const Column = ({ column, expanded, toggleExpand, users, visibleFields }) => {
                     toggleExpand(column.name);
                   }}
                 >
-                  <KeyboardDoubleArrowRightIcon />
+                    <KeyboardDoubleArrowRightIcon />
                 </button>
               </Tooltip>
             </div>

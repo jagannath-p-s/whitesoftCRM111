@@ -26,6 +26,7 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
+  TablePagination, // Import TablePagination
 } from '@mui/material';
 import {
   MoreVert as MoreVertIcon,
@@ -65,6 +66,8 @@ const UploadFiles = () => {
   const [sortField, setSortField] = useState('file_size');
   const [userRole, setUserRole] = useState('');
   const [userId, setUserId] = useState(null);
+  const [page, setPage] = useState(0); // State for the current page
+  const [rowsPerPage, setRowsPerPage] = useState(50); // State for rows per page
 
   useEffect(() => {
     fetchUserRole();
@@ -333,6 +336,15 @@ const UploadFiles = () => {
     }
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   const filteredFiles = files.filter((file) =>
     file.file_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     file.users.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -340,11 +352,7 @@ const UploadFiles = () => {
     formatFileSize(file.file_size).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  useEffect(() => {
-    if (userRole && userId !== null) {
-      fetchFiles();
-    }
-  }, [sortOrder, sortField, userRole, userId]);
+  const paginatedFiles = filteredFiles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -387,35 +395,49 @@ const UploadFiles = () => {
           <Table stickyHeader className="min-w-full">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
-                  File Name
+                <TableCell
+                  sx={{
+                    fontWeight: 'bold',
+                    color: 'black',
+                    textAlign: 'center',
+                    padding: '16px', // Increase padding
+                  }}
+                >
+                  No
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>File Name</TableCell>
+                <TableCell
+                  sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}
+                >
                   Uploaded Date
                   <IconButton onClick={() => handleSortToggle('upload_date')}>
                     {sortOrder === 'asc' && sortField === 'upload_date' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
                   </IconButton>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
-                  Uploaded By
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Uploaded By</TableCell>
+                <TableCell
+                  sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}
+                >
                   File Size
                   <IconButton onClick={() => handleSortToggle('file_size')}>
                     {sortOrder === 'asc' && sortField === 'file_size' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
                   </IconButton>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
-                  Preview
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
-                  Actions
-                </TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Preview</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredFiles.map((file) => (
+              {paginatedFiles.map((file, index) => (
                 <TableRow key={file.file_id} className="bg-white border-b">
+                  <TableCell
+                    sx={{
+                      textAlign: 'center',
+                      padding: '16px', // Increase padding
+                    }}
+                  >
+                    {page * rowsPerPage + index + 1}
+                  </TableCell>
                   <TableCell>{file.file_name}</TableCell>
                   <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
                   <TableCell>{file.users.username}</TableCell>
@@ -437,6 +459,15 @@ const UploadFiles = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[50, 100, 150]}
+          component="div"
+          count={filteredFiles.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       </div>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
