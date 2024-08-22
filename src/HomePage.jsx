@@ -138,27 +138,27 @@ const HomePage = () => {
 
     switch (activeComponent) {
       case 'Sales':
-        return user.can_edit_sales ? <Sales userId={user.id} /> : null;
+        return user.permissions.can_edit_sales ? <Sales userId={user.id} /> : null;
       case 'Activities':
-        return <Activities userId={user.id} />;
+        return <Activities userId={user.id} userRole={user.role} />;
       case 'Dashboard':
-        return user.can_see_performance ? <Dashboard /> : null;
+        return user.permissions.can_see_performance ? <Dashboard /> : null;
       case 'Stock':
-        return user.can_edit_stock ? <Stock userId={user.id} /> : null;
+        return user.permissions.can_edit_stock ? <Stock userId={user.id} /> : null;
       case 'Services':
-        return user.can_edit_product ? <Services userId={user.id} /> : null;
+        return user.permissions.can_edit_product ? <Services userId={user.id} /> : null;
       case 'Organisation':
-        return user.can_edit_staff ? <Organisation userId={user.id} /> : null;
+        return user.permissions.can_edit_staff ? <Organisation userId={user.id} /> : null;
       case 'UploadFiles':
-        return user.can_edit_files ? <UploadFiles userId={user.id} /> : null;
+        return user.permissions.can_edit_files ? <UploadFiles userId={user.id} /> : null;
       case 'BatchComponent':
         return <BatchComponent userId={user.id} />;
       case 'Pipelines':
-        return user.can_edit_pipeline ? <Pipelines userId={user.id} /> : null;
+        return user.permissions.can_edit_pipeline ? <Pipelines userId={user.id} /> : null;
       case 'SearchComponent':
-        return <SearchComponent searchTerm={searchTerm} />;
+        return <SearchComponent searchTerm={searchTerm}  userId={user.id} />;
       default:
-        return user.can_see_performance ? <Dashboard /> : <Activities userId={user.id} />;
+        return user.permissions.can_see_performance ? <Dashboard /> : <Activities userId={user.id} />;
     }
   };
 
@@ -196,7 +196,7 @@ const HomePage = () => {
         </div>
         <nav className={`flex flex-col w-full ${isExpanded ? 'space-y-1' : 'space-y-1 items-center'}`}>
           {navItems.map((item, index) => (
-            (!item.permission || user[item.permission]) && (
+            (!item.permission || user.permissions[item.permission]) && (
               <Tooltip key={index} title={!isExpanded ? item.tooltip : ''} placement="right">
                 <button
                   onClick={() => setActiveComponent(item.component)}

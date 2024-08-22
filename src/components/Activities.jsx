@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Tooltip from '@mui/material/Tooltip';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import Dialog from '@mui/material/Dialog';
@@ -19,9 +20,9 @@ import dayjs from 'dayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import FilterSelect from './FilterSelect'; // Assuming you have this component created
+import FilterSelect from './FilterSelect';
 
-const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
+const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days'];
 
 const Activities = ({ userId, userRole }) => {
   const initialExpandedColumns = ['New', 'Ongoing', 'Completed', 'Overdue'];
@@ -29,12 +30,12 @@ const Activities = ({ userId, userRole }) => {
   const [columns, setColumns] = useState([]);
   const [users, setUsers] = useState({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [visibleFields, setVisibleFields] = useState({
     task_name: true,
     task_message: true,
     submission_date: true,
     completion_status: true,
-    type: true,
     assignedto: false,
     name: true,
     mobilenumber1: true,
@@ -58,44 +59,54 @@ const Activities = ({ userId, userRole }) => {
   const [dateFilter, setDateFilter] = useState('Last 30 Days');
   const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
   const [endDate, setEndDate] = useState(dayjs());
+  const [assignedToFilter, setAssignedToFilter] = useState(userId);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [assignedToFilter]);
 
   const fetchData = async () => {
-    const { data: tasks, error: tasksError } = await supabase
-      .from('tasks')
-      .select('*, enquiries(*)');
-
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('id, username');
-
-    if (tasksError || usersError) {
-      console.error('Error fetching data:', tasksError || usersError);
-    } else {
+    try {
+      let query = supabase
+        .from('tasks')
+        .select('*, enquiries(*)');
+  
+      // Apply filtering based on the assignedToFilter
+      if (assignedToFilter) {
+        query = query.eq('assigned_to', assignedToFilter);
+      }
+  
+      const { data: tasks, error: tasksError } = await query;
+  
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username');
+  
+      if (tasksError || usersError) throw tasksError || usersError;
+  
       const categorizedData = [
         { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
         { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
         { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
         { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
       ];
-
+  
       tasks.forEach((task) => {
         const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
         if (category) {
           category.tasks.push(task);
         }
       });
-
+  
       const usersMap = usersData.reduce((acc, user) => {
         acc[user.id] = user;
         return acc;
       }, {});
-
+  
       setUsers(usersMap);
       setColumns(categorizedData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
     }
   };
 
@@ -175,6 +186,22 @@ const Activities = ({ userId, userRole }) => {
     setEndDate(date);
   };
 
+  const handleFilterOpen = () => {
+    setFilterOpen(true);
+  };
+
+  const handleFilterClose = () => {
+    setFilterOpen(false);
+  };
+
+  const handleAssignedToChange = (event) => {
+    setAssignedToFilter(event.target.value);
+  };
+
+  const handleClearFilters = () => {
+    setAssignedToFilter(null);
+  };
+
   const getTextColorClass = (color) => {
     switch (color) {
       case 'blue':
@@ -219,7 +246,7 @@ const Activities = ({ userId, userRole }) => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white shadow-md border-b border-t border-gray-300">
+      <div className="bg-white shadow-md border-b ">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
@@ -240,7 +267,13 @@ const Activities = ({ userId, userRole }) => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-           
+              {(userRole === 'Admin' || userRole === 'Manager') && (
+                <Tooltip title="Filter by User">
+                  <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleFilterOpen}>
+                    <FilterListIcon style={{ fontSize: '1.75rem' }} />
+                  </button>
+                </Tooltip>
+              )}
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
@@ -272,6 +305,85 @@ const Activities = ({ userId, userRole }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleSettingsClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Filter Dialog */}
+      <Dialog
+        open={filterOpen}
+        onClose={handleFilterClose}
+        PaperProps={{
+          style: { padding: '20px', width: '400px', boxShadow: '0 3px 10px rgba(0,0,0,0.2)' }
+        }}
+      >
+        <DialogTitle
+          style={{ fontSize: '1.5rem', paddingBottom: '10px' }}
+        >
+          Filter Tasks by User
+        </DialogTitle>
+        <DialogContent style={{ paddingTop: '20px' }}>
+          <DialogContentText
+            style={{ color: '#757575', marginBottom: '15px' }}
+          >
+            Select a user to filter the tasks.
+          </DialogContentText>
+          <select
+            className="p-2 border rounded-md mt-2 w-full"
+            style={{
+              borderRadius: '8px',
+              backgroundColor: '#f9f9f9',
+              padding: '10px',
+              fontSize: '1rem',
+              borderColor: '#d1d1d1',
+              transition: 'border-color 0.3s',
+            }}
+            value={assignedToFilter || ''}
+            onChange={handleAssignedToChange}
+            onMouseEnter={e => e.target.style.borderColor = '#1976d2'}
+            onMouseLeave={e => e.target.style.borderColor = '#d1d1d1'}
+          >
+            <option value="">All Tasks</option>
+            <option value={userId}>My Tasks</option>
+            {Object.keys(users).map(userId => (
+              <option key={userId} value={userId}>
+                {users[userId].username}
+              </option>
+            ))}
+          </select>
+        </DialogContent>
+        <DialogActions style={{ paddingTop: '15px' }}>
+          <Button
+            onClick={handleClearFilters}
+            style={{
+              
+              
+              borderRadius: '20px',
+              padding: '8px 20px',
+              textTransform: 'none',
+              boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
+              transition: 'background-color 0.3s',
+            }}
+            // onMouseEnter={e => e.target.style.backgroundColor = '#e65100'}
+            // onMouseLeave={e => e.target.style.backgroundColor = '#ff9800'}
+          >
+            Clear Filters
+          </Button>
+          <Button
+            onClick={handleFilterClose}
+            style={{
+              backgroundColor: '#1976d2',
+              color: '#ffffff',
+              borderRadius: '20px',
+              padding: '8px 20px',
+              textTransform: 'none',
+              boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
+              transition: 'background-color 0.3s',
+            }}
+            onMouseEnter={e => e.target.style.backgroundColor = '#1565c0'}
+            onMouseLeave={e => e.target.style.backgroundColor = '#1976d2'}
+          >
             Close
           </Button>
         </DialogActions>

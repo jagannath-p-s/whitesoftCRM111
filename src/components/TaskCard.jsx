@@ -21,7 +21,7 @@ const TaskCard = ({ task, user, color, visibleFields, handleContactOpen }) => {
         {visibleFields.task_message && <p className="text-sm mb-1">Message: {task.task_message}</p>}
         {visibleFields.submission_date && <p className="text-sm mb-1">Date: {new Date(task.submission_date).toLocaleDateString()}</p>}
         {visibleFields.completion_status && <p className="text-sm mb-1">Status: {task.completion_status}</p>}
-        {visibleFields.type && <p className="text-sm mb-1">Type: {task.type}</p>}
+        
       </div>
       <div className="flex justify-end items-center space-x-2 mt-2">
         <Tooltip title="View Enquiry">

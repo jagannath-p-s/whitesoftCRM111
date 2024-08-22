@@ -23,8 +23,6 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import dayjs from 'dayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import FilterSelect from './FilterSelect';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -66,7 +64,9 @@ const Sales = () => {
   const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
   const [endDate, setEndDate] = useState(dayjs());
   const [pipelines, setPipelines] = useState([]);
+  const [stages, setStages] = useState([]);
   const [selectedPipeline, setSelectedPipeline] = useState('All');
+  const [selectedStage, setSelectedStage] = useState('All');
   const [anchorEl, setAnchorEl] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -75,8 +75,12 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
+    fetchStages();
+  }, [selectedPipeline]);
+
+  useEffect(() => {
     fetchData();
-  }, [selectedPipeline, viewCompletedSales]);
+  }, [selectedPipeline, selectedStage, viewCompletedSales]);
 
   const fetchPipelines = async () => {
     const { data: pipelineData, error } = await supabase.from('pipelines').select('*');
@@ -87,11 +91,31 @@ const Sales = () => {
     }
   };
 
+  const fetchStages = async () => {
+    if (selectedPipeline !== 'All') {
+      const { data: stageData, error } = await supabase
+        .from('pipeline_stages')
+        .select('*')
+        .eq('pipeline_id', selectedPipeline);
+      if (error) {
+        console.error('Error fetching stages:', error);
+      } else {
+        setStages([{ stage_id: 'All', stage_name: 'All Stages' }, ...stageData]);
+      }
+    } else {
+      setStages([{ stage_id: 'All', stage_name: 'All Stages' }]);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     let query = supabase.from('enquiries').select('*');
 
     if (selectedPipeline !== 'All') {
-      query = query.or(`pipeline_id.eq.${selectedPipeline},pipeline_id.is.null`);
+      query = query.eq('pipeline_id', selectedPipeline);
+    }
+
+    if (selectedStage !== 'All') {
+      query = query.eq('stage_id', selectedStage);
     }
 
     if (viewCompletedSales) {
@@ -99,9 +123,7 @@ const Sales = () => {
     }
 
     const { data: enquiries, error: enquiriesError } = await query;
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('id, username');
+    const { data: usersData, error: usersError } = await supabase.from('users').select('id, username');
 
     if (enquiriesError || usersError) {
       console.error('Error fetching data:', enquiriesError || usersError);
@@ -115,7 +137,7 @@ const Sales = () => {
       ];
 
       enquiries.forEach((contact) => {
-        const category = categorizedData.find(c => c.name === contact.stage);
+        const category = categorizedData.find((c) => c.name === contact.stage);
         if (category) {
           category.contacts.push(contact);
         }
@@ -129,7 +151,7 @@ const Sales = () => {
       setUsers(usersMap);
       setColumns(categorizedData);
     }
-  }, [selectedPipeline, viewCompletedSales]);
+  }, [selectedPipeline, selectedStage, viewCompletedSales]);
 
   const toggleExpand = (column) => {
     if (expanded.includes(column)) {
@@ -148,8 +170,8 @@ const Sales = () => {
     if (!result.destination) return;
 
     const { source, destination } = result;
-    const sourceColumn = columns.find(column => column.name === source.droppableId);
-    const destinationColumn = columns.find(column => column.name === destination.droppableId);
+    const sourceColumn = columns.find((column) => column.name === source.droppableId);
+    const destinationColumn = columns.find((column) => column.name === destination.droppableId);
 
     // Prevent moving cards out of "Customer-Won"
     if (sourceColumn.name === 'Customer-Won' && destinationColumn.name !== 'Customer-Won') {
@@ -163,24 +185,23 @@ const Sales = () => {
 
     movedItem.stage = destination.droppableId;
 
-    setColumns(columns.map(column => {
-      if (column.name === source.droppableId) {
-        column.contacts = sourceItems;
-      } else if (column.name === destination.droppableId) {
-        column.contacts = destinationItems;
-      }
-      return column;
-    }));
+    setColumns(
+      columns.map((column) => {
+        if (column.name === source.droppableId) {
+          column.contacts = sourceItems;
+        } else if (column.name === destination.droppableId) {
+          column.contacts = destinationItems;
+        }
+        return column;
+      })
+    );
 
     if (destination.droppableId === 'Customer-Won') {
       setCustomerDetails(movedItem);
       setPrintDialogOpen(true);
       setDragResult(result);
     } else {
-      const { error } = await supabase
-        .from('enquiries')
-        .update({ stage: destination.droppableId })
-        .eq('id', movedItem.id);
+      const { error } = await supabase.from('enquiries').update({ stage: destination.droppableId }).eq('id', movedItem.id);
       if (error) {
         console.error('Error updating stage:', error);
       } else {
@@ -194,8 +215,8 @@ const Sales = () => {
     if (shouldMove && dragResult) {
       const { source, destination } = dragResult;
       const movedItem = columns
-        .find(column => column.name === destination.droppableId)
-        .contacts.find(contact => contact.id === customerDetails.id);
+        .find((column) => column.name === destination.droppableId)
+        .contacts.find((contact) => contact.id === customerDetails.id);
 
       movedItem.stage = destination.droppableId;
       movedItem.won_date = new Date().toISOString();
@@ -209,21 +230,23 @@ const Sales = () => {
       }
     } else if (dragResult) {
       const { source, destination } = dragResult;
-      const destinationColumn = columns.find(column => column.name === destination.droppableId);
-      const sourceColumn = columns.find(column => column.name === source.droppableId);
+      const destinationColumn = columns.find((column) => column.name === destination.droppableId);
+      const sourceColumn = columns.find((column) => column.name === source.droppableId);
       const destinationItems = Array.from(destinationColumn.contacts);
       const sourceItems = Array.from(sourceColumn.contacts);
       const [movedItem] = destinationItems.splice(destination.index, 1);
       sourceItems.splice(source.index, 0, movedItem);
 
-      setColumns(columns.map(column => {
-        if (column.name === destination.droppableId) {
-          column.contacts = destinationItems;
-        } else if (column.name === source.droppableId) {
-          column.contacts = sourceItems;
-        }
-        return column;
-      }));
+      setColumns(
+        columns.map((column) => {
+          if (column.name === destination.droppableId) {
+            column.contacts = destinationItems;
+          } else if (column.name === source.droppableId) {
+            column.contacts = sourceItems;
+          }
+          return column;
+        })
+      );
     }
     fetchData(); // Fetch data again to update the columns
   };
@@ -254,7 +277,12 @@ const Sales = () => {
 
   const handlePipelineChange = (pipelineId) => {
     setSelectedPipeline(pipelineId);
+    setSelectedStage('All'); // Reset stage selection when pipeline changes
     setAnchorEl(null);
+  };
+
+  const handleStageChange = (stageId) => {
+    setSelectedStage(stageId);
   };
 
   const handleFilterIconClick = (event) => {
@@ -267,10 +295,7 @@ const Sales = () => {
 
   const handleFormSubmit = async (updatedEnquiry) => {
     try {
-      const { error } = await supabase
-        .from('enquiries')
-        .update(updatedEnquiry)
-        .eq('id', updatedEnquiry.id);
+      const { error } = await supabase.from('enquiries').update(updatedEnquiry).eq('id', updatedEnquiry.id);
 
       if (error) throw error;
 
@@ -302,24 +327,24 @@ const Sales = () => {
     }
   };
 
-  const filteredColumns = columns.map(column => {
+  const filteredColumns = columns.map((column) => {
     let filteredContacts = column.contacts;
 
     if (dateFilter === 'This Month') {
-      filteredContacts = filteredContacts.filter(contact =>
+      filteredContacts = filteredContacts.filter((contact) =>
         dayjs(contact.date).isAfter(dayjs().startOf('month'))
       );
     } else if (dateFilter === 'Last 30 Days') {
-      filteredContacts = filteredContacts.filter(contact =>
+      filteredContacts = filteredContacts.filter((contact) =>
         dayjs(contact.date).isAfter(dayjs().subtract(30, 'day'))
       );
     } else if (dateFilter === 'Last 60 Days') {
-      filteredContacts = filteredContacts.filter(contact =>
+      filteredContacts = filteredContacts.filter((contact) =>
         dayjs(contact.date).isAfter(dayjs().subtract(60, 'day'))
       );
     } else if (dateFilter === 'Custom Date Range') {
-      filteredContacts = filteredContacts.filter(contact =>
-        dayjs(contact.date).isAfter(startDate) && dayjs(contact.date).isBefore(endDate)
+      filteredContacts = filteredContacts.filter(
+        (contact) => dayjs(contact.date).isAfter(startDate) && dayjs(contact.date).isBefore(endDate)
       );
     }
 
@@ -329,7 +354,7 @@ const Sales = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
-      <div className="bg-white shadow-md ">
+      <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
             <div className="flex items-center space-x-4">
@@ -355,38 +380,36 @@ const Sales = () => {
                   <FilterAltOutlinedIcon style={{ fontSize: '1.75rem' }} />
                 </button>
               </Tooltip>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-              >
+              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
                 {pipelines.map((pipeline) => (
                   <MenuItem key={pipeline.pipeline_id} onClick={() => handlePipelineChange(pipeline.pipeline_id)}>
                     {pipeline.pipeline_name}
                   </MenuItem>
                 ))}
+                {selectedPipeline !== 'All' &&
+                  stages.map((stage) => (
+                    <MenuItem key={stage.stage_id} onClick={() => handleStageChange(stage.stage_id)}>
+                      {stage.stage_name}
+                    </MenuItem>
+                  ))}
               </Menu>
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
                 </button>
               </Tooltip>
-              <Tooltip title={view === 'cards' ? "Table View" : "Card View"}>
+              <Tooltip title={view === 'cards' ? 'Table View' : 'Card View'}>
                 <button
                   className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
                   onClick={() => setView(view === 'cards' ? 'table' : 'cards')}
                 >
-                  {view === 'cards' ? (
-                    <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} />
-                  ) : (
-                    <ViewListIcon style={{ fontSize: '1.75rem' }} />
-                  )}
+                  {view === 'cards' ? <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} /> : <ViewListIcon style={{ fontSize: '1.75rem' }} />}
                 </button>
               </Tooltip>
               <Tooltip title="View Completed Sales">
                 <button
                   className={`flex items-center p-2 rounded-full ${viewCompletedSales ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}
-                  onClick={() => setViewCompletedSales(!viewCompletedSales)}  // Toggle view to completed sales
+                  onClick={() => setViewCompletedSales(!viewCompletedSales)} // Toggle view to completed sales
                 >
                   <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
                 </button>
@@ -404,13 +427,7 @@ const Sales = () => {
           {Object.keys(visibleFields).map((field) => (
             <FormControlLabel
               key={field}
-              control={
-                <Checkbox
-                  checked={visibleFields[field]}
-                  onChange={handleFieldChange}
-                  name={field}
-                />
-              }
+              control={<Checkbox checked={visibleFields[field]} onChange={handleFieldChange} name={field} />}
               label={field.charAt(0).toUpperCase() + field.slice(1)}
             />
           ))}

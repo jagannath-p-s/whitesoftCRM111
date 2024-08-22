@@ -10,16 +10,24 @@ import {
   CardContent,
   CardActions,
   Chip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { supabase } from '../supabaseClient';
 import EditEnquiryDialog from './EditEnquiryDialog';
+import PipelineFormJSON from './PipelineFormJSON';
 
 const InfoCard = ({ data, type, onEdit }) => {
   const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [pipelineOpen, setPipelineOpen] = useState(false);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [selectedProducts, setSelectedProducts] = useState({});
@@ -27,12 +35,14 @@ const InfoCard = ({ data, type, onEdit }) => {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [assignedUser, setAssignedUser] = useState('');
 
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     if (type === 'enquiry') {
       fetchProducts();
+      fetchAssignedUser();
     }
   }, [type, productSearchTerm, page]);
 
@@ -56,6 +66,38 @@ const InfoCard = ({ data, type, onEdit }) => {
     }
   };
 
+  const fetchAssignedUser = async () => {
+    try {
+      const assignedToId = data.assignedto;
+      console.log('Assigned To ID:', assignedToId); // Debugging
+
+      if (!assignedToId) {
+        console.error('Assigned To ID is undefined or null');
+        setAssignedUser('Unknown User');
+        return;
+      }
+
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('username, employee_code')
+        .eq('id', assignedToId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user data:', error.message);
+        setAssignedUser('Unknown User');
+        return;
+      }
+
+      console.log('Fetched user data:', userData); // Debugging
+
+      setAssignedUser(`${userData.username} (${userData.employee_code})`);
+    } catch (error) {
+      console.error('Error fetching assigned user:', error.message);
+      setAssignedUser('Unknown User');
+    }
+  };
+
   const handleExpandClick = () => {
     setExpanded(!expanded);
   };
@@ -66,6 +108,9 @@ const InfoCard = ({ data, type, onEdit }) => {
   };
 
   const handleEditClose = () => setEditOpen(false);
+
+  const handlePipelineClick = () => setPipelineOpen(true);
+  const handlePipelineClose = () => setPipelineOpen(false);
 
   const handleSave = async (updatedEnquiry) => {
     try {
@@ -79,7 +124,7 @@ const InfoCard = ({ data, type, onEdit }) => {
       setSnackbar({
         open: true,
         message: 'Enquiry updated successfully',
-        severity: 'success'
+        severity: 'success',
       });
     } catch (error) {
       console.error('Error updating enquiry:', error);
@@ -87,7 +132,7 @@ const InfoCard = ({ data, type, onEdit }) => {
       setSnackbar({
         open: true,
         message: 'Failed to update enquiry',
-        severity: 'error'
+        severity: 'error',
       });
     }
   };
@@ -127,7 +172,7 @@ const InfoCard = ({ data, type, onEdit }) => {
                 <Typography variant="body2">Stage: {data.stage}</Typography>
                 <Typography variant="body2">Email: {data.mailid}</Typography>
                 <Typography variant="body2">Lead Source: {data.leadsource}</Typography>
-                <Typography variant="body2">Assigned To: {data.assignedto}</Typography>
+                <Typography variant="body2">Assigned To: {assignedUser}</Typography>
                 <Typography variant="body2">Remarks: {data.remarks}</Typography>
                 <Typography variant="body2">Priority: {data.priority}</Typography>
                 <Typography variant="body2">Invoiced: {data.invoiced ? 'Yes' : 'No'}</Typography>
@@ -177,13 +222,20 @@ const InfoCard = ({ data, type, onEdit }) => {
       </CardContent>
       <CardActions sx={{ justifyContent: 'flex-end' }}>
         {type === 'enquiry' && (
-          <Tooltip title="Edit">
-            <IconButton onClick={handleEditClick}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
+          <>
+            <Tooltip title="Edit">
+              <IconButton onClick={handleEditClick}>
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Pipeline">
+              <IconButton onClick={handlePipelineClick}>
+                <SettingsOutlinedIcon />
+              </IconButton>
+            </Tooltip>
+          </>
         )}
-        <Tooltip title={expanded ? "Show Less" : "Show More"}>
+        <Tooltip title={expanded ? 'Show Less' : 'Show More'}>
           <IconButton onClick={handleExpandClick}>
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
@@ -227,6 +279,18 @@ const InfoCard = ({ data, type, onEdit }) => {
         totalProducts={totalProducts}
         currentUserId={data.assigned_to}
       />
+
+      <Dialog open={pipelineOpen} onClose={handlePipelineClose} maxWidth="md" fullWidth>
+        <DialogTitle>Pipeline Form</DialogTitle>
+        <DialogContent>
+          <PipelineFormJSON enquiryId={data.id} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handlePipelineClose} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
