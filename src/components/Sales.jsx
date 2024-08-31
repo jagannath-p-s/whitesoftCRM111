@@ -44,17 +44,22 @@ const Sales = () => {
     address: false,
     location: false,
     stage: false,
-    mailid: false,
+    dbt_userid_password: false,
     leadsource: false,
     assignedto: false,
     remarks: false,
-    priority: true,
     invoiced: true,
     collected: false,
     products: true,
     created_at: true,
     salesflow_code: true,
     last_updated: true,
+    state: false,
+    district: false,
+    expected_completion_date: false,
+    subsidy: false,
+    dbt_c_o: false,
+    contacttype: false,
   });
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [customerDetails, setCustomerDetails] = useState(null);
@@ -139,7 +144,13 @@ const Sales = () => {
       enquiries.forEach((contact) => {
         const category = categorizedData.find((c) => c.name === contact.stage);
         if (category) {
-          category.contacts.push(contact);
+          category.contacts.push({
+            ...contact,
+            dbt_userid_password: contact.dbt_userid_password || 'N/A',
+            subsidy: contact.subsidy ? 'Yes' : 'No',
+            dbt_c_o: contact.dbt_c_o || 'N/A',
+            contacttype: contact.contacttype || 'N/A',
+          });
         }
       });
 
@@ -173,7 +184,6 @@ const Sales = () => {
     const sourceColumn = columns.find((column) => column.name === source.droppableId);
     const destinationColumn = columns.find((column) => column.name === destination.droppableId);
 
-    // Prevent moving cards out of "Customer-Won"
     if (sourceColumn.name === 'Customer-Won' && destinationColumn.name !== 'Customer-Won') {
       return;
     }
@@ -205,7 +215,7 @@ const Sales = () => {
       if (error) {
         console.error('Error updating stage:', error);
       } else {
-        fetchData(); // Refresh data after update
+        fetchData(); 
       }
     }
   };
@@ -248,7 +258,7 @@ const Sales = () => {
         })
       );
     }
-    fetchData(); // Fetch data again to update the columns
+    fetchData(); 
   };
 
   const handleSettingsOpen = () => {
@@ -277,7 +287,7 @@ const Sales = () => {
 
   const handlePipelineChange = (pipelineId) => {
     setSelectedPipeline(pipelineId);
-    setSelectedStage('All'); // Reset stage selection when pipeline changes
+    setSelectedStage('All');
     setAnchorEl(null);
   };
 
@@ -299,7 +309,6 @@ const Sales = () => {
 
       if (error) throw error;
 
-      // Find the column and update the specific enquiry
       setColumns((prevColumns) => {
         return prevColumns.map((column) => {
           if (column.name === updatedEnquiry.stage) {
@@ -353,7 +362,6 @@ const Sales = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
@@ -409,7 +417,7 @@ const Sales = () => {
               <Tooltip title="View Completed Sales">
                 <button
                   className={`flex items-center p-2 rounded-full ${viewCompletedSales ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}
-                  onClick={() => setViewCompletedSales(!viewCompletedSales)} // Toggle view to completed sales
+                  onClick={() => setViewCompletedSales(!viewCompletedSales)}
                 >
                   <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
                 </button>
@@ -419,7 +427,6 @@ const Sales = () => {
         </div>
       </div>
 
-      {/* Settings Dialog */}
       <Dialog open={settingsOpen} onClose={handleSettingsClose}>
         <DialogTitle>Customize Contact Card Fields</DialogTitle>
         <DialogContent>
@@ -457,7 +464,6 @@ const Sales = () => {
         </Alert>
       </Snackbar>
 
-      {/* Content */}
       {viewCompletedSales ? (
         <Dash />
       ) : (
@@ -466,13 +472,13 @@ const Sales = () => {
             {view === 'cards' ? (
               filteredColumns.map((column) => (
                 <Column
-                  key={column.name + column.contacts.length} // Use a unique key
+                  key={column.name + column.contacts.length} 
                   column={column}
                   expanded={expanded}
                   toggleExpand={toggleExpand}
                   users={users}
                   visibleFields={visibleFields}
-                  onCardUpdate={handleFormSubmit} // Pass the handleFormSubmit function
+                  onCardUpdate={handleFormSubmit} 
                 />
               ))
             ) : (

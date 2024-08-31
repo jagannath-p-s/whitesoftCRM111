@@ -9,7 +9,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import dayjs from 'dayjs';
-import { supabase } from '../supabaseClient'; // Adjust the path as needed
+import { supabase } from '../supabaseClient';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -48,6 +48,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     totalAmount: 0,
     repairDate: null,
     expectedCompletionDate: null,
+    expectedDeliveryDate: null, // Added field
     status: 'started',
   });
   const [partsOptions, setPartsOptions] = useState([]);
@@ -67,6 +68,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       const parsedCharges = JSON.parse(editingEnquiry.charges);
       const repairDate = editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null;
       const expectedCompletionDate = editingEnquiry.expected_completion_date ? dayjs(editingEnquiry.expected_completion_date) : null;
+      const expectedDeliveryDate = editingEnquiry.expected_delivery_date ? dayjs(editingEnquiry.expected_delivery_date) : null; // Handle expected_delivery_date
 
       setFormData({
         date: dayjs(editingEnquiry.date),
@@ -92,6 +94,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
         expectedCompletionDate: expectedCompletionDate,
+        expectedDeliveryDate: expectedDeliveryDate, // Set expected_delivery_date in formData
         status: editingEnquiry.status
       });
     }
@@ -238,7 +241,8 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         charges: chargesJson,
         total_amount: parseFloat(formData.totalAmount),
         repair_date: formData.repairDate ? formData.repairDate.toISOString() : null,
-        expected_completion_date: formData.expected_completion_date ? formData.expected_completion_date.toISOString() : null,
+        expected_completion_date: formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null,
+        expected_delivery_date: formData.expectedDeliveryDate ? formData.expectedDeliveryDate.toISOString() : null, // Include expectedDeliveryDate
         status: formData.status
       };
   
@@ -307,9 +311,6 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       // Handle the error, e.g., show a notification to the user
     }
   };
-  
-  
-  
   
 
   return (
@@ -489,6 +490,12 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
               />
               <DatePicker
+                label="Expected Delivery/Followup Date"
+                value={formData.expectedDeliveryDate}
+                onChange={(date) => handleChange({ target: { name: 'expectedDeliveryDate', value: date } })}
+                slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
+              />
+              <DatePicker
                 label="Repair Date"
                 value={formData.repairDate}
                 onChange={(date) => {
@@ -516,6 +523,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 <MenuItem value="paused">Paused</MenuItem>
                 <MenuItem value="paused due to parts unavailability">Paused due to Parts Unavailability</MenuItem>
                 <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="delivered">Delivered</MenuItem> {/* Added "Delivered" option */}
               </Select>
             </FormControl>
           </StyledPaper>

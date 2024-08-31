@@ -3,7 +3,6 @@ import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
 import { Menu, MenuItem, Box, Snackbar, Alert } from '@mui/material';
 import { supabase } from '../supabaseClient';
 import AddEnquiryDialog from './AddEnquiryDialog';
-import AddServiceEnquiryDialog from './AddServiceEnquiryDialog';
 
 const SearchBar = ({ onSearch, currentUserId }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -26,11 +25,10 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     address: '',
     location: '',
     stage: 'Lead',
-    mailid: '',
+    dbt_userid_password: '',
     leadsource: '',
     assignedto: currentUserId,
     remarks: '',
-    priority: 'Medium',
     invoiced: false,
     collected: false,
     created_at: new Date().toISOString(),
@@ -39,6 +37,9 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     expected_completion_date: '',
     state: '',
     district: '',
+    contacttype: [],
+    subsidy: false,
+    dbt_c_o: '',
   });
 
   const ITEMS_PER_PAGE = 10;
@@ -59,7 +60,6 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       const { data, error } = await supabase.from('users').select('id, username');
       if (error) throw error;
       setUsers(data);
-      console.log('Fetched users:', data);
     } catch (error) {
       console.error('Error fetching users:', error.message);
     }
@@ -102,36 +102,62 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     setAnchorEl(null);
   };
 
-  const handleDialogOpen = (type) => {
-    console.log('Opening dialog:', type);
+  const handleDialogOpen = async (type) => {
     setDialogType(type);
     setDialogOpen(true);
     setAnchorEl(null);
     setSelectedProducts({});
     setPage(1);
     setProductSearchTerm('');
-    setEnquiryData((prev) => ({
-      ...prev,
-      mobilenumber1: searchTerm,
-      name: '',
-      mobilenumber2: '',
-      address: '',
-      location: '',
-      stage: 'Lead',
-      mailid: '',
-      leadsource: '',
-      assignedto: currentUserId,
-      remarks: '',
-      priority: 'Medium',
-      invoiced: false,
-      collected: false,
-      created_at: new Date().toISOString(),
-      salesflow_code: '',
-      won_date: null,
-      expected_completion_date: '',
-      state: '',
-      district: '',
-    }));
+
+    if (searchTerm) {
+      try {
+        const { data, error } = await supabase
+          .from('enquiries')
+          .select('name, mobilenumber1, mobilenumber2, address, location')
+          .eq('mobilenumber1', searchTerm)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Error fetching enquiry data:', error);
+        } else if (data && data.length > 0) {
+          const latestEnquiry = data[0];
+          setEnquiryData((prev) => ({
+            ...prev,
+            ...latestEnquiry,
+            mobilenumber1: searchTerm,
+          }));
+        } else {
+          setEnquiryData((prev) => ({
+            ...prev,
+            mobilenumber1: searchTerm,
+            name: '',
+            mobilenumber2: '',
+            address: '',
+            location: '',
+            stage: 'Lead',
+            dbt_userid_password: '',
+            leadsource: '',
+            assignedto: currentUserId,
+            remarks: '',
+            invoiced: false,
+            collected: false,
+            created_at: new Date().toISOString(),
+            salesflow_code: '',
+            won_date: null,
+            expected_completion_date: '',
+            state: '',
+            district: '',
+            contacttype: [],
+            subsidy: false,
+            dbt_c_o: '',
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching enquiry data:', error.message);
+      }
+    }
   };
 
   const handleDialogClose = () => {
@@ -171,13 +197,12 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     try {
       console.log('Form data before submission:', formData);
 
-      // Ensure dates are correctly formatted and not empty
       const formattedData = {
         ...formData,
         won_date: formData.won_date ? new Date(formData.won_date).toISOString() : null,
         expected_completion_date: formData.expected_completion_date ? new Date(formData.expected_completion_date).toISOString() : null,
         created_at: formData.created_at ? new Date(formData.created_at).toISOString() : new Date().toISOString(),
-        products: JSON.stringify(selectedProducts) // Convert selectedProducts to JSON string
+        products: JSON.stringify(selectedProducts),
       };
 
       const { data, error } = await supabase
@@ -233,41 +258,28 @@ const SearchBar = ({ onSearch, currentUserId }) => {
         )}
       </div>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        {/* <MenuItem onClick={() => handleDialogOpen('service')}>Add Service Enquiry</MenuItem> */}
         <MenuItem onClick={() => handleDialogOpen('product')}>Add Product Enquiry</MenuItem>
       </Menu>
 
-      {dialogType === 'service' ? (
-        <AddServiceEnquiryDialog
-          dialogOpen={dialogOpen}
-          handleDialogClose={handleDialogClose}
-          handleFormSubmit={handleFormSubmit}
-          users={users}
-          currentUserId={currentUserId}
-          showSnackbar={showSnackbar}
-        />
-      ) : (
-        <AddEnquiryDialog
-          dialogOpen={dialogOpen}
-          dialogType={dialogType}
-          enquiryData={enquiryData}
-          handleDialogClose={handleDialogClose}
-          handleFormSubmit={handleFormSubmit}
-          users={users}
-          products={products}
-          selectedProducts={selectedProducts}
-          handleProductToggle={handleProductToggle}
-          handleQuantityChange={handleQuantityChange}
-          productSearchTerm={productSearchTerm}
-          handleProductSearchChange={handleProductSearchChange}
-          page={page}
-          handlePageChange={handlePageChange}
-          totalEstimate={totalEstimate}
-          ITEMS_PER_PAGE={ITEMS_PER_PAGE}
-          totalProducts={totalProducts}
-          currentUserId={currentUserId}
-        />
-      )}
+      <AddEnquiryDialog
+        dialogOpen={dialogOpen}
+        dialogType={dialogType}
+        enquiryData={enquiryData}
+        handleDialogClose={handleDialogClose}
+        handleFormSubmit={handleFormSubmit}
+        users={users}
+        products={products}
+        selectedProducts={selectedProducts}
+        handleProductToggle={handleProductToggle}
+        handleQuantityChange={handleQuantityChange}
+        productSearchTerm={productSearchTerm}
+        handleProductSearchChange={handleProductSearchChange}
+        page={page}
+        handlePageChange={handlePageChange}
+        totalEstimate={totalEstimate}
+        totalProducts={totalProducts}
+        currentUserId={currentUserId}
+      />
 
       <Snackbar
         open={snackbar.open}

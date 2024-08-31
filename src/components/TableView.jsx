@@ -158,17 +158,19 @@ const TableView = ({ visibleFields }) => {
                 {visibleFields.address && <StyledTableCell>Address</StyledTableCell>}
                 {visibleFields.location && <StyledTableCell>Location</StyledTableCell>}
                 {visibleFields.stage && <StyledTableCell>Stage</StyledTableCell>}
-                {visibleFields.mailid && <StyledTableCell>Mail ID</StyledTableCell>}
+                {visibleFields.dbt_userid_password && <StyledTableCell>DBT User ID/Password</StyledTableCell>}
                 {visibleFields.leadsource && <StyledTableCell>Lead Source</StyledTableCell>}
                 {visibleFields.assignedto && <StyledTableCell>Assigned To</StyledTableCell>}
                 {visibleFields.remarks && <StyledTableCell>Remarks</StyledTableCell>}
-                {visibleFields.priority && <StyledTableCell>Priority</StyledTableCell>}
+                {visibleFields.subsidy && <StyledTableCell>Subsidy</StyledTableCell>}
                 {visibleFields.invoiced && <StyledTableCell>Invoiced</StyledTableCell>}
                 {visibleFields.collected && <StyledTableCell>Collected</StyledTableCell>}
                 {visibleFields.products && <StyledTableCell>Products</StyledTableCell>}
                 {visibleFields.created_at && <StyledTableCell>Created At</StyledTableCell>}
                 {visibleFields.salesflow_code && <StyledTableCell>Salesflow Code</StyledTableCell>}
                 {visibleFields.last_updated && <StyledTableCell>Last Updated</StyledTableCell>}
+                {visibleFields.dbt_c_o && <StyledTableCell>DBT C/O</StyledTableCell>}
+                {visibleFields.contacttype && <StyledTableCell>Contact Type</StyledTableCell>}
                 <StyledTableCell>Actions</StyledTableCell>
               </TableRow>
             </TableHead>
@@ -178,15 +180,15 @@ const TableView = ({ visibleFields }) => {
                   <StyledTableRow key={enquiry.id}>
                     {visibleFields.name && <TableCell>{enquiry.name}</TableCell>}
                     {visibleFields.mobilenumber1 && <TableCell>{enquiry.mobilenumber1}</TableCell>}
-                    {visibleFields.mobilenumber2 && <TableCell>{enquiry.mobilenumber2}</TableCell>}
-                    {visibleFields.address && <TableCell>{enquiry.address}</TableCell>}
-                    {visibleFields.location && <TableCell>{enquiry.location}</TableCell>}
-                    {visibleFields.stage && <TableCell>{enquiry.stage}</TableCell>}
-                    {visibleFields.mailid && <TableCell>{enquiry.mailid}</TableCell>}
-                    {visibleFields.leadsource && <TableCell>{enquiry.leadsource}</TableCell>}
-                    {visibleFields.assignedto && <TableCell>{enquiry.assignedto}</TableCell>}
-                    {visibleFields.remarks && <TableCell>{enquiry.remarks}</TableCell>}
-                    {visibleFields.priority && <TableCell>{enquiry.priority}</TableCell>}
+                    {visibleFields.mobilenumber2 && <TableCell>{enquiry.mobilenumber2 || 'N/A'}</TableCell>}
+                    {visibleFields.address && <TableCell>{enquiry.address || 'N/A'}</TableCell>}
+                    {visibleFields.location && <TableCell>{enquiry.location || 'N/A'}</TableCell>}
+                    {visibleFields.stage && <TableCell>{enquiry.stage || 'N/A'}</TableCell>}
+                    {visibleFields.dbt_userid_password && <TableCell>{enquiry.dbt_userid_password || 'N/A'}</TableCell>}
+                    {visibleFields.leadsource && <TableCell>{enquiry.leadsource || 'N/A'}</TableCell>}
+                    {visibleFields.assignedto && <TableCell>{enquiry.assignedto || 'N/A'}</TableCell>}
+                    {visibleFields.remarks && <TableCell>{enquiry.remarks || 'N/A'}</TableCell>}
+                    {visibleFields.subsidy && <TableCell>{enquiry.subsidy ? 'Yes' : 'No'}</TableCell>}
                     {visibleFields.invoiced && <TableCell>{enquiry.invoiced ? 'Yes' : 'No'}</TableCell>}
                     {visibleFields.collected && <TableCell>{enquiry.collected ? 'Yes' : 'No'}</TableCell>}
                     {visibleFields.products && (
@@ -199,8 +201,10 @@ const TableView = ({ visibleFields }) => {
                       </TableCell>
                     )}
                     {visibleFields.created_at && <TableCell>{new Date(enquiry.created_at).toLocaleString()}</TableCell>}
-                    {visibleFields.salesflow_code && <TableCell>{enquiry.salesflow_code}</TableCell>}
+                    {visibleFields.salesflow_code && <TableCell>{enquiry.salesflow_code || 'N/A'}</TableCell>}
                     {visibleFields.last_updated && <TableCell>{new Date(enquiry.last_updated).toLocaleString()}</TableCell>}
+                    {visibleFields.dbt_c_o && <TableCell>{enquiry.dbt_c_o || 'N/A'}</TableCell>}
+                    {visibleFields.contacttype && <TableCell>{enquiry.contacttype || 'N/A'}</TableCell>}
                     <TableCell>
                       <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
                         <EditIcon />

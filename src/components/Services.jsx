@@ -223,9 +223,26 @@ const Services = () => {
     setEditingEnquiry(null);
   };
 
-  const handleFormSubmit = () => {
-    fetchEnquiries();
-    handleDialogClose();
+  const handleFormSubmit = async (data) => {
+    const { expected_delivery_date, ...otherFields } = data;
+    const updateData = {
+      ...otherFields,
+      expected_delivery_date: expected_delivery_date ? expected_delivery_date.toISOString() : null,
+    };
+
+    try {
+      const { error } = editingEnquiry
+        ? await supabase.from('service_enquiries').update(updateData).eq('id', editingEnquiry.id)
+        : await supabase.from('service_enquiries').insert(updateData);
+
+      if (error) throw error;
+      fetchEnquiries();
+      showSnackbar('Enquiry saved successfully', 'success');
+      handleDialogClose();
+    } catch (error) {
+      showSnackbar('Error saving enquiry', 'error');
+      console.error("Error saving enquiry:", error);
+    }
   };
 
   const handleDeleteEnquiry = async (id) => {
@@ -492,10 +509,11 @@ const Services = () => {
                     label="Status"
                     value={statusFilter}
                     handleChange={handleStatusFilterChange}
-                    options={['See All', 'started', 'ongoing', 'paused', 'completed']}
+                    options={['See All', 'started', 'ongoing', 'paused', 'completed','delivered']}
                   />
                 </StyledTableCell>
                 <StyledTableCell>Expected Completion</StyledTableCell>
+                <StyledTableCell>Expected Delivery Date</StyledTableCell>
                 <StyledTableCell>Actions</StyledTableCell>
               </TableRow>
             </TableHead>
@@ -530,7 +548,7 @@ const Services = () => {
                           open={Boolean(statusMenuAnchorEl) && statusMenuEnquiry === enquiry}
                           onClose={handleStatusMenuClose}
                         >
-                          {['started', 'ongoing', 'paused', 'completed'].map(status => (
+                          {['started', 'ongoing', 'paused', 'completed','delivered'].map(status => (
                             <MenuItem key={status} onClick={() => handleStatusChange(status)}>
                               {status}
                             </MenuItem>
@@ -539,6 +557,7 @@ const Services = () => {
                       </Box>
                     </TableCell>
                     <TableCell>{new Date(enquiry.expected_completion_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{enquiry.expected_delivery_date ? new Date(enquiry.expected_delivery_date).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>
                       <IconButton onClick={() => handleEditEnquiry(enquiry)} color="primary">
                         <EditIcon />
@@ -551,7 +570,7 @@ const Services = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
+                  <TableCell colSpan={11} align="center">
                     No data to display
                   </TableCell>
                 </TableRow>

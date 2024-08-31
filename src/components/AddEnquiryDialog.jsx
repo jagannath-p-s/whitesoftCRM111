@@ -18,8 +18,13 @@ import {
   Typography,
   Pagination,
   Box,
+  Chip,
 } from '@mui/material';
 import { supabase } from '../supabaseClient';
+
+const contactTypeOptions = ['Dairy', 'Agri', 'Irrigation', 'Others'];
+
+const ITEMS_PER_PAGE = 10;
 
 const AddEnquiryDialog = ({
   dialogOpen,
@@ -37,7 +42,6 @@ const AddEnquiryDialog = ({
   page,
   handlePageChange,
   totalEstimate,
-  ITEMS_PER_PAGE,
   totalProducts,
   currentUserId,
 }) => {
@@ -50,7 +54,6 @@ const AddEnquiryDialog = ({
       if (error) {
         console.error('Error fetching lead sources:', error);
       } else {
-        console.log('Lead sources fetched:', data);
         setLeadSources(data);
       }
     };
@@ -62,18 +65,41 @@ const AddEnquiryDialog = ({
     setLocalEnquiryData(enquiryData);
   }, [enquiryData]);
 
-  const handleEnquiryDataChange = (e) => {
+  const handleEnquiryDataChange = async (e) => {
     const { name, value } = e.target;
-    setLocalEnquiryData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+
+    if (name === 'mobilenumber1' && value) {
+      // Fetch the latest enquiry with the same mobile number
+      const { data, error } = await supabase
+        .from('enquiries')
+        .select('name, mobilenumber1, mobilenumber2, address, location')
+        .eq('mobilenumber1', value)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching enquiry data:', error);
+      } else if (data && data.length > 0) {
+        const latestEnquiry = data[0];
+        setLocalEnquiryData((prev) => ({
+          ...prev,
+          ...latestEnquiry,
+        }));
+      }
+    } else {
+      // Update the local enquiry data state normally
+      setLocalEnquiryData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleLeadSourceChange = (e) => {
     const selectedLeadSource = e.target.value;
-    const selectedSource = leadSources.find(source => source.lead_source === selectedLeadSource);
-    console.log('Selected Lead Source:', selectedSource);
+    const selectedSource = leadSources.find(
+      (source) => source.lead_source === selectedLeadSource
+    );
 
     setLocalEnquiryData((prev) => ({
       ...prev,
@@ -83,13 +109,32 @@ const AddEnquiryDialog = ({
     }));
   };
 
+  const handleContactTypeChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    setLocalEnquiryData((prev) => ({
+      ...prev,
+      contacttype: typeof value === 'string' ? value.split(',') : value,
+    }));
+  };
+
   const handleFormSubmission = () => {
-    handleFormSubmit(localEnquiryData);
+    const updatedEnquiry = {
+      ...localEnquiryData,
+      products: JSON.stringify(selectedProducts),
+      contacttype: Array.isArray(localEnquiryData.contacttype)
+        ? localEnquiryData.contacttype.join(',')
+        : localEnquiryData.contacttype,
+    };
+    handleFormSubmit(updatedEnquiry);
   };
 
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
-      <DialogTitle>{dialogType === 'service' ? 'Add Service Enquiry' : 'Add Product Enquiry'}</DialogTitle>
+      <DialogTitle>
+        {dialogType === 'service' ? 'Add Service Enquiry' : 'Add Product Enquiry'}
+      </DialogTitle>
       <DialogContent>
         <TextField
           name="name"
@@ -99,6 +144,7 @@ const AddEnquiryDialog = ({
           margin="dense"
           value={localEnquiryData.name || ''}
           onChange={handleEnquiryDataChange}
+          required
         />
         <TextField
           name="mobilenumber1"
@@ -108,6 +154,7 @@ const AddEnquiryDialog = ({
           margin="dense"
           value={localEnquiryData.mobilenumber1 || ''}
           onChange={handleEnquiryDataChange}
+          required
         />
         <TextField
           name="mobilenumber2"
@@ -136,7 +183,7 @@ const AddEnquiryDialog = ({
           value={localEnquiryData.location || ''}
           onChange={handleEnquiryDataChange}
         />
-        <FormControl fullWidth margin="dense">
+        <FormControl fullWidth margin="dense" required>
           <InputLabel>Stage</InputLabel>
           <Select
             name="stage"
@@ -152,12 +199,21 @@ const AddEnquiryDialog = ({
           </Select>
         </FormControl>
         <TextField
-          name="mailid"
-          label="Email"
+          name="dbt_userid_password"
+          label="DBT User ID/Password"
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.mailid || ''}
+          value={localEnquiryData.dbt_userid_password || ''}
+          onChange={handleEnquiryDataChange}
+        />
+        <TextField
+          name="dbt_c_o"
+          label="DBT C/O"
+          variant="outlined"
+          fullWidth
+          margin="dense"
+          value={localEnquiryData.dbt_c_o || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
@@ -202,16 +258,22 @@ const AddEnquiryDialog = ({
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
-          <InputLabel>Priority</InputLabel>
+          <InputLabel>Subsidy</InputLabel>
           <Select
-            name="priority"
-            value={localEnquiryData.priority || ''}
-            onChange={handleEnquiryDataChange}
-            label="Priority"
+            name="subsidy"
+            value={localEnquiryData.subsidy ? 'true' : 'false'}
+            onChange={(e) =>
+              handleEnquiryDataChange({
+                target: {
+                  name: 'subsidy',
+                  value: e.target.value === 'true',
+                },
+              })
+            }
+            label="Subsidy"
           >
-            <MenuItem value="Low">Low</MenuItem>
-            <MenuItem value="Medium">Medium</MenuItem>
-            <MenuItem value="High">High</MenuItem>
+            <MenuItem value="true">Yes</MenuItem>
+            <MenuItem value="false">No</MenuItem>
           </Select>
         </FormControl>
         <FormControl fullWidth margin="dense">
@@ -263,6 +325,40 @@ const AddEnquiryDialog = ({
           value={localEnquiryData.expected_completion_date || ''}
           onChange={handleEnquiryDataChange}
         />
+        <TextField
+          name="salesflow_code"
+          label="Salesflow Code"
+          variant="outlined"
+          fullWidth
+          margin="dense"
+          value={localEnquiryData.salesflow_code || ''}
+          onChange={handleEnquiryDataChange}
+          InputProps={{
+            readOnly: true,
+          }}
+        />
+        <FormControl fullWidth margin="dense">
+          <InputLabel>Contact Type</InputLabel>
+          <Select
+            name="contacttype"
+            multiple
+            value={localEnquiryData.contacttype || []}
+            onChange={handleContactTypeChange}
+            renderValue={(selected) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selected.map((value) => (
+                  <Chip key={value} label={value} />
+                ))}
+              </Box>
+            )}
+          >
+            {contactTypeOptions.map((type) => (
+              <MenuItem key={type} value={type}>
+                {type}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         {dialogType === 'product' && (
           <>
             <TextField
@@ -332,7 +428,7 @@ const AddEnquiryDialog = ({
           Cancel
         </Button>
         <Button onClick={handleFormSubmission} color="primary">
-          Add
+          {dialogType === 'service' ? 'Add Service Enquiry' : 'Add Product Enquiry'}
         </Button>
       </DialogActions>
     </Dialog>
