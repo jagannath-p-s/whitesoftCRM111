@@ -170,11 +170,11 @@ const InfoCard = ({ data, type, onEdit }) => {
                 <Typography variant="body2">Address: {data.address}</Typography>
                 <Typography variant="body2">Location: {data.location}</Typography>
                 <Typography variant="body2">Stage: {data.stage}</Typography>
-                <Typography variant="body2">Email: {data.mailid}</Typography>
+                <Typography variant="body2">DBT id pass :{data.dbt_userid_password}</Typography>
                 <Typography variant="body2">Lead Source: {data.leadsource}</Typography>
                 <Typography variant="body2">Assigned To: {assignedUser}</Typography>
                 <Typography variant="body2">Remarks: {data.remarks}</Typography>
-                <Typography variant="body2">Priority: {data.priority}</Typography>
+                <Typography variant="body2">subsisidy: {data.subsidy ? 'Yes' : 'No'}</Typography>
                 <Typography variant="body2">Invoiced: {data.invoiced ? 'Yes' : 'No'}</Typography>
                 <Typography variant="body2">Collected: {data.collected ? 'Yes' : 'No'}</Typography>
                 <Typography variant="body2">Salesflow Code: {data.salesflow_code}</Typography>

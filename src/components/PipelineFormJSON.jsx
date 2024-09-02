@@ -44,6 +44,15 @@ const StyledFormControl = styled(FormControl)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
+const formatDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
 const PipelineFormJSON = ({ enquiryId }) => {
   const [pipelines, setPipelines] = useState([]);
   const [selectedPipeline, setSelectedPipeline] = useState(null);
@@ -388,6 +397,16 @@ const PipelineFormJSON = ({ enquiryId }) => {
               onChange={(e) => handleFileUpload(field.field_id, e.target.files[0])}
             />
           );
+        case 'date':
+          return (
+            <TextField
+              type="date"
+              fullWidth
+              value={value || ''}
+              onChange={(e) => handleInputChange(field.field_id, e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          );
         default:
           return null;
       }
@@ -418,6 +437,10 @@ const PipelineFormJSON = ({ enquiryId }) => {
       return (
         <BlueCheckbox checked={Boolean(value)} disabled />
       );
+    }
+
+    if (field.field_type === 'date') {
+      return formatDate(value);
     }
 
     return value || 'N/A';

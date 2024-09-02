@@ -24,14 +24,12 @@ import {
   Breadcrumbs,
   Link,
   Tooltip,
-  Divider,
   Grid,
 } from '@mui/material';
 import {
-  Delete, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile, Edit,
+  Delete, Add, ArrowBack, ArrowForward, TextFields, CheckBox, AttachFile, Edit, Event,
 } from '@mui/icons-material';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import SourceIcon from '@mui/icons-material/Source';
 import { styled } from '@mui/material/styles';
 import { supabase } from '../supabaseClient';
 
@@ -223,6 +221,8 @@ const Pipelines = () => {
         return <CheckBox />;
       case 'file':
         return <AttachFile />;
+      case 'date':
+        return <Event />;
       default:
         return null;
     }
@@ -472,14 +472,16 @@ const Pipelines = () => {
             />
             {dialogType === 'field' && (
               <FormControl fullWidth margin="normal">
-               
+                <InputLabel id="field-type-label">Field Type</InputLabel>
                 <Select
+                  labelId="field-type-label"
                   value={formData.type}
                   onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
                 >
                   <MenuItem value="textfield">Textfield</MenuItem>
                   <MenuItem value="checkbox">Checkbox</MenuItem>
                   <MenuItem value="file">File</MenuItem>
+                  <MenuItem value="date">Date</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -539,3 +541,4 @@ const Pipelines = () => {
 };
 
 export default Pipelines;
+
