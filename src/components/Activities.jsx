@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import AddIcon from '@mui/icons-material/Add';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -15,12 +17,11 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TaskCard from './TaskCard';
 import InnerTaskContactCard from './InnerTaskContactCard';
+import AddTaskDialog from './AddTaskDialog1'; // Import the updated AddTaskDialog component
 import { supabase } from '../supabaseClient';
 import dayjs from 'dayjs';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import FilterSelect from './FilterSelect';
 
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days'];
 
@@ -60,6 +61,7 @@ const Activities = ({ userId, userRole }) => {
   const [startDate, setStartDate] = useState(dayjs().subtract(30, 'day'));
   const [endDate, setEndDate] = useState(dayjs());
   const [assignedToFilter, setAssignedToFilter] = useState(userId);
+  const [addTaskOpen, setAddTaskOpen] = useState(false); // State for opening/closing AddTaskDialog
 
   useEffect(() => {
     fetchData();
@@ -70,39 +72,39 @@ const Activities = ({ userId, userRole }) => {
       let query = supabase
         .from('tasks')
         .select('*, enquiries(*)');
-  
+
       // Apply filtering based on the assignedToFilter
       if (assignedToFilter) {
         query = query.eq('assigned_to', assignedToFilter);
       }
-  
+
       const { data: tasks, error: tasksError } = await query;
-  
+
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('id, username');
-  
+
       if (tasksError || usersError) throw tasksError || usersError;
-  
+
       const categorizedData = [
         { name: 'New', color: 'yellow', bgColor: 'bg-yellow-50', tasks: [] },
         { name: 'Ongoing', color: 'blue', bgColor: 'bg-blue-50', tasks: [] },
         { name: 'Completed', color: 'green', bgColor: 'bg-green-50', tasks: [] },
         { name: 'Overdue', color: 'red', bgColor: 'bg-red-50', tasks: [] },
       ];
-  
+
       tasks.forEach((task) => {
         const category = categorizedData.find(c => c.name.toLowerCase() === task.completion_status);
         if (category) {
           category.tasks.push(task);
         }
       });
-  
+
       const usersMap = usersData.reduce((acc, user) => {
         acc[user.id] = user;
         return acc;
       }, {});
-  
+
       setUsers(usersMap);
       setColumns(categorizedData);
     } catch (error) {
@@ -133,6 +135,7 @@ const Activities = ({ userId, userRole }) => {
     const destinationItems = Array.from(destinationColumn.tasks);
     destinationItems.splice(destination.index, 0, movedItem);
 
+    const oldStatus = movedItem.completion_status;
     movedItem.completion_status = destination.droppableId.toLowerCase();
 
     setColumns(columns.map(column => {
@@ -150,6 +153,42 @@ const Activities = ({ userId, userRole }) => {
       .eq('id', movedItem.id);
     if (error) {
       console.error('Error updating status:', error);
+    }
+
+    // If task is moved to 'Completed' and was assigned by Admin or Manager, award points
+    if (destination.droppableId === 'Completed' && oldStatus !== 'completed') {
+      // Fetch assigned_by user's role
+      const { data: assignedByUser, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', movedItem.assigned_by)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user role:', userError);
+      } else if (['Admin', 'Manager'].includes(assignedByUser.role) && movedItem.assigned_by !== movedItem.assigned_to) {
+        // Update points
+        const { data: pointsData, error: pointsError } = await supabase
+          .from('salesman_points')
+          .select('*')
+          .eq('user_id', movedItem.assigned_to)
+          .eq('enquiry_id', movedItem.enquiry_id);
+
+        if (pointsError) {
+          console.error('Error checking points:', pointsError);
+        } else if (pointsData.length === 0) {
+          const { error: insertError } = await supabase
+            .from('salesman_points')
+            .insert({
+              user_id: movedItem.assigned_to,
+              points: 1,
+              enquiry_id: movedItem.enquiry_id
+            });
+          if (insertError) {
+            console.error('Error inserting points:', insertError);
+          }
+        }
+      }
     }
   };
 
@@ -243,6 +282,15 @@ const Activities = ({ userId, userRole }) => {
     return { ...column, tasks: filteredTasks };
   });
 
+  const handleOpenAddTaskDialog = () => {
+    setAddTaskOpen(true); // Opens the AddTaskDialog
+  };
+
+  const handleCloseAddTaskDialog = () => {
+    setAddTaskOpen(false); // Closes the AddTaskDialog
+    fetchData(); // Refresh data after adding a task
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
@@ -253,20 +301,20 @@ const Activities = ({ userId, userRole }) => {
               <div className="flex items-center">
                 <EventNoteIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
                 <h1 className="text-xl font-semibold ml-2 mr-2">Activities</h1>
-                <FilterSelect 
-                label="Date Range"
-                value={dateFilter}
-                handleChange={handleDateFilterChange}
-                options={dateOptions}
-                withDatePicker={dateFilter === 'Custom Date Range'}
-                startDate={startDate}
-                endDate={endDate}
-                handleStartDateChange={handleStartDateChange}
-                handleEndDateChange={handleEndDateChange}
-              />
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Add Task Button */}
+              <Tooltip title="Add new task">
+                <IconButton
+                  className="p-2"
+                  onClick={handleOpenAddTaskDialog}
+                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
+                >
+                  <AddIcon style={{ fontSize: '1.75rem' }} />
+                </IconButton>
+              </Tooltip>
+
               {(userRole === 'Admin' || userRole === 'Manager') && (
                 <Tooltip title="Filter by User">
                   <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleFilterOpen}>
@@ -310,6 +358,15 @@ const Activities = ({ userId, userRole }) => {
         </DialogActions>
       </Dialog>
 
+      {/* Add Task Dialog */}
+      <AddTaskDialog 
+        open={addTaskOpen} 
+        handleClose={handleCloseAddTaskDialog} 
+        enquiryId={null} // Add your enquiryId if applicable
+        assignedBy={userId}
+        userRole={userRole} // Pass the userRole prop
+      />
+
       {/* Filter Dialog */}
       <Dialog
         open={filterOpen}
@@ -344,29 +401,29 @@ const Activities = ({ userId, userRole }) => {
             onMouseEnter={e => e.target.style.borderColor = '#1976d2'}
             onMouseLeave={e => e.target.style.borderColor = '#d1d1d1'}
           >
-            <option value="">All Tasks</option>
             <option value={userId}>My Tasks</option>
-            {Object.keys(users).map(userId => (
-              <option key={userId} value={userId}>
-                {users[userId].username}
-              </option>
-            ))}
+            {(userRole === 'Admin' || userRole === 'Manager') && (
+              <>
+                <option value="">All Tasks</option>
+                {Object.keys(users).map(uid => (
+                  <option key={uid} value={uid}>
+                    {users[uid].username}
+                  </option>
+                ))}
+              </>
+            )}
           </select>
         </DialogContent>
         <DialogActions style={{ paddingTop: '15px' }}>
           <Button
             onClick={handleClearFilters}
             style={{
-              
-              
               borderRadius: '20px',
               padding: '8px 20px',
               textTransform: 'none',
               boxShadow: '0 2px 5px rgba(0, 0, 0, 0.2)',
               transition: 'background-color 0.3s',
             }}
-            // onMouseEnter={e => e.target.style.backgroundColor = '#e65100'}
-            // onMouseLeave={e => e.target.style.backgroundColor = '#ff9800'}
           >
             Clear Filters
           </Button>
