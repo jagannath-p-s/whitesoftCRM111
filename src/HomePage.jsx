@@ -34,8 +34,8 @@ const HomePage = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [addMenuAnchorEl, setAddMenuAnchorEl] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeComponent, setActiveComponent] = useState('Dashboard');
-  const [previousComponent, setPreviousComponent] = useState('Dashboard');
+  const [activeComponent, setActiveComponent] = useState('Activities'); // Default to 'Activities'
+  const [previousComponent, setPreviousComponent] = useState('Activities'); // Default to 'Activities'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [searchTerm, setSearchTerm] = useState('');
   const [newMessages, setNewMessages] = useState(false);
@@ -234,11 +234,6 @@ const HomePage = () => {
                 <SearchBar onSearch={handleSearchClick} currentUserId={user.id} />
               </div>
               <div className="flex items-center space-x-4">
-                {/* <Tooltip title="Notifications">
-                  <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-                    <NotificationsNoneIcon />
-                  </button>
-                </Tooltip> */}
                 <Menu
                   anchorEl={addMenuAnchorEl}
                   open={Boolean(addMenuAnchorEl)}

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Droppable, Draggable } from 'react-beautiful-dnd';
 import Tooltip from '@mui/material/Tooltip';
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import ContactCard from './ContactCard';
 
-const Column = ({ column, expanded, toggleExpand, users, visibleFields, onCardUpdate }) => {
+const Column = ({ column, users, visibleFields, onCardUpdate }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   const getTextColorClass = (color) => {
     switch (color) {
       case 'blue':
@@ -22,21 +24,25 @@ const Column = ({ column, expanded, toggleExpand, users, visibleFields, onCardUp
     }
   };
 
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
+  };
+
   return (
     <Droppable droppableId={column.name}>
       {(provided) => (
         <div
           {...provided.droppableProps}
           ref={provided.innerRef}
-          onClick={() => !expanded.includes(column.name) && toggleExpand(column.name)}
+          onClick={() => !isExpanded && toggleExpand()}
           className={`flex flex-col transition-all duration-300 ease-in-out
-            ${expanded.includes(column.name) ? 'w-64' : 'w-16'}
-            ${expanded.includes(column.name) ? column.bgColor : 'bg-white'}
-            border ${expanded.includes(column.name) ? `border-${column.color}-300` : 'border-gray-300'}
+            ${isExpanded ? 'w-64' : 'w-16'}
+            ${isExpanded ? column.bgColor : 'bg-white'}
+            border ${isExpanded ? `border-${column.color}-300` : 'border-gray-300'}
             p-4 rounded-lg shadow-md relative cursor-pointer`}
           style={{ maxHeight: '100vh', overflowY: 'auto', paddingRight: '8px' }}
         >
-          {expanded.includes(column.name) ? (
+          {isExpanded ? (
             <>
               <div className="flex justify-between items-center mb-2">
                 <h2 className={`text-lg font-semibold truncate ${getTextColorClass(column.color)}`}>
@@ -47,7 +53,7 @@ const Column = ({ column, expanded, toggleExpand, users, visibleFields, onCardUp
                     className="text-gray-500 transform rotate-90"
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleExpand(column.name);
+                      toggleExpand();
                     }}
                   >
                     <KeyboardDoubleArrowRightIcon />
@@ -69,7 +75,7 @@ const Column = ({ column, expanded, toggleExpand, users, visibleFields, onCardUp
                             user={users[contact.assignedto]}
                             color={column.color}
                             visibleFields={visibleFields}
-                            onUpdate={onCardUpdate} // Pass the onUpdate function
+                            onUpdate={onCardUpdate}
                           />
                         </div>
                       )}
@@ -94,10 +100,10 @@ const Column = ({ column, expanded, toggleExpand, users, visibleFields, onCardUp
                   className="absolute top-2 right-2 text-gray-500"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleExpand(column.name);
+                    toggleExpand();
                   }}
                 >
-                    <KeyboardDoubleArrowRightIcon />
+                  <KeyboardDoubleArrowRightIcon />
                 </button>
               </Tooltip>
             </div>

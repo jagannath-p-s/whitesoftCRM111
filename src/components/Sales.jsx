@@ -6,27 +6,29 @@ import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Column from './Column';
+import FilterSelect from './FilterSelect';
+import DialogContentText from '@mui/material/DialogContentText';
 import TableView from './TableView';
 import { supabase } from '../supabaseClient';
 import { DragDropContext } from 'react-beautiful-dnd';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import PrintBillDialog from './PrintBillDialog';
-import Dash from './Dash';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import dayjs from 'dayjs';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import FilterSelect from './FilterSelect';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
+import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+import Divider from '@mui/material/Divider';
 
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
@@ -70,8 +72,8 @@ const Sales = () => {
   const [endDate, setEndDate] = useState(dayjs());
   const [pipelines, setPipelines] = useState([]);
   const [stages, setStages] = useState([]);
-  const [selectedPipeline, setSelectedPipeline] = useState('All');
-  const [selectedStage, setSelectedStage] = useState('All');
+  const [selectedPipeline, setSelectedPipeline] = useState(null);
+  const [selectedStage, setSelectedStage] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -80,51 +82,59 @@ const Sales = () => {
   }, []);
 
   useEffect(() => {
-    fetchStages();
+    if (selectedPipeline) {
+      fetchStages(selectedPipeline);
+    }
   }, [selectedPipeline]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPipeline, selectedStage, viewCompletedSales]);
+  }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate]);
 
   const fetchPipelines = async () => {
     const { data: pipelineData, error } = await supabase.from('pipelines').select('*');
     if (error) {
       console.error('Error fetching pipelines:', error);
     } else {
-      setPipelines([{ pipeline_id: 'All', pipeline_name: 'All Pipelines' }, ...pipelineData]);
+      setPipelines(pipelineData);
     }
   };
 
-  const fetchStages = async () => {
-    if (selectedPipeline !== 'All') {
-      const { data: stageData, error } = await supabase
-        .from('pipeline_stages')
-        .select('*')
-        .eq('pipeline_id', selectedPipeline);
-      if (error) {
-        console.error('Error fetching stages:', error);
-      } else {
-        setStages([{ stage_id: 'All', stage_name: 'All Stages' }, ...stageData]);
-      }
+  const fetchStages = async (pipelineId) => {
+    const { data: stageData, error } = await supabase
+      .from('pipeline_stages')
+      .select('*')
+      .eq('pipeline_id', pipelineId);
+    if (error) {
+      console.error('Error fetching stages:', error);
     } else {
-      setStages([{ stage_id: 'All', stage_name: 'All Stages' }]);
+      setStages(stageData);
     }
   };
 
   const fetchData = useCallback(async () => {
     let query = supabase.from('enquiries').select('*');
 
-    if (selectedPipeline !== 'All') {
+    if (selectedPipeline) {
       query = query.eq('pipeline_id', selectedPipeline);
     }
 
-    if (selectedStage !== 'All') {
-      query = query.eq('stage_id', selectedStage);
+    if (selectedStage) {
+      query = query.eq('current_stage_id', selectedStage);
     }
 
     if (viewCompletedSales) {
       query = query.eq('stage', 'Customer-Won');
+    }
+
+    if (dateFilter === 'This Month') {
+      query = query.gte('created_at', dayjs().startOf('month').toISOString());
+    } else if (dateFilter === 'Last 30 Days') {
+      query = query.gte('created_at', dayjs().subtract(30, 'day').toISOString());
+    } else if (dateFilter === 'Last 60 Days') {
+      query = query.gte('created_at', dayjs().subtract(60, 'day').toISOString());
+    } else if (dateFilter === 'Custom Date Range') {
+      query = query.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
     }
 
     const { data: enquiries, error: enquiriesError } = await query;
@@ -144,13 +154,7 @@ const Sales = () => {
       enquiries.forEach((contact) => {
         const category = categorizedData.find((c) => c.name === contact.stage);
         if (category) {
-          category.contacts.push({
-            ...contact,
-            dbt_userid_password: contact.dbt_userid_password || 'N/A',
-            subsidy: contact.subsidy ? 'Yes' : 'No',
-            dbt_c_o: contact.dbt_c_o || 'N/A',
-            contacttype: contact.contacttype || 'N/A',
-          });
+          category.contacts.push(contact);
         }
       });
 
@@ -162,19 +166,24 @@ const Sales = () => {
       setUsers(usersMap);
       setColumns(categorizedData);
     }
-  }, [selectedPipeline, selectedStage, viewCompletedSales]);
+  }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate]);
 
-  const toggleExpand = (column) => {
-    if (expanded.includes(column)) {
-      setExpanded(expanded.filter((c) => c !== column));
-    } else {
-      if (expanded.length < 4) {
-        setExpanded([...expanded, column]);
-      } else {
-        const [first, ...rest] = expanded;
-        setExpanded([...rest, column]);
-      }
-    }
+  const handlePipelineSelect = (pipelineId) => {
+    setSelectedPipeline(pipelineId);
+    setSelectedStage(null);
+  };
+
+  const handleStageSelect = (stageId) => {
+    setSelectedStage(stageId);
+    setAnchorEl(null);
+  };
+
+  const handleFilterIconClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
   };
 
   const onDragEnd = async (result) => {
@@ -211,54 +220,19 @@ const Sales = () => {
       setPrintDialogOpen(true);
       setDragResult(result);
     } else {
-      const { error } = await supabase.from('enquiries').update({ stage: destination.droppableId }).eq('id', movedItem.id);
-      if (error) {
-        console.error('Error updating stage:', error);
-      } else {
-        fetchData(); 
-      }
-    }
-  };
-
-  const handlePrintClose = async (shouldMove) => {
-    setPrintDialogOpen(false);
-    if (shouldMove && dragResult) {
-      const { source, destination } = dragResult;
-      const movedItem = columns
-        .find((column) => column.name === destination.droppableId)
-        .contacts.find((contact) => contact.id === customerDetails.id);
-
-      movedItem.stage = destination.droppableId;
-      movedItem.won_date = new Date().toISOString();
-
       const { error } = await supabase
         .from('enquiries')
-        .update({ stage: destination.droppableId, won_date: movedItem.won_date })
+        .update({ 
+          stage: destination.droppableId,
+          current_stage_id: stages.find(stage => stage.stage_name === destination.droppableId)?.stage_id
+        })
         .eq('id', movedItem.id);
       if (error) {
         console.error('Error updating stage:', error);
+      } else {
+        fetchData();
       }
-    } else if (dragResult) {
-      const { source, destination } = dragResult;
-      const destinationColumn = columns.find((column) => column.name === destination.droppableId);
-      const sourceColumn = columns.find((column) => column.name === source.droppableId);
-      const destinationItems = Array.from(destinationColumn.contacts);
-      const sourceItems = Array.from(sourceColumn.contacts);
-      const [movedItem] = destinationItems.splice(destination.index, 1);
-      sourceItems.splice(source.index, 0, movedItem);
-
-      setColumns(
-        columns.map((column) => {
-          if (column.name === destination.droppableId) {
-            column.contacts = destinationItems;
-          } else if (column.name === source.droppableId) {
-            column.contacts = sourceItems;
-          }
-          return column;
-        })
-      );
     }
-    fetchData(); 
   };
 
   const handleSettingsOpen = () => {
@@ -283,24 +257,6 @@ const Sales = () => {
 
   const handleEndDateChange = (date) => {
     setEndDate(date);
-  };
-
-  const handlePipelineChange = (pipelineId) => {
-    setSelectedPipeline(pipelineId);
-    setSelectedStage('All');
-    setAnchorEl(null);
-  };
-
-  const handleStageChange = (stageId) => {
-    setSelectedStage(stageId);
-  };
-
-  const handleFilterIconClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
   };
 
   const handleFormSubmit = async (updatedEnquiry) => {
@@ -336,29 +292,29 @@ const Sales = () => {
     }
   };
 
-  const filteredColumns = columns.map((column) => {
-    let filteredContacts = column.contacts;
+  const handlePrintClose = async (shouldMove) => {
+    setPrintDialogOpen(false);
+    if (shouldMove && dragResult) {
+      const { destination } = dragResult;
+      const movedItem = customerDetails;
 
-    if (dateFilter === 'This Month') {
-      filteredContacts = filteredContacts.filter((contact) =>
-        dayjs(contact.date).isAfter(dayjs().startOf('month'))
-      );
-    } else if (dateFilter === 'Last 30 Days') {
-      filteredContacts = filteredContacts.filter((contact) =>
-        dayjs(contact.date).isAfter(dayjs().subtract(30, 'day'))
-      );
-    } else if (dateFilter === 'Last 60 Days') {
-      filteredContacts = filteredContacts.filter((contact) =>
-        dayjs(contact.date).isAfter(dayjs().subtract(60, 'day'))
-      );
-    } else if (dateFilter === 'Custom Date Range') {
-      filteredContacts = filteredContacts.filter(
-        (contact) => dayjs(contact.date).isAfter(startDate) && dayjs(contact.date).isBefore(endDate)
-      );
+      const { error } = await supabase
+        .from('enquiries')
+        .update({ 
+          stage: destination.droppableId,
+          current_stage_id: stages.find(stage => stage.stage_name === destination.droppableId)?.stage_id,
+          won_date: new Date().toISOString()
+        })
+        .eq('id', movedItem.id);
+
+      if (error) {
+        console.error('Error updating stage:', error);
+      } else {
+        fetchData();
+      }
     }
-
-    return { ...column, contacts: filteredContacts };
-  });
+    setDragResult(null);
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -388,19 +344,53 @@ const Sales = () => {
                   <FilterAltOutlinedIcon style={{ fontSize: '1.75rem' }} />
                 </button>
               </Tooltip>
-              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-                {pipelines.map((pipeline) => (
-                  <MenuItem key={pipeline.pipeline_id} onClick={() => handlePipelineChange(pipeline.pipeline_id)}>
-                    {pipeline.pipeline_name}
-                  </MenuItem>
-                ))}
-                {selectedPipeline !== 'All' &&
-                  stages.map((stage) => (
-                    <MenuItem key={stage.stage_id} onClick={() => handleStageChange(stage.stage_id)}>
-                      {stage.stage_name}
-                    </MenuItem>
-                  ))}
-              </Menu>
+              <Menu
+  anchorEl={anchorEl}
+  open={Boolean(anchorEl)}
+  onClose={handleMenuClose}
+  anchorOrigin={{
+    vertical: 'bottom',
+    horizontal: 'left',  // Align menu to the left
+  }}
+  transformOrigin={{
+    vertical: 'top',
+    horizontal: 'left',  // Align menu to the left
+  }}
+>
+  {/* Pipelines Section */}
+  <MenuItem onClick={() => { setSelectedPipeline(null); setSelectedStage(null); handleMenuClose(); }}>
+    <ListItemText primary="All Pipelines" />
+  </MenuItem>
+  {pipelines.map((pipeline) => (
+    <MenuItem
+      key={pipeline.pipeline_id}
+      onClick={() => handlePipelineSelect(pipeline.pipeline_id)}
+    >
+      <ListItemText primary={pipeline.pipeline_name} />
+      {selectedPipeline === pipeline.pipeline_id && (
+        <ArrowRightIcon />
+      )}
+    </MenuItem>
+  ))}
+
+  <Divider /> {/* Divider to separate pipelines from stages */}
+
+  {/* Stages Section */}
+  <MenuItem onClick={() => handleStageSelect(null)}>
+    <ListItemText primary="All Stages" />
+  </MenuItem>
+  {selectedPipeline && stages.map((stage) => (
+    <MenuItem
+      key={stage.stage_id}
+      onClick={() => handleStageSelect(stage.stage_id)}
+      style={{ paddingLeft: '32px' }} // Indent to show it's related to the pipeline
+    >
+      <ListItemText primary={stage.stage_name} />
+    </MenuItem>
+  ))}
+</Menu>
+
+
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
@@ -448,7 +438,7 @@ const Sales = () => {
 
       <PrintBillDialog
         open={printDialogOpen}
-        handleClose={(shouldMove) => handlePrintClose(shouldMove)}
+        handleClose={handlePrintClose}
         customer={customerDetails}
         onCustomerUpdate={fetchData}
       />
@@ -465,24 +455,22 @@ const Sales = () => {
       </Snackbar>
 
       {viewCompletedSales ? (
-        <Dash />
+        <div>Completed Sales View</div> // Replace with actual completed sales component
       ) : (
         <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
           <DragDropContext onDragEnd={onDragEnd}>
             {view === 'cards' ? (
-              filteredColumns.map((column) => (
+              columns.map((column) => (
                 <Column
-                  key={column.name + column.contacts.length} 
+                  key={column.name}
                   column={column}
-                  expanded={expanded}
-                  toggleExpand={toggleExpand}
                   users={users}
                   visibleFields={visibleFields}
-                  onCardUpdate={handleFormSubmit} 
+                  onCardUpdate={handleFormSubmit}
                 />
               ))
             ) : (
-              <TableView columns={filteredColumns} users={users} visibleFields={visibleFields} />
+              <TableView columns={columns} users={users} visibleFields={visibleFields} />
             )}
           </DragDropContext>
         </div>
