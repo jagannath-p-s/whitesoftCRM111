@@ -404,14 +404,14 @@ const Sales = () => {
                   {view === 'cards' ? <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} /> : <ViewListIcon style={{ fontSize: '1.75rem' }} />}
                 </button>
               </Tooltip>
-              <Tooltip title="View Completed Sales">
+              {/* <Tooltip title="View Completed Sales">
                 <button
                   className={`flex items-center p-2 rounded-full ${viewCompletedSales ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}
                   onClick={() => setViewCompletedSales(!viewCompletedSales)}
                 >
                   <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
                 </button>
-              </Tooltip>
+              </Tooltip> */}
             </div>
           </div>
         </div>
