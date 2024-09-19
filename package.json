@@ -24,6 +24,7 @@
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.12",
     "file-saver": "^2.0.5",
+    "json2csv": "^6.0.0-alpha.2",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "lucide": "^0.424.0",
