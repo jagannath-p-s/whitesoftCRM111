@@ -1,227 +1,178 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
 import {
   Dialog,
-  DialogActions,
-  DialogContent,
   DialogTitle,
-  TextField,
+  DialogContent,
+  DialogActions,
   Button,
-  Box,
-  MenuItem,
+  TextField,
   Select,
-  InputLabel,
+  MenuItem,
   FormControl,
+  InputLabel,
+  Box,
   Snackbar,
   Alert,
-  CircularProgress,
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { supabase } from '../supabaseClient';
 
 const AddStockOptions = ({
   fetchProducts,
   productDialogOpen,
   setProductDialogOpen,
-  categoryDialogOpen,
-  setCategoryDialogOpen,
-  subcategoryDialogOpen,
-  setSubcategoryDialogOpen,
   selectedProduct,
   setSelectedProduct,
 }) => {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newSubcategoryName, setNewSubcategoryName] = useState('');
-  const [newSubcategoryCategoryId, setNewSubcategoryCategoryId] = useState('');
-  const [productName, setProductName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [productCategory, setProductCategory] = useState('');
-  const [productSubcategory, setProductSubcategory] = useState('');
-  const [productPrice, setProductPrice] = useState('');
-  const [productMinStock, setProductMinStock] = useState('');
-  const [productCurrentStock, setProductCurrentStock] = useState('');
-  const [productSerialNumber, setProductSerialNumber] = useState('');
-  const [productItemName, setProductItemName] = useState('');
-  const [productItemAlias, setProductItemAlias] = useState('');
-  const [productPartNumber, setProductPartNumber] = useState('');
-  const [productModel, setProductModel] = useState('');
-  const [productRemarks, setProductRemarks] = useState('');
-  const [productStockGroup, setProductStockGroup] = useState('');
-  const [productImage, setProductImage] = useState(null);
-  const [productImagePreview, setProductImagePreview] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [uploading, setUploading] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    item_name: '',
+    company_name: '',
+    category_id: '',
+    subcategory_id: '',
+    price: '',
+    min_stock: '',
+    current_stock: '',
+    item_alias: '',
+    model_number: '',
+    uom: '',
+    barcode_number: '',
+    image_link: '',
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [previousImagePath, setPreviousImagePath] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   useEffect(() => {
     fetchCategories();
     fetchSubcategories();
+  }, []);
+
+  useEffect(() => {
     if (selectedProduct) {
-      setProductName(selectedProduct.product_name);
-      setBrand(selectedProduct.brand);
-      setProductCategory(selectedProduct.category_id);
-      setProductSubcategory(selectedProduct.subcategory_id);
-      setProductPrice(selectedProduct.price);
-      setProductMinStock(selectedProduct.min_stock);
-      setProductCurrentStock(selectedProduct.current_stock);
-      setProductSerialNumber(selectedProduct.serial_number);
-      setProductItemName(selectedProduct.item_name);
-      setProductItemAlias(selectedProduct.item_alias);
-      setProductPartNumber(selectedProduct.part_number);
-      setProductModel(selectedProduct.model);
-      setProductRemarks(selectedProduct.remarks);
-      setProductStockGroup(selectedProduct.stock_group);
-      setProductImagePreview(selectedProduct.image_link);
+      setNewProduct(selectedProduct);
+      setImagePreview(selectedProduct.image_link || '');
+      const filePath = selectedProduct.image_link?.split('/').pop(); // Get the filename of the image to use for deletion
+      setPreviousImagePath(filePath);
+    } else {
+      resetForm();
     }
   }, [selectedProduct]);
 
   const fetchCategories = async () => {
     const { data, error } = await supabase.from('categories').select('*');
     if (error) {
-      showSnackbar(`Error fetching categories: ${error.message}`, 'error');
-    } else {
-      setCategories(data);
-    }
+      console.error('Error fetching categories:', error);
+      showSnackbar('Error fetching categories', 'error');
+    } else setCategories(data);
   };
 
   const fetchSubcategories = async () => {
     const { data, error } = await supabase.from('subcategories').select('*');
     if (error) {
-      showSnackbar(`Error fetching subcategories: ${error.message}`, 'error');
-    } else {
-      setSubcategories(data);
-    }
+      console.error('Error fetching subcategories:', error);
+      showSnackbar('Error fetching subcategories', 'error');
+    } else setSubcategories(data);
   };
 
-  const handleCloseProductDialog = () => {
-    setSelectedProduct(null);
-    setProductDialogOpen(false);
+  const resetForm = () => {
+    setNewProduct({
+      item_name: '',
+      company_name: '',
+      category_id: '',
+      subcategory_id: '',
+      price: '',
+      min_stock: '',
+      current_stock: '',
+      item_alias: '',
+      model_number: '',
+      uom: '',
+      barcode_number: '',
+      image_link: '',
+    });
+    setImageFile(null);
+    setImagePreview('');
+    setPreviousImagePath('');
   };
 
-  const handleCloseCategoryDialog = () => {
-    setCategoryDialogOpen(false);
-  };
-
-  const handleCloseSubcategoryDialog = () => {
-    setSubcategoryDialogOpen(false);
-  };
-
-  const handleAddCategory = async () => {
-    const { error } = await supabase.from('categories').insert([{ category_name: newCategoryName }]);
-    if (error) {
-      showSnackbar(`Error adding category: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Category added successfully', 'success');
-      fetchCategories();
-      handleCloseCategoryDialog();
-    }
-  };
-
-  const handleAddSubcategory = async () => {
-    const { error } = await supabase
-      .from('subcategories')
-      .insert([{ subcategory_name: newSubcategoryName, category_id: newSubcategoryCategoryId }]);
-    if (error) {
-      showSnackbar(`Error adding subcategory: ${error.message}`, 'error');
-    } else {
-      showSnackbar('Subcategory added successfully', 'success');
-      fetchSubcategories();
-      handleCloseSubcategoryDialog();
-    }
-  };
-
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Check file size (e.g., limit to 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      showSnackbar('File size exceeds 5MB limit', 'error');
-      return;
-    }
-
-    // Check file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    if (!allowedTypes.includes(file.type)) {
-      showSnackbar('Only JPEG, PNG, and GIF images are allowed', 'error');
-      return;
-    }
-
-    setProductImage(file);
-    setProductImagePreview(URL.createObjectURL(file));
-  };
-
-  const uploadImage = async (file) => {
-    const fileName = `${Date.now()}-${file.name}`;
-    const { data, error } = await supabase.storage
-      .from('files')
-      .upload(fileName, file);
-  
-    if (error) {
-      throw new Error(`Error uploading image: ${error.message}`);
-    }
-  
-    // Return the file path instead of the public URL
-    return data.path;
-  };
-  
-  
-
-  // ... (to be continued in the next part)
-  const handleAddProduct = async () => {
-    setUploading(true);
-    try {
-      let imagePath = '';
-  
-      if (productImage) {
-        imagePath = await uploadImage(productImage);
-      }
-  
-      const productData = {
-        serial_number: productSerialNumber || null,
-        item_name: productItemName || null,
-        item_alias: productItemAlias || null,
-        part_number: productPartNumber || null,
-        model: productModel || null,
-        remarks: productRemarks || null,
-        stock_group: productStockGroup || null,
-        product_name: productName || null,
-        brand: brand || null,
-        category_id: productCategory ? parseInt(productCategory, 10) : null,
-        subcategory_id: productSubcategory ? parseInt(productSubcategory, 10) : null,
-        price: productPrice ? parseFloat(productPrice) : null,
-        min_stock: productMinStock ? parseInt(productMinStock, 10) : null,
-        current_stock: productCurrentStock ? parseInt(productCurrentStock, 10) : null,
-        image_link: imagePath || null, // Use the file path here
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
       };
-  
-      let error;
-      if (selectedProduct) {
-        const { error: updateError } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('product_id', selectedProduct.product_id);
-        error = updateError;
-      } else {
-        const { error: insertError } = await supabase.from('products').insert([productData]);
-        error = insertError;
-      }
-  
-      if (error) {
-        throw new Error(`Error ${selectedProduct ? 'updating' : 'adding'} product: ${error.message}`);
-      }
-  
-      showSnackbar(`Product ${selectedProduct ? 'updated' : 'added'} successfully`, 'success');
-      fetchProducts();
-      handleCloseProductDialog();
-    } catch (error) {
-      showSnackbar(error.message, 'error');
-    } finally {
-      setUploading(false);
+      reader.readAsDataURL(file);
     }
   };
-  
-  
+
+  const removePreviousImage = async (filePath) => {
+    if (filePath) {
+      const { error } = await supabase.storage.from('files').remove([`product_images/${filePath}`]);
+      if (error) {
+        console.error('Error removing previous image:', error);
+      }
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+
+    const fileExt = imageFile.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const filePath = `product_images/${fileName}`;
+
+    const { data, error } = await supabase.storage.from('files').upload(filePath, imageFile);
+
+    if (error) {
+      console.error('Error uploading image:', error);
+      showSnackbar('Error uploading image', 'error');
+      return null;
+    }
+
+    const { data: publicUrlData, error: publicURLError } = supabase.storage
+      .from('files')
+      .getPublicUrl(filePath);
+
+    if (publicURLError || !publicUrlData.publicUrl) {
+      console.error('Error getting public URL:', publicURLError);
+      showSnackbar('Error getting image URL', 'error');
+      return null;
+    }
+
+    return publicUrlData.publicUrl;
+  };
+
+  const handleAddProduct = async () => {
+    let imageUrl = newProduct.image_link;
+
+    if (imageFile) {
+      if (previousImagePath) {
+        await removePreviousImage(previousImagePath); // Remove the old image
+      }
+      imageUrl = await uploadImage(); // Upload the new image
+    }
+
+    const productData = { ...newProduct, image_link: imageUrl };
+
+    const { data, error } = await supabase.from('products').upsert([productData], { onConflict: 'product_id' });
+
+    if (error) {
+      console.error('Error adding/updating product:', error);
+      showSnackbar('Error adding/updating product', 'error');
+    } else {
+      fetchProducts();
+      setProductDialogOpen(false);
+      resetForm();
+      showSnackbar(selectedProduct ? 'Product updated successfully' : 'Product added successfully', 'success');
+    }
+  };
 
   const showSnackbar = (message, severity) => {
     setSnackbar({ open: true, message, severity });
@@ -235,40 +186,33 @@ const AddStockOptions = ({
   };
 
   return (
-    <div>
-      <Dialog open={categoryDialogOpen} onClose={handleCloseCategoryDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Add Category</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              label="Category Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseCategoryDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleAddCategory} color="primary">
-            Add
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={subcategoryDialogOpen} onClose={handleCloseSubcategoryDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Add Subcategory</DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth margin="dense">
+    <>
+      {/* Product Dialog */}
+      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)} className="rounded-lg shadow-xl">
+        <DialogTitle className="text-lg font-semibold p-4">{selectedProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+        <DialogContent className="p-6 space-y-4">
+          <TextField
+            label="Item Name"
+            value={newProduct.item_name}
+            onChange={(e) => setNewProduct({ ...newProduct, item_name: e.target.value })}
+            fullWidth
+            margin="dense"
+            variant="outlined"
+          />
+          <TextField
+            label="Company Name"
+            value={newProduct.company_name}
+            onChange={(e) => setNewProduct({ ...newProduct, company_name: e.target.value })}
+            fullWidth
+            margin="dense"
+            variant="outlined"
+          />
+          <FormControl fullWidth margin="dense" variant="outlined">
             <InputLabel>Category</InputLabel>
             <Select
-              value={newSubcategoryCategoryId}
-              onChange={(e) => setNewSubcategoryCategoryId(e.target.value)}
-              label="Category"
+              value={newProduct.category_id}
+              onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+              style={{ borderRadius: '8px', padding: '12px' }} // Improved dropdown style
             >
               {categories.map((category) => (
                 <MenuItem key={category.category_id} value={category.category_id}>
@@ -277,210 +221,108 @@ const AddStockOptions = ({
               ))}
             </Select>
           </FormControl>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              label="Subcategory Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={newSubcategoryName}
-              onChange={(e) => setNewSubcategoryName(e.target.value)}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseSubcategoryDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleAddSubcategory} color="primary">
-            Add
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={productDialogOpen} onClose={handleCloseProductDialog} fullWidth maxWidth="sm">
-        <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add Product'}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              label="Serial Number"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productSerialNumber}
-              onChange={(e) => setProductSerialNumber(e.target.value)}
-            />
-            <TextField
-              label="Item Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productItemName}
-              onChange={(e) => setProductItemName(e.target.value)}
-            />
-            <TextField
-              label="Item Alias"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productItemAlias}
-              onChange={(e) => setProductItemAlias(e.target.value)}
-            />
-            <TextField
-              label="Part Number"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productPartNumber}
-              onChange={(e) => setProductPartNumber(e.target.value)}
-            />
-            <TextField
-              label="Model"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productModel}
-              onChange={(e) => setProductModel(e.target.value)}
-            />
-            <TextField
-              label="Remarks"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productRemarks}
-              onChange={(e) => setProductRemarks(e.target.value)}
-            />
-            <TextField
-              label="Stock Group"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productStockGroup}
-              onChange={(e) => setProductStockGroup(e.target.value)}
-            />
-            <TextField
-              label="Product Name"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-            />
-            <TextField
-              label="Brand"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-            />
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Category</InputLabel>
-              <Select
-                value={productCategory}
-                onChange={(e) => setProductCategory(e.target.value)}
-                label="Category"
-              >
-                {categories.map((category) => (
-                  <MenuItem key={category.category_id} value={category.category_id}>
-                    {category.category_name}
+          <FormControl fullWidth margin="dense" variant="outlined">
+            <InputLabel>Subcategory</InputLabel>
+            <Select
+              value={newProduct.subcategory_id}
+              onChange={(e) => setNewProduct({ ...newProduct, subcategory_id: e.target.value })}
+              style={{ borderRadius: '8px', padding: '12px' }} // Improved dropdown style
+            >
+              {subcategories
+                .filter((sub) => sub.category_id === newProduct.category_id)
+                .map((subcategory) => (
+                  <MenuItem key={subcategory.subcategory_id} value={subcategory.subcategory_id}>
+                    {subcategory.subcategory_name}
                   </MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Subcategory</InputLabel>
-              <Select
-                value={productSubcategory}
-                onChange={(e) => setProductSubcategory(e.target.value)}
-                label="Subcategory"
-              >
-                {subcategories
-                  .filter((sub) => sub.category_id === parseInt(productCategory, 10))
-                  .map((subcategory) => (
-                    <MenuItem key={subcategory.subcategory_id} value={subcategory.subcategory_id}>
-                      {subcategory.subcategory_name}
-                    </MenuItem>
-                  ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Price"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productPrice}
-              onChange={(e) => setProductPrice(e.target.value)}
-            />
-            <TextField
-              label="Min Stock"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productMinStock}
-              onChange={(e) => setProductMinStock(e.target.value)}
-            />
-            <TextField
-              label="Current Stock"
-              variant="outlined"
-              fullWidth
-              margin="dense"
-              type="number"
-              value={productCurrentStock}
-              onChange={(e) => setProductCurrentStock(e.target.value)}
-            />
-            <input
-              accept="image/jpeg,image/png,image/gif"
-              style={{ display: 'none' }}
-              id="product-image-upload"
-              type="file"
-              onChange={handleImageUpload}
-            />
-            <label htmlFor="product-image-upload">
-              <Button
-                variant="contained"
-                color="primary"
-                component="span"
-                startIcon={<CloudUploadIcon />}
-                sx={{ mt: 2 }}
-              >
-                Upload Image
-              </Button>
-            </label>
-            {productImagePreview && (
-              <Box sx={{ mt: 2 }}>
-                <img 
-                  src={productImagePreview} 
-                  alt="Product" 
-                  style={{ maxWidth: '100%', maxHeight: 200 }} 
-                />
-              </Box>
+            </Select>
+          </FormControl>
+          <TextField
+            label="Price"
+            type="number"
+            value={newProduct.price}
+            onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+            fullWidth
+            margin="dense"
+            variant="outlined"
+          />
+          <TextField
+            label="Min Stock"
+            type="number"
+            value={newProduct.min_stock}
+            onChange={(e) => setNewProduct({ ...newProduct, min_stock: e.target.value })}
+            fullWidth
+            margin="dense"
+            variant="outlined"
+          />
+          <TextField
+            label="Current Stock"
+            type="number"
+            value={newProduct.current_stock}
+            onChange={(e) => setNewProduct({ ...newProduct, current_stock: e.target.value })}
+            fullWidth
+            margin="dense"
+            variant="outlined"
+          />
+
+          {/* Dotted container for image preview */}
+          <Box
+            sx={{
+              border: '2px dashed #ccc',
+              borderRadius: '8px',
+              p: 2,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '150px',
+            }}
+          >
+            {imagePreview ? (
+              <img src={imagePreview} alt="Preview" style={{ maxWidth: '100%', maxHeight: '150px' }} />
+            ) : (
+              <p style={{ color: '#aaa' }}>Image Preview</p>
             )}
           </Box>
+
+          {/* Input for file upload */}
+          <input
+            accept="image/*"
+            type="file"
+            onChange={handleImageChange}
+            style={{ display: 'none' }}
+            id="image-upload"
+          />
+          <label htmlFor="image-upload">
+            <Button variant="contained" component="span" fullWidth sx={{ mt: 2 }}>
+              Choose Image
+            </Button>
+          </label>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseProductDialog} color="primary" disabled={uploading}>
+        <DialogActions className="p-4">
+          <Button onClick={() => setProductDialogOpen(false)} className="text-gray-600 hover:text-gray-800">
             Cancel
           </Button>
-          <Button onClick={handleAddProduct} color="primary" disabled={uploading}>
-            {uploading ? <CircularProgress size={24} /> : (selectedProduct ? 'Update' : 'Add')}
+          <Button onClick={handleAddProduct} className="bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md px-4 py-2 ml-4">
+            {selectedProduct ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar for notifications */}
       <Snackbar
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
         open={snackbar.open}
-        autoHideDuration={2000}
+        autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </div>
+    </>
   );
 };
 

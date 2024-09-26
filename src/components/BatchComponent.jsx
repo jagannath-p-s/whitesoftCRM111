@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // Ensure this path is correct
+import { supabase } from '../supabaseClient'; 
 import {
   TextField,
   IconButton,
@@ -21,19 +21,22 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Button
+  Button,
+  Typography,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   FilterList as FilterListIcon,
   Inventory as InventoryIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Upload as UploadIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider, DatePicker } from '@mui/lab';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import { format, parse, isValid } from 'date-fns';
 import BatchDialog from './BatchDialog';
+import Papa from 'papaparse'; // for CSV parsing
 
 const BatchComponent = () => {
   const [batches, setBatches] = useState([]);
@@ -176,9 +179,12 @@ const BatchComponent = () => {
 
         return {
           product_id: batch.productId,
-          batch_code: batchCode, // Use the provided batchCode without modification
+          batch_code: batchCode, 
           expiry_date: expiryDate,
           current_stock: parseInt(batch.currentStock, 10),
+          store: batch.store,
+          rack_number: batch.rack_number,
+          box_number: batch.box_number
         };
       });
 
@@ -195,8 +201,8 @@ const BatchComponent = () => {
       }));
 
       showSnackbar('Batches saved successfully', 'success');
-      fetchBatches(); // Refresh the batches after adding new ones
-      fetchProducts(); // Refresh the products to get updated stock
+      fetchBatches(); 
+      fetchProducts(); 
       handleCloseBatchDialog();
     } catch (error) {
       console.error('Error adding batches:', error.message);
@@ -207,7 +213,6 @@ const BatchComponent = () => {
   const handleDeleteBatch = async () => {
     const { batch_id, product_id, current_stock } = batchToDelete;
     try {
-      // Fetch the current stock for the product
       const { data: productData, error: productError } = await supabase
         .from('products')
         .select('current_stock')
@@ -219,11 +224,9 @@ const BatchComponent = () => {
       const newStock = productData.current_stock - current_stock;
       if (newStock < 0) throw new Error('Stock cannot be negative');
 
-      // Delete the batch
       const { error: batchError } = await supabase.from('batches').delete().eq('batch_id', batch_id);
       if (batchError) throw batchError;
 
-      // Update the stock in the products table
       const { error: updateError } = await supabase
         .from('products')
         .update({ current_stock: newStock })
@@ -231,8 +234,8 @@ const BatchComponent = () => {
       if (updateError) throw updateError;
 
       showSnackbar('Batch deleted successfully', 'success');
-      fetchBatches(); // Refresh the batches after deleting one
-      fetchProducts(); // Refresh the products to get updated stock
+      fetchBatches();
+      fetchProducts();
     } catch (error) {
       console.error('Error deleting batch:', error.message);
       showSnackbar(`Error deleting batch: ${error.message}`, 'error');
@@ -258,9 +261,49 @@ const BatchComponent = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  const handleCSVUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      showSnackbar('No file selected', 'error');
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const { data, errors } = results;
+        if (errors.length > 0) {
+          showSnackbar(`Error parsing CSV: ${errors[0].message}`, 'error');
+          return;
+        }
+
+        try {
+          const formattedData = data.map(row => ({
+            product_id: products.find(p => p.barcode_number === row.barcode_number)?.product_id,
+            batch_code: row.batch_code,
+            expiry_date: row.expiry_date ? format(parse(row.expiry_date, 'yyyy-MM-dd', new Date()), 'yyyy-MM-dd') : null,
+            current_stock: parseInt(row.current_stock, 10),
+            store: row.store || null,
+            rack_number: row.rack_number || null,
+            box_number: row.box_number || null,
+          }));
+
+          const { error: insertError } = await supabase.from('batches').insert(formattedData);
+          if (insertError) throw insertError;
+
+          showSnackbar('Batches uploaded successfully', 'success');
+          fetchBatches();
+        } catch (error) {
+          console.error('Error uploading CSV:', error.message);
+          showSnackbar(`Error uploading CSV: ${error.message}`, 'error');
+        }
+      }
+    });
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
-      {/* Header */}
+    <div className="flex flex-col min-h-screen bg-white">
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
@@ -269,22 +312,21 @@ const BatchComponent = () => {
               <h1 className="text-xl font-semibold ml-2">Batches</h1>
             </div>
             <div className="flex items-center space-x-2">
-            <TextField
-  variant="outlined"
-  placeholder="Search Product / Batch"
-  value={productSearch}
-  onChange={(e) => setProductSearch(e.target.value)}
-  size="small"
-  sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }} // Add this line to style like the second TextField
-  InputProps={{
-    startAdornment: (
-      <InputAdornment position="start">
-        {/* Add any adornments here */}
-      </InputAdornment>
-    ),
-  }}
-/>
-
+              <TextField
+                variant="outlined"
+                placeholder="Search Product / Batch"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                size="small"
+                sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
               <Tooltip title="Filter">
                 <IconButton onClick={handleFilterMenuOpen} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <FilterListIcon style={{ fontSize: '1.75rem' }} />
@@ -293,6 +335,12 @@ const BatchComponent = () => {
               <Tooltip title="Add">
                 <IconButton onClick={handleOpenBatchDialog} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <AddIcon style={{ fontSize: '1.75rem' }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Upload CSV">
+                <IconButton component="label" style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
+                  <UploadIcon style={{ fontSize: '1.75rem' }} />
+                  <input type="file" hidden accept=".csv" onChange={handleCSVUpload} />
                 </IconButton>
               </Tooltip>
               <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={handleFilterMenuClose}>
@@ -315,25 +363,24 @@ const BatchComponent = () => {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-grow p-4 space-x-4 overflow-x-auto">
         <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
           <Table stickyHeader className="min-w-full">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>No.</TableCell> {/* New column for numbering */}
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>No.</TableCell> 
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Batch Code</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Expiry Date</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Product</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Alias</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Barcode</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filterBatches(batches).map((batch, index) => (
                 <TableRow key={batch.batch_id} className="bg-white border-b">
-                  <TableCell>{index + 1}</TableCell> {/* Displaying the index */}
+                  <TableCell>{index + 1}</TableCell> 
                   <TableCell>{batch.batch_code}</TableCell>
                   <TableCell>{batch.expiry_date}</TableCell>
                   <TableCell>{batch.current_stock}</TableCell>
@@ -376,7 +423,7 @@ const BatchComponent = () => {
           <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleDeleteBatch} color="secondary" autoFocus>
+          <Button onClick={handleDeleteBatch} autoFocus>
             Delete
           </Button>
         </DialogActions>

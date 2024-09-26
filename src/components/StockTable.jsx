@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 import {
   TextField,
   IconButton,
@@ -27,6 +25,8 @@ import {
   DialogContent,
   DialogTitle,
   Button,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -65,22 +65,21 @@ const StockTable = () => {
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
   const [addAnchorEl, setAddAnchorEl] = useState(null);
   const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
+
+
   const [visibleColumns, setVisibleColumns] = useState({
-    index: true,
-    serialNumber: true,
-    productName: true,
-    brand: true,
+    slno: true,
+    barcodeNumber: true,
+    itemName: true,
+    companyName: true,
     category: true,
     subcategory: true,
     price: true,
     minStock: true,
     currentStock: true,
-    itemName: true,
     itemAlias: true,
-    partNumber: true,
-    model: true,
-    remarks: true,
-    stockGroup: true,
+    modelNumber: true,
+    uom: true,
     imageLink: true,
   });
   const [filteredProducts, setFilteredProducts] = useState([]);
@@ -135,17 +134,14 @@ const StockTable = () => {
       const results = products.filter((product) => {
         const searchTermLower = searchTerm.toLowerCase();
         return (
-          product.product_name?.toLowerCase().includes(searchTermLower) ||
-          product.brand?.toLowerCase().includes(searchTermLower) ||
+          product.item_name?.toLowerCase().includes(searchTermLower) ||
+          product.company_name?.toLowerCase().includes(searchTermLower) ||
           categories.find((cat) => cat.category_id === product.category_id)?.category_name?.toLowerCase().includes(searchTermLower) ||
           subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name?.toLowerCase().includes(searchTermLower) ||
-          product.serial_number?.toLowerCase().includes(searchTermLower) ||
-          product.item_name?.toLowerCase().includes(searchTermLower) ||
+          product.barcode_number?.toLowerCase().includes(searchTermLower) ||
           product.item_alias?.toLowerCase().includes(searchTermLower) ||
-          product.part_number?.toLowerCase().includes(searchTermLower) ||
-          product.model?.toLowerCase().includes(searchTermLower) ||
-          product.remarks?.toLowerCase().includes(searchTermLower) ||
-          product.stock_group?.toLowerCase().includes(searchTermLower)
+          product.model_number?.toLowerCase().includes(searchTermLower) ||
+          product.uom?.toLowerCase().includes(searchTermLower)
         );
       });
 
@@ -158,6 +154,7 @@ const StockTable = () => {
 
     filterProducts();
   }, [products, searchTerm, filter, categories, subcategories]);
+
 
   const handleFilterMenuOpen = (event) => {
     setFilterAnchorEl(event.currentTarget);
@@ -198,17 +195,6 @@ const StockTable = () => {
     handleMenuClose();
   };
 
-  const handleCloseProductDialog = () => {
-    setProductDialogOpen(false);
-  };
-
-  const handleCloseCategoryDialog = () => {
-    setCategoryDialogOpen(false);
-  };
-
-  const handleCloseSubcategoryDialog = () => {
-    setSubcategoryDialogOpen(false);
-  };
 
   const handleCloseManageCategoriesDialog = () => {
     setManageCategoriesDialogOpen(false);
@@ -222,111 +208,7 @@ const StockTable = () => {
     setOpenDownloadDialog(false);
   };
 
-  const handleDownloadCSV = () => {
-    const visibleProducts = filteredProducts.map((product, index) => {
-      const result = {};
-      result['Index'] = page * rowsPerPage + index + 1;
-      if (visibleColumns.serialNumber) result['Serial Number'] = product.serial_number;
-      if (visibleColumns.productName) result['Product Name'] = product.product_name;
-      if (visibleColumns.brand) result['Brand'] = product.brand;
-      if (visibleColumns.category) result['Category'] = categories.find((cat) => cat.category_id === product.category_id)?.category_name;
-      if (visibleColumns.subcategory) result['Subcategory'] = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name;
-      if (visibleColumns.price) result['Price'] = product.price;
-      if (visibleColumns.minStock) result['Min Stock'] = product.min_stock;
-      if (visibleColumns.currentStock) result['Current Stock'] = product.current_stock;
-      if (visibleColumns.itemName) result['Item Name'] = product.item_name;
-      if (visibleColumns.itemAlias) result['Item Alias'] = product.item_alias;
-      if (visibleColumns.partNumber) result['Part Number'] = product.part_number;
-      if (visibleColumns.model) result['Model'] = product.model;
-      if (visibleColumns.remarks) result['Remarks'] = product.remarks;
-      if (visibleColumns.stockGroup) result['Stock Group'] = product.stock_group;
-      if (visibleColumns.imageLink) result['Image Link'] = product.image_link;
-      return result;
-    });
 
-    const csv = Papa.unparse(visibleProducts);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'products.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-
-  const handleDownloadPDF = () => {
-    const doc = new jsPDF('landscape', 'pt', 'a4');
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-
-    doc.setFontSize(18);
-    doc.text('Product Data', pageWidth / 2, 30, { align: 'center' });
-
-    const columns = [
-      { header: 'Index', dataKey: 'index' },
-      ...Object.entries(visibleColumns)
-        .filter(([key, visible]) => visible && key !== 'imageLink')
-        .map(([key]) => ({
-          header: key.replace(/([A-Z])/g, ' \$1').trim(),
-          dataKey: key,
-        }))
-    ];
-
-    const data = filteredProducts.map((product, index) => {
-      const result = {};
-      result.index = page * rowsPerPage + index + 1;
-      if (visibleColumns.serialNumber) result.serialNumber = product.serial_number || '';
-      if (visibleColumns.productName) result.productName = product.product_name || '';
-      if (visibleColumns.brand) result.brand = product.brand || '';
-      if (visibleColumns.category) result.category = categories.find((cat) => cat.category_id === product.category_id)?.category_name || '';
-      if (visibleColumns.subcategory) result.subcategory = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name || '';
-      if (visibleColumns.price) result.price = product.price !== undefined ? product.price.toFixed(2) : '';
-      if (visibleColumns.minStock) result.minStock = product.min_stock || '';
-      if (visibleColumns.currentStock) result.currentStock = product.current_stock || '';
-      if (visibleColumns.itemName) result.itemName = product.item_name || '';
-      if (visibleColumns.itemAlias) result.itemAlias = product.item_alias || '';
-      if (visibleColumns.partNumber) result.partNumber = product.part_number || '';
-      if (visibleColumns.model) result.model = product.model || '';
-      if (visibleColumns.remarks) result.remarks = product.remarks || '';
-      if (visibleColumns.stockGroup) result.stockGroup = product.stock_group || '';
-      return result;
-    });
-
-    doc.autoTable({
-      columns,
-      body: data,
-      startY: 50,
-      margin: { top: 50, right: 30, bottom: 40, left: 30 },
-      styles: {
-        fontSize: 8,
-        cellPadding: 3,
-        overflow: 'linebreak',
-        halign: 'left',
-        valign: 'middle',
-      },
-      headStyles: {
-        fillColor: [66, 135, 245],
-        textColor: 255,
-        fontSize: 9,
-        fontStyle: 'bold',
-      },
-      alternateRowStyles: {
-        fillColor: [240, 240, 240],
-      },
-      columnStyles: {
-        price: { halign: 'right' },
-        minStock: { halign: 'right' },
-        currentStock: { halign: 'right' },
-      },
-      didDrawPage: (data) => {
-        doc.setFontSize(8);
-        doc.text(`Page ${data.pageNumber} of ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      },
-    });
-
-    doc.save('products.pdf');
-  };
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
@@ -383,27 +265,24 @@ const StockTable = () => {
     handleMenuClose();
   };
 
-  const handleFilePreview = async (filePath) => {
-    const { data, error } = await supabase.storage.from('files').download(filePath);
-    if (error) {
-      showSnackbar(`Error fetching file: ${error.message}`, 'error');
+  const handleFilePreview = async (fileUrl) => {
+    // Directly use the provided URL since it's already a public link
+    const fileType = fileUrl.split('.').pop().toLowerCase();
+    setUnsupportedFile(false);
+  
+    if (fileType === 'pdf') {
+      setUnsupportedFile(true); // PDFs are unsupported for preview
+      setSelectedFileUrl(''); // Clear image preview
+    } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileType)) {
+      setSelectedFileUrl(fileUrl); // Directly show the image
     } else {
-      const url = URL.createObjectURL(data);
-      const fileType = data.type;
-      setUnsupportedFile(false);
-
-      if (fileType === 'application/pdf') {
-        setUnsupportedFile(true);
-        setSelectedFileUrl('');
-      } else if (fileType.startsWith('image/')) {
-        setSelectedFileUrl(url);
-      } else {
-        setUnsupportedFile(true);
-        setSelectedFileUrl('');
-      }
-      setFileDialogOpen(true);
+      setUnsupportedFile(true); // If unsupported file, show message
+      setSelectedFileUrl('');
     }
+  
+    setFileDialogOpen(true); // Open the file dialog
   };
+  
 
   const getFileIcon = (filePath) => {
     const extension = filePath.split('.').pop().toLowerCase();
@@ -421,8 +300,9 @@ const StockTable = () => {
     setSelectedFileUrl('');
   };
 
+  // ... (the rest of the component, including the return statement, will follow in the next part)
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-white">
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
@@ -467,83 +347,60 @@ const StockTable = () => {
       </div>
 
       <div className="flex-grow p-4 space-x-4 overflow-x-auto">
-        <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
+      <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
           <Table stickyHeader className="min-w-full">
-            <TableHead>
-              <TableRow>
-                {visibleColumns.index && <TableCell align="center" sx={{ fontWeight: 'bold', color: 'black' }}>No</TableCell>}
-                {visibleColumns.serialNumber && <TableCell align="center" sx={{ fontWeight: 'bold', color: 'black' }}>Serial Number</TableCell>}
-                {Object.entries(visibleColumns).map(
-                  ([key, value]) =>
-                    value && key !== 'index' && key !== 'serialNumber' && key !== 'imageLink' && (
-                      <TableCell key={key} sx={{ fontWeight: 'bold', color: 'black' }}>
-                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
-                      </TableCell>
-                    )
-                )}
-                {visibleColumns.imageLink && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Image</TableCell>}
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Options</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((product, index) => (
-                <TableRow key={product.product_id} className="bg-white border-b">
-                  {visibleColumns.index && <TableCell align="center">{page * rowsPerPage + index + 1}</TableCell>}
-                  {visibleColumns.serialNumber && <TableCell align="center">{product.serial_number}</TableCell>}
-                  {visibleColumns.productName && <TableCell>{product.product_name}</TableCell>}
-                  {visibleColumns.brand && <TableCell>{product.brand}</TableCell>}
-                  {visibleColumns.category && (
-                    <TableCell>
-                      {categories.find((cat) => cat.category_id === product.category_id)?.category_name}
-                    </TableCell>
-                  )}
-                  {visibleColumns.subcategory && (
-                    <TableCell>
-                      {subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)
-                        ?.subcategory_name}
-                    </TableCell>
-                  )}
-                  {visibleColumns.price && <TableCell>{product.price}</TableCell>}
-                  {visibleColumns.minStock && <TableCell>{product.min_stock}</TableCell>}
-                  {visibleColumns.currentStock && (
-                    <TableCell
-                      sx={{
-                        fontWeight: 'bold',
-                        color: getCurrentStockColor(product.current_stock, product.min_stock),
-                      }}
-                    >
-                      {product.current_stock}
-                    </TableCell>
-                  )}
-                  {visibleColumns.itemName && <TableCell>{product.item_name}</TableCell>}
-                  {visibleColumns.itemAlias && <TableCell>{product.item_alias}</TableCell>}
-                  {visibleColumns.partNumber && <TableCell>{product.part_number}</TableCell>}
-                  {visibleColumns.model && <TableCell>{product.model}</TableCell>}
-                  {visibleColumns.remarks && <TableCell>{product.remarks}</TableCell>}
-                  {visibleColumns.stockGroup && <TableCell>{product.stock_group}</TableCell>}
-                  {visibleColumns.imageLink && (
-                    <TableCell>
-                      {product.image_link ? (
-                        <Tooltip title="Preview file">
-                          <IconButton onClick={() => handleFilePreview(product.image_link)}>
-                            {getFileIcon(product.image_link)}
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        'No image'
-                      )}
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <Tooltip title="More options">
-                      <IconButton onClick={(event) => handleOptionsMenuOpen(event, product)}>
-                        <MoreVertIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+          <TableHead>
+  <TableRow>
+    {visibleColumns.slno && <TableCell align="center">SL No</TableCell>}
+    {visibleColumns.barcodeNumber && <TableCell align="center">Barcode Number</TableCell>}
+    {visibleColumns.itemName && <TableCell>Item Name</TableCell>}
+    {visibleColumns.modelNumber && <TableCell>Model Number</TableCell>}
+    {visibleColumns.companyName && <TableCell>Company Name</TableCell>}
+    {visibleColumns.category && <TableCell>Category</TableCell>}
+    {visibleColumns.subcategory && <TableCell>Subcategory</TableCell>}
+    {visibleColumns.uom && <TableCell>UOM</TableCell>}
+    {visibleColumns.price && <TableCell>Price (MRP)</TableCell>}
+    {visibleColumns.minStock && <TableCell>Minimum Stock</TableCell>}
+    {visibleColumns.currentStock && <TableCell>Stock</TableCell>}
+    {visibleColumns.imageLink && <TableCell>Image</TableCell>}
+    <TableCell>Options</TableCell>
+  </TableRow>
+</TableHead>
+
+<TableBody>
+  {filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((product, index) => (
+    <TableRow key={product.product_id}>
+      {visibleColumns.slno && <TableCell align="center">{index + 1}</TableCell>}
+      {visibleColumns.barcodeNumber && <TableCell align="center">{product.barcode_number}</TableCell>}
+      {visibleColumns.itemName && <TableCell>{product.item_name}</TableCell>}
+      {visibleColumns.modelNumber && <TableCell>{product.model_number}</TableCell>}
+      {visibleColumns.companyName && <TableCell>{product.company_name}</TableCell>}
+      {visibleColumns.category && (
+        <TableCell>{categories.find(cat => cat.category_id === product.category_id)?.category_name}</TableCell>
+      )}
+      {visibleColumns.subcategory && (
+        <TableCell>{subcategories.find(sub => sub.subcategory_id === product.subcategory_id)?.subcategory_name}</TableCell>
+      )}
+      {visibleColumns.uom && <TableCell>{product.uom}</TableCell>}
+      {visibleColumns.price && <TableCell>{product.price}</TableCell>}
+      {visibleColumns.minStock && <TableCell>{product.min_stock}</TableCell>}
+      {visibleColumns.currentStock && <TableCell>{product.current_stock}</TableCell>}
+      {visibleColumns.imageLink && (
+        <TableCell>
+          {product.image_link ? (
+            <Tooltip title="Preview file">
+              <IconButton onClick={() => handleFilePreview(product.image_link)}>
+                {getFileIcon(product.image_link)}
+              </IconButton>
+            </Tooltip>
+          ) : 'No image'}
+        </TableCell>
+      )}
+      <TableCell>Options</TableCell>
+    </TableRow>
+  ))}
+</TableBody>
+
           </Table>
         </TableContainer>
 
@@ -651,12 +508,15 @@ const StockTable = () => {
         handleClose={handleCloseManageCategoriesDialog}
       />
 
-      <DownloadDialog
-        open={openDownloadDialog}
-        handleClose={handleDownloadDialogClose}
-        handleDownloadCSV={handleDownloadCSV}
-        handleDownloadPDF={handleDownloadPDF}
-      />
+<DownloadDialog
+  open={openDownloadDialog}
+  handleClose={handleDownloadDialogClose}
+  visibleColumns={visibleColumns}
+  filteredProducts={filteredProducts}
+  categories={categories}
+  subcategories={subcategories}
+/>
+
 
       <Dialog open={fileDialogOpen} onClose={handleCloseFileDialog} maxWidth="sm" fullWidth>
         <DialogTitle>File Preview</DialogTitle>

@@ -331,10 +331,10 @@ const Pipelines = () => {
   );
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-white ">
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
+          <div className="flex justify-between items-center py-7">
             <div className="flex items-center space-x-4">
               <AccountTreeIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
               <h1 className="text-xl font-semibold ml-2">Pipeline and Lead Source Management</h1>
@@ -472,7 +472,7 @@ const Pipelines = () => {
             />
             {dialogType === 'field' && (
               <FormControl fullWidth margin="normal">
-                <InputLabel id="field-type-label">Field Type</InputLabel>
+                
                 <Select
                   labelId="field-type-label"
                   value={formData.type}
@@ -506,7 +506,7 @@ const Pipelines = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseDialog}>Cancel</Button>
-            <Button onClick={handleFormSubmit} variant="contained" color="primary">
+            <Button onClick={handleFormSubmit}  color="primary">
               {(currentPipeline && dialogType === 'pipeline') || (currentStage && dialogType === 'stage') || (currentField && dialogType === 'field') || (currentLeadSource && dialogType === 'leadsource') ? 'Update' : 'Submit'}
             </Button>
           </DialogActions>
@@ -519,7 +519,7 @@ const Pipelines = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmDialog({ open: false, type: '', item: null })}>Cancel</Button>
-            <Button onClick={confirmDelete} variant="contained" color="primary">
+            <Button onClick={confirmDelete}  color="primary">
               Delete
             </Button>
           </DialogActions>

@@ -5,41 +5,28 @@ import {
   DialogContent,
   DialogTitle,
   Button,
-  Typography,
-  Box,
-  IconButton,
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import CloseIcon from '@mui/icons-material/Close';
 import Papa from 'papaparse';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
-const DownloadDialog = ({
+const DownloadOptions = ({
   open,
   handleClose,
-  visibleColumns = {}, // Default to an empty object if undefined
-  filteredProducts = [], // Default to an empty array if undefined
-  categories = [],
-  subcategories = [],
+  visibleColumns,
+  filteredProducts,
+  categories,
+  subcategories,
 }) => {
   const handleDownloadCSV = () => {
-    if (!filteredProducts.length) {
-      console.error('No products available to download.');
-      return;
-    }
-
-    const visibleProducts = filteredProducts.map((product) => {
+    const visibleProducts = filteredProducts.map((product, index) => {
       const result = {};
       result['SL No'] = product.slno;
       if (visibleColumns.barcodeNumber) result['Barcode Number'] = product.barcode_number;
       if (visibleColumns.itemName) result['Item Name'] = product.item_name;
       if (visibleColumns.companyName) result['Company Name'] = product.company_name;
-      if (visibleColumns.category)
-        result['Category'] = categories.find((cat) => cat.category_id === product.category_id)?.category_name;
-      if (visibleColumns.subcategory)
-        result['Subcategory'] = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name;
+      if (visibleColumns.category) result['Category'] = categories.find((cat) => cat.category_id === product.category_id)?.category_name;
+      if (visibleColumns.subcategory) result['Subcategory'] = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name;
       if (visibleColumns.price) result['Price'] = product.price;
       if (visibleColumns.minStock) result['Min Stock'] = product.min_stock;
       if (visibleColumns.currentStock) result['Current Stock'] = product.current_stock;
@@ -62,11 +49,6 @@ const DownloadDialog = ({
   };
 
   const handleDownloadPDF = () => {
-    if (!filteredProducts.length) {
-      console.error('No products available to download.');
-      return;
-    }
-
     const doc = new jsPDF('landscape', 'pt', 'a4');
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
@@ -90,10 +72,8 @@ const DownloadDialog = ({
       if (visibleColumns.barcodeNumber) result.barcodeNumber = product.barcode_number || '';
       if (visibleColumns.itemName) result.itemName = product.item_name || '';
       if (visibleColumns.companyName) result.companyName = product.company_name || '';
-      if (visibleColumns.category)
-        result.category = categories.find((cat) => cat.category_id === product.category_id)?.category_name || '';
-      if (visibleColumns.subcategory)
-        result.subcategory = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name || '';
+      if (visibleColumns.category) result.category = categories.find((cat) => cat.category_id === product.category_id)?.category_name || '';
+      if (visibleColumns.subcategory) result.subcategory = subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name || '';
       if (visibleColumns.price) result.price = product.price !== undefined ? product.price.toFixed(2) : '';
       if (visibleColumns.minStock) result.minStock = product.min_stock || '';
       if (visibleColumns.currentStock) result.currentStock = product.current_stock || '';
@@ -131,12 +111,7 @@ const DownloadDialog = ({
       },
       didDrawPage: (data) => {
         doc.setFontSize(8);
-        doc.text(
-          `Page ${data.pageNumber} of ${doc.internal.getNumberOfPages()}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: 'center' }
-        );
+        doc.text(`Page ${data.pageNumber} of ${doc.internal.getNumberOfPages()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
       },
     });
 
@@ -145,42 +120,25 @@ const DownloadDialog = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-            Download Product Data
-          </Typography>
-          <IconButton onClick={handleClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Typography variant="body1" sx={{ mb: 3 }}>
-          Select the format to download the product data:
+      <DialogTitle>Download Options</DialogTitle>
+      <DialogContent>
+        <Typography variant="body1">
+          Choose a format to download the product data.
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'space-around' }}>
-          <Button
-            variant="contained"
-            onClick={handleDownloadPDF}
-            startIcon={<PictureAsPdfIcon />}
-            sx={{ flex: 1, mx: 1 }}
-          >
-            PDF
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleDownloadCSV}
-            startIcon={<DownloadIcon />}
-            sx={{ flex: 1, mx: 1 }}
-          >
-            CSV
-          </Button>
-        </Box>
       </DialogContent>
+      <DialogActions>
+        <Button onClick={handleDownloadCSV} color="primary">
+          Download CSV
+        </Button>
+        <Button onClick={handleDownloadPDF} color="primary">
+          Download PDF
+        </Button>
+        <Button onClick={handleClose} color="secondary">
+          Close
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };
 
-export default DownloadDialog;
+export default DownloadOptions;

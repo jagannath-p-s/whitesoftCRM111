@@ -4,6 +4,7 @@ import {
   TextField,
   IconButton,
   Tooltip,
+
   Menu,
   MenuItem,
   Paper,
@@ -40,6 +41,7 @@ import {
   Edit as EditIcon,
   ArrowUpward as ArrowUpwardIcon,
   ArrowDownward as ArrowDownwardIcon,
+  Upload as UploadIcon ,
 } from '@mui/icons-material';
 
 const UploadFiles = () => {
@@ -188,8 +190,14 @@ const UploadFiles = () => {
   };
 
   const handleFileChange = (event) => {
-    setSelectedFiles(event.target.files);
-  };
+    const selected = Array.from(event.target.files).map((file) => {
+        const preview = file.type.startsWith('image/')
+            ? URL.createObjectURL(file) // Preview URL for images
+            : null;
+        return { file, preview };
+    });
+    setSelectedFiles(selected);
+};
 
   const handleFileNameChange = (event) => {
     setFileName(event.target.value);
@@ -292,6 +300,14 @@ const UploadFiles = () => {
     setNewFileName(event.target.value);
   };
 
+  const handleRemoveFile = (index) => {
+    const updatedFiles = [...selectedFiles];
+    updatedFiles.splice(index, 1);
+    setSelectedFiles(updatedFiles);
+  };
+  
+
+
   const handleSaveEdit = async () => {
     const { error } = await supabase
       .from('uploaded_files')
@@ -355,7 +371,7 @@ const UploadFiles = () => {
   const paginatedFiles = filteredFiles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-white">
       {/* Header */}
       <div className="bg-white shadow-md ">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -391,74 +407,64 @@ const UploadFiles = () => {
 
       {/* Content */}
       <div className="flex-grow p-4 space-x-4 overflow-x-auto">
-        <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
-          <Table stickyHeader className="min-w-full">
-            <TableHead>
-              <TableRow>
-                <TableCell
-                  sx={{
-                    fontWeight: 'bold',
-                    color: 'black',
-                    textAlign: 'center',
-                    padding: '16px', // Increase padding
-                  }}
-                >
-                  No
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>File Name</TableCell>
-                <TableCell
-                  sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}
-                >
-                  Uploaded Date
-                  <IconButton onClick={() => handleSortToggle('upload_date')}>
-                    {sortOrder === 'asc' && sortField === 'upload_date' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
-                  </IconButton>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Uploaded By</TableCell>
-                <TableCell
-                  sx={{ fontWeight: 'bold', color: 'black', display: 'flex', alignItems: 'center' }}
-                >
-                  File Size
-                  <IconButton onClick={() => handleSortToggle('file_size')}>
-                    {sortOrder === 'asc' && sortField === 'file_size' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
-                  </IconButton>
-                </TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Preview</TableCell>
-                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedFiles.map((file, index) => (
-                <TableRow key={file.file_id} className="bg-white border-b">
-                  <TableCell
-                    sx={{
-                      textAlign: 'center',
-                      padding: '16px', // Increase padding
-                    }}
-                  >
-                    {page * rowsPerPage + index + 1}
-                  </TableCell>
-                  <TableCell>{file.file_name}</TableCell>
-                  <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
-                  <TableCell>{file.users.username}</TableCell>
-                  <TableCell>{formatFileSize(file.file_size)}</TableCell>
-                  <TableCell>
-                    <Tooltip title="Preview file">
-                      <IconButton onClick={() => handleFilePreview(file.file_path)}>
-                        {getFileIcon(file.file_path)}
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <IconButton onClick={(event) => handleMenuOpen(event, file)}>
-                      <MoreVertIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      <TableContainer
+  component={Paper}
+  className="shadow-md sm:rounded-lg overflow-auto"
+  sx={{
+    marginTop: '0px', // Remove or reduce the top margin
+    marginBottom: '0px', // Remove or reduce the bottom margin
+    paddingTop: '0px', // Remove or reduce the top padding
+    paddingBottom: '0px', // Remove or reduce the bottom padding
+  }}
+>
+  <Table stickyHeader className="min-w-full">
+    <TableHead>
+      <TableRow>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black', textAlign: 'center', padding: '8px' }}>No</TableCell>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>File Name</TableCell>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
+          Uploaded Date
+          <IconButton onClick={() => handleSortToggle('upload_date')}>
+            {sortOrder === 'asc' && sortField === 'upload_date' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
+          </IconButton>
+        </TableCell>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Uploaded By</TableCell>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>
+          File Size
+          <IconButton onClick={() => handleSortToggle('file_size')}>
+            {sortOrder === 'asc' && sortField === 'file_size' ? <ArrowUpwardIcon /> : <ArrowDownwardIcon />}
+          </IconButton>
+        </TableCell>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Preview</TableCell>
+        <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      {paginatedFiles.map((file, index) => (
+        <TableRow key={file.file_id} className="bg-white border-b">
+          <TableCell sx={{ textAlign: 'center', padding: '8px' }}>{page * rowsPerPage + index + 1}</TableCell>
+          <TableCell>{file.file_name}</TableCell>
+          <TableCell>{new Date(file.upload_date).toLocaleDateString()}</TableCell>
+          <TableCell>{file.users.username}</TableCell>
+          <TableCell>{formatFileSize(file.file_size)}</TableCell>
+          <TableCell>
+            <Tooltip title="Preview file">
+              <IconButton onClick={() => handleFilePreview(file.file_path)}>
+                {getFileIcon(file.file_path)}
+              </IconButton>
+            </Tooltip>
+          </TableCell>
+          <TableCell>
+            <IconButton onClick={(event) => handleMenuOpen(event, file)}>
+              <MoreVertIcon />
+            </IconButton>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</TableContainer>
+
         <TablePagination
           rowsPerPageOptions={[50, 100, 150]}
           component="div"
@@ -491,76 +497,122 @@ const UploadFiles = () => {
         </MenuItem>
       </Menu>
 
-      <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog}>
-        <DialogTitle>Upload Files</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="File Name"
-            variant="outlined"
-            fullWidth
-            margin="dense"
-            value={fileName}
-            onChange={handleFileNameChange}
-            className="mt-2 mb-4"
-          />
-          <input
-            type="file"
-            multiple
-            onChange={handleFileChange}
-            className="mt-2 mb-4 w-full text-gray-700 bg-white border border-gray-300 rounded-md p-2 focus:outline-none focus:border-blue-500"
-          />
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={accessControl.manager_access}
-                  onChange={(event) => setAccessControl({ ...accessControl, manager_access: event.target.checked })}
-                  name="manager_access"
-                />
+      <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} className="rounded-lg shadow-xl">
+  <DialogTitle className="text-lg font-semibold p-4">Upload Files</DialogTitle>
+  <DialogContent className="p-6 space-y-4">
+    <TextField
+      label="File Name"
+      variant="outlined"
+      fullWidth
+      margin="dense"
+      value={fileName}
+      onChange={handleFileNameChange}
+      className="mb-4"
+    />
+
+    <div className="border-2 border-dashed border-gray-300 rounded-md p-4 bg-white text-center relative">
+      <input
+        id="fileUpload"
+        type="file"
+        multiple
+        onChange={handleFileChange}
+        className="opacity-0 absolute top-0 left-0 w-full h-full cursor-pointer"
+      />
+    
+      {/* Conditionally render the drag-and-drop message */}
+      {!selectedFiles.length && (
+        <p className="mt-2 text-sm text-gray-500">Drag and drop file here or click to upload</p>
+      )}
+
+      {/* File Previews */}
+      <div className="space-y-2">
+        {selectedFiles.map((fileObj, index) => (
+          <div key={index} className="flex items-center space-x-4">
+            {fileObj.preview ? (
+              <img
+                src={fileObj.preview}
+                alt="file preview"
+                className="h-12 w-12 object-cover rounded-md"
+              />
+            ) : (
+              <FileIcon className="h-12 w-12 text-gray-500" />
+            )}
+            <Typography className="font-semibold">{fileObj.file.name}</Typography>
+            <IconButton onClick={() => handleRemoveFile(index)}>
+              <DeleteIcon className="text-red-500" />
+            </IconButton>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className="bg-gray-50 p-4 rounded-md shadow-sm">
+      <FormGroup className="space-y-2">
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={accessControl.manager_access}
+              onChange={(event) =>
+                setAccessControl({ ...accessControl, manager_access: event.target.checked })
               }
-              label="Manager Access"
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={accessControl.salesperson_access}
-                  onChange={(event) => setAccessControl({ ...accessControl, salesperson_access: event.target.checked })}
-                  name="salesperson_access"
-                />
+          }
+          label="Manager Access"
+          className="text-gray-700"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={accessControl.salesperson_access}
+              onChange={(event) =>
+                setAccessControl({ ...accessControl, salesperson_access: event.target.checked })
               }
-              label="Salesperson Access"
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={accessControl.service_access}
-                  onChange={(event) => setAccessControl({ ...accessControl, service_access: event.target.checked })}
-                  name="service_access"
-                />
+          }
+          label="Salesperson Access"
+          className="text-gray-700"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={accessControl.service_access}
+              onChange={(event) =>
+                setAccessControl({ ...accessControl, service_access: event.target.checked })
               }
-              label="Service Access"
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={accessControl.accounts_access}
-                  onChange={(event) => setAccessControl({ ...accessControl, accounts_access: event.target.checked })}
-                  name="accounts_access"
-                />
+          }
+          label="Service Access"
+          className="text-gray-700"
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={accessControl.accounts_access}
+              onChange={(event) =>
+                setAccessControl({ ...accessControl, accounts_access: event.target.checked })
               }
-              label="Accounts Access"
             />
-          </FormGroup>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseUploadDialog} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleFileUpload} color="primary">
-            Upload
-          </Button>
-        </DialogActions>
-      </Dialog>
+          }
+          label="Accounts Access"
+          className="text-gray-700"
+        />
+      </FormGroup>
+    </div>
+  </DialogContent>
+
+  <DialogActions className="p-4">
+    <Button onClick={handleCloseUploadDialog} className="text-gray-600 hover:text-gray-800">
+      Cancel
+    </Button>
+    <Button onClick={handleFileUpload} className="bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md px-4 py-2 ml-4">
+      Upload
+    </Button>
+  </DialogActions>
+</Dialog>
+
+
+
+
 
       <Dialog open={fileDialogOpen} onClose={handleCloseFileDialog} maxWidth="sm" fullWidth>
         <DialogTitle>File Preview</DialogTitle>

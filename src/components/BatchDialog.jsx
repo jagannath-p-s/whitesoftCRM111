@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, forwardRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,11 +22,11 @@ import { styled } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ClearIcon from '@mui/icons-material/Clear';
-import { supabase } from '../supabaseClient'; // Adjust the import path as necessary
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
-  marginBottom: theme.spacing(3),
+  marginBottom: theme.spacing(2),
+  borderRadius: theme.shape.borderRadius * 2,
   position: 'relative',
   '&:hover': {
     boxShadow: theme.shadows[4],
@@ -35,8 +35,8 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 
 const DeleteButtonWrapper = styled('div')({
   position: 'absolute',
-  bottom: 8,
-  right: 8,
+  top: 12,
+  right: 12,
 });
 
 const BatchDialog = ({ open, onClose, onSave, products }) => {
@@ -48,7 +48,7 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
   useEffect(() => {
     if (open) {
       setBatchCode('');
-      setBatchesToAdd([{ productId: '', expiryDate: '', currentStock: '', hasExpiryDate: false }]);
+      setBatchesToAdd([{ productId: '', expiryDate: '', currentStock: '', hasExpiryDate: false, store: '', rack_number: '', box_number: '' }]);
       batchRefs.current = [];
     }
   }, [open]);
@@ -56,7 +56,7 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
   const handleAddBatch = () => {
     setBatchesToAdd(prevBatches => [
       ...prevBatches,
-      { productId: '', expiryDate: '', currentStock: '', hasExpiryDate: false },
+      { productId: '', expiryDate: '', currentStock: '', hasExpiryDate: false, store: '', rack_number: '', box_number: '' },
     ]);
     setTimeout(() => {
       batchRefs.current[batchRefs.current.length - 1]?.scrollIntoView({ behavior: 'smooth' });
@@ -92,31 +92,33 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
   }, [batchCode, batchesToAdd]);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" PaperProps={{ sx: { padding: 2, borderRadius: 2 } }}>
       <DialogTitle>
-        <Typography variant="h5" component="div">
+        <Typography variant="h5" component="div" align="center">
           Add New Batch
         </Typography>
       </DialogTitle>
-      <DialogContent>
+      <DialogContent dividers>
         {products.length === 0 ? (
           <Typography color="error" variant="h6">
             Please add at least one product before adding a batch.
           </Typography>
         ) : (
           <>
-            <TextField
-              label="Batch Code"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              value={batchCode}
-              onChange={(e) => setBatchCode(e.target.value)}
-              helperText="Enter a unique code for this batch"
-            />
+            <Box mb={3}>
+              <TextField
+                label="Batch Code"
+                variant="outlined"
+                fullWidth
+                margin="dense"
+                value={batchCode}
+                onChange={(e) => setBatchCode(e.target.value)}
+                helperText="Enter a unique code for this batch"
+              />
+            </Box>
             {batchesToAdd.map((batch, index) => (
-              <StyledPaper key={index} elevation={3} ref={el => (batchRefs.current[index] = el)}>
-                <Grid container spacing={3}>
+              <StyledPaper key={index} elevation={2} ref={el => (batchRefs.current[index] = el)}>
+                <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Autocomplete
                       options={productOptions}
@@ -140,6 +142,7 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
                       variant="outlined"
                       fullWidth
                       type="number"
+                      margin="dense"
                       value={batch.currentStock}
                       onChange={(e) => handleBatchChange(index, 'currentStock', e.target.value)}
                     />
@@ -161,8 +164,8 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
                         label="Expiry Date"
                         variant="outlined"
                         fullWidth
-                        margin="normal"
                         type="date"
+                        margin="dense"
                         InputLabelProps={{ shrink: true }}
                         value={batch.expiryDate}
                         onChange={(e) => handleBatchChange(index, 'expiryDate', e.target.value)}
@@ -181,6 +184,36 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
                       />
                     </Grid>
                   )}
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      label="Store"
+                      variant="outlined"
+                      fullWidth
+                      margin="dense"
+                      value={batch.store}
+                      onChange={(e) => handleBatchChange(index, 'store', e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <TextField
+                      label="Rack Number"
+                      variant="outlined"
+                      fullWidth
+                      margin="dense"
+                      value={batch.rack_number}
+                      onChange={(e) => handleBatchChange(index, 'rack_number', e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={6} md={3}>
+                    <TextField
+                      label="Box Number"
+                      variant="outlined"
+                      fullWidth
+                      margin="dense"
+                      value={batch.box_number}
+                      onChange={(e) => handleBatchChange(index, 'box_number', e.target.value)}
+                    />
+                  </Grid>
                 </Grid>
                 <DeleteButtonWrapper>
                   <IconButton onClick={() => handleRemoveBatch(index)} sx={{ color: '#d32f2f' }}>
@@ -203,7 +236,7 @@ const BatchDialog = ({ open, onClose, onSave, products }) => {
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}  variant="outlined">
+        <Button onClick={onClose} variant="outlined" color="secondary">
           Cancel
         </Button>
         <Button onClick={() => onSave(batchCode, batchesToAdd)} color="primary" variant="contained" disabled={isSaveDisabled}>
