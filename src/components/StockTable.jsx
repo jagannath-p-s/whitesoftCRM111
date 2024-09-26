@@ -396,7 +396,13 @@ const StockTable = () => {
           ) : 'No image'}
         </TableCell>
       )}
-      <TableCell>Options</TableCell>
+       <TableCell>
+                    <Tooltip title="More options">
+                      <IconButton>
+                        <MoreVertIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
     </TableRow>
   ))}
 </TableBody>
