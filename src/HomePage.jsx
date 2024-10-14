@@ -15,6 +15,7 @@ import {
   Business as BusinessIcon,
   Inventory as InventoryIcon,
 } from '@mui/icons-material';
+import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import { Tooltip, Menu, MenuItem, Snackbar, Alert, Badge, CircularProgress } from '@mui/material';
 import Contacts from './components/Contacts';
 import Sales from './components/Sales';
@@ -28,6 +29,7 @@ import SearchComponent from './components/SearchComponent';
 import SearchBar from './components/SearchBar';
 import BatchComponent from './components/BatchComponent';
 import Pipelines from './components/Pipelines';
+import UserTable from './components/UserTable';
 import { supabase } from './supabaseClient';
 
 const HomePage = () => {
@@ -127,10 +129,12 @@ const HomePage = () => {
     { icon: <EqualizerIcon />, tooltip: "Dashboard", component: 'Dashboard', permission: 'can_see_performance' },
     { icon: <StorageIcon />, tooltip: "Stock", component: 'Stock', permission: 'can_edit_stock' },
     { icon: <BuildIcon />, tooltip: "Services", component: 'Services', permission: 'can_edit_product' },
+   
     { icon: <BusinessIcon />, tooltip: "Organisation", component: 'Organisation', permission: 'can_edit_staff' },
     { icon: <InventoryIcon />, tooltip: "Batches", component: 'BatchComponent' },
     { icon: <SettingsOutlinedIcon />, tooltip: "Pipelines", component: 'Pipelines', permission: 'can_edit_pipeline' },
     { icon: <CloudUploadOutlinedIcon />, tooltip: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
+    { icon: <ManageSearchIcon />, tooltip: "UserTable", component: 'UserTable', permission: 'can_edit_sales' },
   ];
 
   const renderComponent = () => {
@@ -139,6 +143,8 @@ const HomePage = () => {
     switch (activeComponent) {
       case 'Sales':
         return user.permissions.can_edit_sales ? <Sales userId={user.id} /> : null;
+        case 'UserTable':
+        return user.permissions.can_edit_sales ? <UserTable userId={user.id} /> : null;
       case 'Activities':
         return <Activities userId={user.id} userRole={user.role} />;
       case 'Dashboard':
