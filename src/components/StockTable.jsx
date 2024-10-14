@@ -47,9 +47,6 @@ import { supabase } from '../supabaseClient';
 import DownloadDialog from './DownloadDialog';
 import AddStockOptions from './AddStockOptions';
 import ManageCategoriesDialog from './ManageCategoriesDialog';
-import Papa from 'papaparse';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
 
 const StockTable = () => {
   const [products, setProducts] = useState([]);
@@ -65,7 +62,6 @@ const StockTable = () => {
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
   const [addAnchorEl, setAddAnchorEl] = useState(null);
   const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
-
 
   const [visibleColumns, setVisibleColumns] = useState({
     slno: true,
@@ -155,7 +151,6 @@ const StockTable = () => {
     filterProducts();
   }, [products, searchTerm, filter, categories, subcategories]);
 
-
   const handleFilterMenuOpen = (event) => {
     setFilterAnchorEl(event.currentTarget);
   };
@@ -168,33 +163,38 @@ const StockTable = () => {
     setAddAnchorEl(event.currentTarget);
   };
 
-  const handleMenuClose = () => {
-    setFilterAnchorEl(null);
-    setSettingsAnchorEl(null);
-    setAddAnchorEl(null);
-    setOptionsAnchorEl(null);
+  // Modified handleMenuClose to accept a parameter specifying which menu to close
+  const handleMenuClose = (menu) => {
+    if (menu === 'filter') {
+      setFilterAnchorEl(null);
+    } else if (menu === 'settings') {
+      setSettingsAnchorEl(null);
+    } else if (menu === 'add') {
+      setAddAnchorEl(null);
+    } else if (menu === 'options') {
+      setOptionsAnchorEl(null);
+    }
   };
 
   const handleOpenProductDialog = () => {
     setProductDialogOpen(true);
-    handleMenuClose();
+    handleMenuClose('add');
   };
 
   const handleOpenCategoryDialog = () => {
     setCategoryDialogOpen(true);
-    handleMenuClose();
+    handleMenuClose('add');
   };
 
   const handleOpenSubcategoryDialog = () => {
     setSubcategoryDialogOpen(true);
-    handleMenuClose();
+    handleMenuClose('add');
   };
 
   const handleOpenManageCategoriesDialog = () => {
     setManageCategoriesDialogOpen(true);
-    handleMenuClose();
+    handleMenuClose('add');
   };
-
 
   const handleCloseManageCategoriesDialog = () => {
     setManageCategoriesDialogOpen(false);
@@ -207,8 +207,6 @@ const StockTable = () => {
   const handleDownloadDialogClose = () => {
     setOpenDownloadDialog(false);
   };
-
-
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
@@ -252,37 +250,35 @@ const StockTable = () => {
       setError(error.message);
       showSnackbar(error.message, 'error');
     }
-    handleMenuClose();
+    handleMenuClose('options');
   };
 
   const handleEditProduct = () => {
     setProductDialogOpen(true);
-    handleMenuClose();
+    handleMenuClose('options');
   };
 
   const handleFilterChange = (filterType) => {
     setFilter(filterType);
-    handleMenuClose();
+    handleMenuClose('filter');
   };
 
   const handleFilePreview = async (fileUrl) => {
-    // Directly use the provided URL since it's already a public link
     const fileType = fileUrl.split('.').pop().toLowerCase();
     setUnsupportedFile(false);
-  
+
     if (fileType === 'pdf') {
-      setUnsupportedFile(true); // PDFs are unsupported for preview
-      setSelectedFileUrl(''); // Clear image preview
+      setUnsupportedFile(true);
+      setSelectedFileUrl('');
     } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileType)) {
-      setSelectedFileUrl(fileUrl); // Directly show the image
+      setSelectedFileUrl(fileUrl);
     } else {
-      setUnsupportedFile(true); // If unsupported file, show message
+      setUnsupportedFile(true);
       setSelectedFileUrl('');
     }
-  
-    setFileDialogOpen(true); // Open the file dialog
+
+    setFileDialogOpen(true);
   };
-  
 
   const getFileIcon = (filePath) => {
     const extension = filePath.split('.').pop().toLowerCase();
@@ -300,7 +296,6 @@ const StockTable = () => {
     setSelectedFileUrl('');
   };
 
-  // ... (the rest of the component, including the return statement, will follow in the next part)
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <div className="bg-white shadow-md">
@@ -347,66 +342,71 @@ const StockTable = () => {
       </div>
 
       <div className="flex-grow p-4 space-x-4 overflow-x-auto">
-      <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
+        <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
           <Table stickyHeader className="min-w-full">
-          <TableHead>
-  <TableRow>
-    {visibleColumns.slno && <TableCell align="center">SL No</TableCell>}
-    {visibleColumns.barcodeNumber && <TableCell align="center">Barcode Number</TableCell>}
-    {visibleColumns.itemName && <TableCell>Item Name</TableCell>}
-    {visibleColumns.modelNumber && <TableCell>Model Number</TableCell>}
-    {visibleColumns.companyName && <TableCell>Company Name</TableCell>}
-    {visibleColumns.category && <TableCell>Category</TableCell>}
-    {visibleColumns.subcategory && <TableCell>Subcategory</TableCell>}
-    {visibleColumns.uom && <TableCell>UOM</TableCell>}
-    {visibleColumns.price && <TableCell>Price (MRP)</TableCell>}
-    {visibleColumns.minStock && <TableCell>Minimum Stock</TableCell>}
-    {visibleColumns.currentStock && <TableCell>Stock</TableCell>}
-    {visibleColumns.imageLink && <TableCell>Image</TableCell>}
-    <TableCell>Options</TableCell>
-  </TableRow>
-</TableHead>
+            <TableHead>
+              <TableRow>
+                {visibleColumns.slno && <TableCell align="center">SL No</TableCell>}
+                {visibleColumns.barcodeNumber && <TableCell align="center">Barcode Number</TableCell>}
+                {visibleColumns.itemName && <TableCell>Item Name</TableCell>}
+                {visibleColumns.modelNumber && <TableCell>Model Number</TableCell>}
+                {visibleColumns.companyName && <TableCell>Company Name</TableCell>}
+                {visibleColumns.category && <TableCell>Category</TableCell>}
+                {visibleColumns.subcategory && <TableCell>Subcategory</TableCell>}
+                {visibleColumns.uom && <TableCell>UOM</TableCell>}
+                {visibleColumns.price && <TableCell>Price (MRP)</TableCell>}
+                {visibleColumns.minStock && <TableCell>Minimum Stock</TableCell>}
+                {visibleColumns.currentStock && <TableCell>Stock</TableCell>}
+                {visibleColumns.imageLink && <TableCell>Image</TableCell>}
+                <TableCell>Options</TableCell>
+              </TableRow>
+            </TableHead>
 
-<TableBody>
-  {filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((product, index) => (
-    <TableRow key={product.product_id}>
-      {visibleColumns.slno && <TableCell align="center">{index + 1}</TableCell>}
-      {visibleColumns.barcodeNumber && <TableCell align="center">{product.barcode_number}</TableCell>}
-      {visibleColumns.itemName && <TableCell>{product.item_name}</TableCell>}
-      {visibleColumns.modelNumber && <TableCell>{product.model_number}</TableCell>}
-      {visibleColumns.companyName && <TableCell>{product.company_name}</TableCell>}
-      {visibleColumns.category && (
-        <TableCell>{categories.find(cat => cat.category_id === product.category_id)?.category_name}</TableCell>
-      )}
-      {visibleColumns.subcategory && (
-        <TableCell>{subcategories.find(sub => sub.subcategory_id === product.subcategory_id)?.subcategory_name}</TableCell>
-      )}
-      {visibleColumns.uom && <TableCell>{product.uom}</TableCell>}
-      {visibleColumns.price && <TableCell>{product.price}</TableCell>}
-      {visibleColumns.minStock && <TableCell>{product.min_stock}</TableCell>}
-      {visibleColumns.currentStock && <TableCell>{product.current_stock}</TableCell>}
-      {visibleColumns.imageLink && (
-        <TableCell>
-          {product.image_link ? (
-            <Tooltip title="Preview file">
-              <IconButton onClick={() => handleFilePreview(product.image_link)}>
-                {getFileIcon(product.image_link)}
-              </IconButton>
-            </Tooltip>
-          ) : 'No image'}
-        </TableCell>
-      )}
-       <TableCell>
+            <TableBody>
+              {filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((product, index) => (
+                <TableRow key={product.product_id}>
+                  {visibleColumns.slno && <TableCell align="center">{index + 1 + page * rowsPerPage}</TableCell>}
+                  {visibleColumns.barcodeNumber && <TableCell align="center">{product.barcode_number}</TableCell>}
+                  {visibleColumns.itemName && <TableCell>{product.item_name}</TableCell>}
+                  {visibleColumns.modelNumber && <TableCell>{product.model_number}</TableCell>}
+                  {visibleColumns.companyName && <TableCell>{product.company_name}</TableCell>}
+                  {visibleColumns.category && (
+                    <TableCell>{categories.find((cat) => cat.category_id === product.category_id)?.category_name}</TableCell>
+                  )}
+                  {visibleColumns.subcategory && (
+                    <TableCell>{subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name}</TableCell>
+                  )}
+                  {visibleColumns.uom && <TableCell>{product.uom}</TableCell>}
+                  {visibleColumns.price && <TableCell>{product.price}</TableCell>}
+                  {visibleColumns.minStock && <TableCell>{product.min_stock}</TableCell>}
+                  {visibleColumns.currentStock && (
+                    <TableCell style={{ color: getCurrentStockColor(product.current_stock, product.min_stock) }}>
+                      {product.current_stock}
+                    </TableCell>
+                  )}
+                  {visibleColumns.imageLink && (
+                    <TableCell>
+                      {product.image_link ? (
+                        <Tooltip title="Preview file">
+                          <IconButton onClick={() => handleFilePreview(product.image_link)}>
+                            {getFileIcon(product.image_link)}
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        'No image'
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell>
                     <Tooltip title="More options">
-                      <IconButton>
+                      <IconButton onClick={(event) => handleOptionsMenuOpen(event, product)}>
                         <MoreVertIcon />
                       </IconButton>
                     </Tooltip>
                   </TableCell>
-    </TableRow>
-  ))}
-</TableBody>
-
+                </TableRow>
+              ))}
+            </TableBody>
           </Table>
         </TableContainer>
 
@@ -425,7 +425,8 @@ const StockTable = () => {
         </div>
       </div>
 
-      <Menu anchorEl={addAnchorEl} open={Boolean(addAnchorEl)} onClose={handleMenuClose}>
+      {/* Add Menu */}
+      <Menu anchorEl={addAnchorEl} open={Boolean(addAnchorEl)} onClose={() => handleMenuClose('add')}>
         <MenuItem onClick={handleOpenProductDialog}>
           <ListItemIcon>
             <AddIcon />
@@ -452,16 +453,14 @@ const StockTable = () => {
         </MenuItem>
       </Menu>
 
-      <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={() => handleFilterChange('all')}>
-          All
-        </MenuItem>
-        <MenuItem onClick={() => handleFilterChange('lowStock')}>
-          Low Stock
-        </MenuItem>
+      {/* Filter Menu */}
+      <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={() => handleMenuClose('filter')}>
+        <MenuItem onClick={() => handleFilterChange('all')}>All</MenuItem>
+        <MenuItem onClick={() => handleFilterChange('lowStock')}>Low Stock</MenuItem>
       </Menu>
 
-      <Menu anchorEl={settingsAnchorEl} open={Boolean(settingsAnchorEl)} onClose={handleMenuClose}>
+      {/* Settings Menu */}
+      <Menu anchorEl={settingsAnchorEl} open={Boolean(settingsAnchorEl)} onClose={() => handleMenuClose('settings')}>
         <Box sx={{ p: 2 }}>
           <FormControl component="fieldset" variant="standard">
             {Object.entries(visibleColumns).map(([key, value]) => (
@@ -482,7 +481,8 @@ const StockTable = () => {
         </Box>
       </Menu>
 
-      <Menu anchorEl={optionsAnchorEl} open={Boolean(optionsAnchorEl)} onClose={handleMenuClose}>
+      {/* Options Menu */}
+      <Menu anchorEl={optionsAnchorEl} open={Boolean(optionsAnchorEl)} onClose={() => handleMenuClose('options')}>
         <MenuItem onClick={handleEditProduct}>
           <ListItemIcon>
             <EditIcon />
@@ -509,34 +509,31 @@ const StockTable = () => {
         setSelectedProduct={setSelectedProduct}
       />
 
-      <ManageCategoriesDialog
-        open={manageCategoriesDialogOpen}
-        handleClose={handleCloseManageCategoriesDialog}
+      <ManageCategoriesDialog open={manageCategoriesDialogOpen} handleClose={handleCloseManageCategoriesDialog} />
+
+      <DownloadDialog
+        open={openDownloadDialog}
+        handleClose={handleDownloadDialogClose}
+        visibleColumns={visibleColumns}
+        filteredProducts={filteredProducts}
+        categories={categories}
+        subcategories={subcategories}
       />
 
-<DownloadDialog
-  open={openDownloadDialog}
-  handleClose={handleDownloadDialogClose}
-  visibleColumns={visibleColumns}
-  filteredProducts={filteredProducts}
-  categories={categories}
-  subcategories={subcategories}
-/>
-
-
+      {/* File Preview Dialog */}
       <Dialog open={fileDialogOpen} onClose={handleCloseFileDialog} maxWidth="sm" fullWidth>
         <DialogTitle>File Preview</DialogTitle>
         <DialogContent>
           {unsupportedFile ? (
-            <Typography variant="body1">
-              Unsupported file type for preview. Download it to view.
-            </Typography>
+            <Typography variant="body1">Unsupported file type for preview. Download it to view.</Typography>
           ) : selectedFileUrl ? (
-            <img src={selectedFileUrl} alt="Preview" style={{ width: '100%', maxHeight: '600px', objectFit: 'contain' }} />
+            <img
+              src={selectedFileUrl}
+              alt="Preview"
+              style={{ width: '100%', maxHeight: '600px', objectFit: 'contain' }}
+            />
           ) : (
-            <Typography variant="body1">
-              Unsupported file type for preview. Download it to view.
-            </Typography>
+            <Typography variant="body1">Unsupported file type for preview. Download it to view.</Typography>
           )}
         </DialogContent>
         <DialogActions>
@@ -546,6 +543,7 @@ const StockTable = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar Notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}

@@ -107,11 +107,11 @@ const BatchComponent = () => {
       }
     }).filter(batch => {
       if (productSearch) {
-        const product = products.find(p => p.product_id === batch.product_id);
+        const product = products.find(p => p.barcode_number === batch.barcode_number);
         return (
           batch.batch_code.toLowerCase().includes(productSearch.toLowerCase()) ||
           (product && (
-            product.product_name.toLowerCase().includes(productSearch.toLowerCase()) ||
+            product.item_name.toLowerCase().includes(productSearch.toLowerCase()) ||
             product.item_alias.toLowerCase().includes(productSearch.toLowerCase())
           ))
         );
@@ -146,7 +146,7 @@ const BatchComponent = () => {
 
     const allValid = batchesToAdd.every(batch => {
       const expiryDateValid = !batch.hasExpiryDate || (batch.expiryDate && isValid(parse(batch.expiryDate, 'yyyy-MM-dd', new Date())));
-      return batch.productId && batch.currentStock !== '' && expiryDateValid;
+      return batch.barcodeNumber && batch.currentStock !== '' && expiryDateValid;
     });
 
     if (!allValid) {
@@ -160,13 +160,13 @@ const BatchComponent = () => {
         const { data: productData, error: productError } = await supabase
           .from('products')
           .select('current_stock')
-          .eq('product_id', batch.productId)
+          .eq('barcode_number', batch.barcodeNumber)
           .single();
 
         if (productError) throw productError;
 
         const newStock = productData.current_stock + parseInt(batch.currentStock, 10);
-        return { productId: batch.productId, newStock };
+        return { barcodeNumber: batch.barcodeNumber, newStock };
       }));
 
       // Insert the new batches
@@ -178,7 +178,7 @@ const BatchComponent = () => {
         }
 
         return {
-          product_id: batch.productId,
+          barcode_number: batch.barcodeNumber,
           batch_code: batchCode, 
           expiry_date: expiryDate,
           current_stock: parseInt(batch.currentStock, 10),
@@ -191,12 +191,12 @@ const BatchComponent = () => {
       const { error: batchError } = await supabase.from('batches').insert(payloads);
       if (batchError) throw batchError;
 
-      // Update the stock in the products table
-      await Promise.all(updatedStocks.map(async ({ productId, newStock }) => {
+      // Update the stock in the products table using barcode_number
+      await Promise.all(updatedStocks.map(async ({ barcodeNumber, newStock }) => {
         const { error: updateError } = await supabase
           .from('products')
           .update({ current_stock: newStock })
-          .eq('product_id', productId);
+          .eq('barcode_number', barcodeNumber);
         if (updateError) throw updateError;
       }));
 
@@ -211,12 +211,13 @@ const BatchComponent = () => {
   };
 
   const handleDeleteBatch = async () => {
-    const { batch_id, product_id, current_stock } = batchToDelete;
+    const { batch_id, barcode_number, current_stock } = batchToDelete;
+    
     try {
       const { data: productData, error: productError } = await supabase
         .from('products')
         .select('current_stock')
-        .eq('product_id', product_id)
+        .eq('barcode_number', barcode_number)
         .single();
 
       if (productError) throw productError;
@@ -224,13 +225,15 @@ const BatchComponent = () => {
       const newStock = productData.current_stock - current_stock;
       if (newStock < 0) throw new Error('Stock cannot be negative');
 
+      // Delete the batch using batch_id
       const { error: batchError } = await supabase.from('batches').delete().eq('batch_id', batch_id);
       if (batchError) throw batchError;
 
+      // Update the stock in the products table using barcode_number
       const { error: updateError } = await supabase
         .from('products')
         .update({ current_stock: newStock })
-        .eq('product_id', product_id);
+        .eq('barcode_number', barcode_number);
       if (updateError) throw updateError;
 
       showSnackbar('Batch deleted successfully', 'success');
@@ -280,7 +283,7 @@ const BatchComponent = () => {
 
         try {
           const formattedData = data.map(row => ({
-            product_id: products.find(p => p.barcode_number === row.barcode_number)?.product_id,
+            barcode_number: row.barcode_number?.trim() || '',
             batch_code: row.batch_code,
             expiry_date: row.expiry_date ? format(parse(row.expiry_date, 'yyyy-MM-dd', new Date()), 'yyyy-MM-dd') : null,
             current_stock: parseInt(row.current_stock, 10),
@@ -384,8 +387,8 @@ const BatchComponent = () => {
                   <TableCell>{batch.batch_code}</TableCell>
                   <TableCell>{batch.expiry_date}</TableCell>
                   <TableCell>{batch.current_stock}</TableCell>
-                  <TableCell>{products.find((product) => product.product_id === batch.product_id)?.product_name}</TableCell>
-                  <TableCell>{products.find((product) => product.product_id === batch.product_id)?.item_alias}</TableCell>
+                  <TableCell>{products.find((product) => product.barcode_number === batch.barcode_number)?.item_name}</TableCell>
+                  <TableCell>{products.find((product) => product.barcode_number === batch.barcode_number)?.barcode_number}</TableCell>
                   <TableCell>
                     <Tooltip title="Delete">
                       <IconButton onClick={() => confirmDeleteBatch(batch)}>
