@@ -67,23 +67,25 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const fetchProducts = async () => {
     try {
-      let query = supabase.from('products').select('*', { count: 'exact' });
-
-      if (productSearchTerm) {
-        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, item_alias, item_name') // Select correct columns
+        .order('item_name', { ascending: true }) // Order by `item_name`
+        .ilike('item_name', `%${productSearchTerm}%`) // Apply `ilike` filter
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1); // Pagination using `range`
+  
+      if (error) {
+        console.error('Error fetching products:', error);
+      } else {
+        console.log('Products fetched:', data);
+        setProducts(data); // Set the fetched products
+        setTotalProducts(data.length); // Update total products count
       }
-
-      const { data, error, count } = await query
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
-        .order('product_name');
-
-      if (error) throw error;
-      setProducts(data);
-      setTotalProducts(count);
     } catch (error) {
       console.error('Error fetching products:', error.message);
     }
   };
+  
 
   const handleInputChange = (e) => {
     setSearchTerm(e.target.value);

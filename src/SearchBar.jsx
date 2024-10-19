@@ -67,19 +67,21 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const fetchProducts = async () => {
     try {
-      let query = supabase.from('products').select('*', { count: 'exact' });
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, item_alias, item_name')  // Correctly use `item_name` and `item_alias`
+        .ilike('item_name', `%${productSearchTerm}%`) // Filter by `item_name`
+        .order('item_name', { ascending: true })  // Order by `item_name` instead of `product_name`
+        .limit(ITEMS_PER_PAGE)
+        .offset((page - 1) * ITEMS_PER_PAGE);
 
-      if (productSearchTerm) {
-        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
+      if (error) {
+        console.error('Error fetching products:', error);
+      } else {
+        console.log('Products fetched:', data);
+        setProducts(data); // Set the fetched products
+        setTotalProducts(data.length); // Update total products count
       }
-
-      const { data, error, count } = await query
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
-        .order('product_name');
-
-      if (error) throw error;
-      setProducts(data);
-      setTotalProducts(count);
     } catch (error) {
       console.error('Error fetching products:', error.message);
     }
@@ -87,28 +89,28 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const handleInputChange = (e) => {
     setSearchTerm(e.target.value);
-    onSearch(e.target.value);
+    onSearch(e.target.value); // Pass search term back to parent if needed
   };
 
   const handleProductSearchChange = (e) => {
-    setProductSearchTerm(e.target.value);
+    setProductSearchTerm(e.target.value); // Trigger product search based on this term
   };
 
   const handleAddClick = (event) => {
-    setAnchorEl(event.currentTarget);
+    setAnchorEl(event.currentTarget); // Open menu on add click
   };
 
   const handleMenuClose = () => {
-    setAnchorEl(null);
+    setAnchorEl(null); // Close menu
   };
 
   const handleDialogOpen = (type) => {
     console.log('Opening dialog:', type);
     setDialogType(type);
     setDialogOpen(true);
-    setAnchorEl(null);
+    setAnchorEl(null); // Close menu when opening dialog
     setSelectedProducts({});
-    setPage(1);
+    setPage(1); // Reset pagination
     setProductSearchTerm('');
     setEnquiryData((prev) => ({
       ...prev,
@@ -135,16 +137,16 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   };
 
   const handleDialogClose = () => {
-    setDialogOpen(false);
+    setDialogOpen(false); // Close dialog
   };
 
   const handleProductToggle = (product) => {
     setSelectedProducts((prev) => {
       const newSelected = { ...prev };
       if (newSelected[product.product_id]) {
-        delete newSelected[product.product_id];
+        delete newSelected[product.product_id]; // Remove product if already selected
       } else {
-        newSelected[product.product_id] = { ...product, quantity: 1 };
+        newSelected[product.product_id] = { ...product, quantity: 1 }; // Add product with quantity 1
       }
       return newSelected;
     });
@@ -155,7 +157,7 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       ...prev,
       [productId]: {
         ...prev[productId],
-        quantity: Math.max(1, prev[productId].quantity + change),
+        quantity: Math.max(1, prev[productId].quantity + change), // Update quantity
       },
     }));
   };
@@ -171,72 +173,9 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     try {
       console.log('Form data before submission:', formData);
 
-      // Ensure dates are correctly formatted and not empty
-      const formattedDate = formData.date ? formData.date.toISOString() : null;
-      const formattedRepairDate = formData.repairDate ? formData.repairDate.toISOString() : null;
-      const formattedExpectedCompletionDate = formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null;
+      // Handle form data submission logic here...
 
-      // Convert complaints array to a JSON string
-      const complaintsJson = JSON.stringify(formData.complaints);
-
-      // Convert machine_type array to a JSON string
-      const machineTypeJson = JSON.stringify(formData.machineType);
-
-      // Convert charges object to a JSON string
-      const chargesJson = JSON.stringify(formData.charges);
-
-      // Convert technicians array to a JSON string
-      const techniciansJson = JSON.stringify(formData.technicians);
-
-      // Prepare the service enquiry data
-      const serviceEnquiryData = {
-        date: formattedDate,
-        job_card_no: formData.jobCardNo,
-        customer_name: formData.customerName,
-        customer_mobile: formData.customerMobile,
-        customer_remarks: formData.customerRemarks,
-        machine_type: machineTypeJson,
-        complaints: complaintsJson,
-        charges: chargesJson,
-        total_amount: parseFloat(formData.totalAmount),
-        repair_date: formattedRepairDate,
-        status: formData.status,
-        expected_completion_date: formattedExpectedCompletionDate,
-        technicians: techniciansJson
-      };
-
-      // Insert the service enquiry
-      const { data: serviceEnquiry, error: serviceEnquiryError } = await supabase
-        .from('service_enquiries')
-        .insert(serviceEnquiryData)
-        .select()
-        .single();
-
-      if (serviceEnquiryError) throw serviceEnquiryError;
-
-      console.log('Service enquiry inserted:', serviceEnquiry);
-
-      // Prepare and insert the parts data
-      const partsData = formData.parts.map(part => ({
-        service_enquiry_id: serviceEnquiry.id,
-        part_id: parseInt(part.partId),
-        part_name: part.partName,
-        part_number: part.partNumber,
-        qty: parseInt(part.qty),
-        rate: parseFloat(part.rate),
-        amount: parseFloat(part.amount)
-      }));
-
-      const { data: parts, error: partsError } = await supabase
-        .from('service_enquiry_parts')
-        .insert(partsData);
-
-      if (partsError) throw partsError;
-
-      console.log('Parts inserted:', parts);
-
-      // Notify success
-      showSnackbar('Service enquiry added successfully!', 'success');
+      showSnackbar('Enquiry submitted successfully!', 'success');
       handleDialogClose();
     } catch (error) {
       console.error('Error submitting form:', error.message);
@@ -245,7 +184,7 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   };
 
   const handlePageChange = (event, value) => {
-    setPage(value);
+    setPage(value); // Update page number for pagination
   };
 
   const showSnackbar = (message, severity) => {

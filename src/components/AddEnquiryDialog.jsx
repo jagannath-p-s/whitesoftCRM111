@@ -49,27 +49,30 @@ const AddEnquiryDialog = ({
   const [localEnquiryData, setLocalEnquiryData] = useState(enquiryData);
 
   useEffect(() => {
+    console.log('Fetching lead sources...');
     const fetchLeadSources = async () => {
       const { data, error } = await supabase.from('lead_sources').select();
       if (error) {
         console.error('Error fetching lead sources:', error);
       } else {
+        console.log('Lead sources fetched:', data);
         setLeadSources(data);
       }
     };
-
     fetchLeadSources();
   }, []);
 
   useEffect(() => {
+    console.log('Setting enquiry data:', enquiryData);
     setLocalEnquiryData(enquiryData);
   }, [enquiryData]);
 
   const handleEnquiryDataChange = async (e) => {
     const { name, value } = e.target;
+    console.log('Field change:', name, value);
 
     if (name === 'mobilenumber1' && value) {
-      // Fetch the latest enquiry with the same mobile number
+      console.log('Fetching latest enquiry for mobile number:', value);
       const { data, error } = await supabase
         .from('enquiries')
         .select('name, mobilenumber1, mobilenumber2, address, location')
@@ -81,13 +84,13 @@ const AddEnquiryDialog = ({
         console.error('Error fetching enquiry data:', error);
       } else if (data && data.length > 0) {
         const latestEnquiry = data[0];
+        console.log('Latest enquiry found:', latestEnquiry);
         setLocalEnquiryData((prev) => ({
           ...prev,
           ...latestEnquiry,
         }));
       }
     } else {
-      // Update the local enquiry data state normally
       setLocalEnquiryData((prev) => ({
         ...prev,
         [name]: value,
@@ -101,6 +104,8 @@ const AddEnquiryDialog = ({
       (source) => source.lead_source === selectedLeadSource
     );
 
+    console.log('Lead source selected:', selectedLeadSource, selectedSource);
+
     setLocalEnquiryData((prev) => ({
       ...prev,
       leadsource: selectedLeadSource,
@@ -110,9 +115,8 @@ const AddEnquiryDialog = ({
   };
 
   const handleContactTypeChange = (event) => {
-    const {
-      target: { value },
-    } = event;
+    const { value } = event.target;
+    console.log('Contact type changed:', value);
     setLocalEnquiryData((prev) => ({
       ...prev,
       contacttype: typeof value === 'string' ? value.split(',') : value,
@@ -120,6 +124,7 @@ const AddEnquiryDialog = ({
   };
 
   const handleFormSubmission = () => {
+    console.log('Submitting form...');
     const updatedEnquiry = {
       ...localEnquiryData,
       products: JSON.stringify(selectedProducts),
@@ -127,6 +132,7 @@ const AddEnquiryDialog = ({
         ? localEnquiryData.contacttype.join(',')
         : localEnquiryData.contacttype,
     };
+    console.log('Updated enquiry data:', updatedEnquiry);
     handleFormSubmit(updatedEnquiry);
   };
 
@@ -142,7 +148,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.name || ''}
+          value={localEnquiryData?.name || ''}
           onChange={handleEnquiryDataChange}
           required
         />
@@ -152,7 +158,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.mobilenumber1 || ''}
+          value={localEnquiryData?.mobilenumber1 || ''}
           onChange={handleEnquiryDataChange}
           required
         />
@@ -162,7 +168,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.mobilenumber2 || ''}
+          value={localEnquiryData?.mobilenumber2 || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -171,7 +177,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.address || ''}
+          value={localEnquiryData?.address || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -180,14 +186,14 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.location || ''}
+          value={localEnquiryData?.location || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense" required>
           <InputLabel>Stage</InputLabel>
           <Select
             name="stage"
-            value={localEnquiryData.stage || ''}
+            value={localEnquiryData?.stage || ''}
             onChange={handleEnquiryDataChange}
             label="Stage"
           >
@@ -204,7 +210,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.dbt_userid_password || ''}
+          value={localEnquiryData?.dbt_userid_password || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -213,14 +219,14 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.dbt_c_o || ''}
+          value={localEnquiryData?.dbt_c_o || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
           <InputLabel>Lead Source</InputLabel>
           <Select
             name="leadsource"
-            value={localEnquiryData.leadsource || ''}
+            value={localEnquiryData?.leadsource || ''}
             onChange={handleLeadSourceChange}
             label="Lead Source"
           >
@@ -235,7 +241,7 @@ const AddEnquiryDialog = ({
           <InputLabel>Assigned To</InputLabel>
           <Select
             name="assignedto"
-            value={localEnquiryData.assignedto || currentUserId}
+            value={localEnquiryData?.assignedto || currentUserId}
             onChange={handleEnquiryDataChange}
             label="Assigned To"
           >
@@ -254,20 +260,17 @@ const AddEnquiryDialog = ({
           margin="dense"
           multiline
           rows={2}
-          value={localEnquiryData.remarks || ''}
+          value={localEnquiryData?.remarks || ''}
           onChange={handleEnquiryDataChange}
         />
         <FormControl fullWidth margin="dense">
           <InputLabel>Subsidy</InputLabel>
           <Select
             name="subsidy"
-            value={localEnquiryData.subsidy ? 'true' : 'false'}
+            value={localEnquiryData?.subsidy ? 'true' : 'false'}
             onChange={(e) =>
               handleEnquiryDataChange({
-                target: {
-                  name: 'subsidy',
-                  value: e.target.value === 'true',
-                },
+                target: { name: 'subsidy', value: e.target.value === 'true' },
               })
             }
             label="Subsidy"
@@ -280,13 +283,10 @@ const AddEnquiryDialog = ({
           <InputLabel>Invoiced</InputLabel>
           <Select
             name="invoiced"
-            value={localEnquiryData.invoiced ? 'true' : 'false'}
+            value={localEnquiryData?.invoiced ? 'true' : 'false'}
             onChange={(e) =>
               handleEnquiryDataChange({
-                target: {
-                  name: 'invoiced',
-                  value: e.target.value === 'true',
-                },
+                target: { name: 'invoiced', value: e.target.value === 'true' },
               })
             }
             label="Invoiced"
@@ -299,13 +299,10 @@ const AddEnquiryDialog = ({
           <InputLabel>Collected</InputLabel>
           <Select
             name="collected"
-            value={localEnquiryData.collected ? 'true' : 'false'}
+            value={localEnquiryData?.collected ? 'true' : 'false'}
             onChange={(e) =>
               handleEnquiryDataChange({
-                target: {
-                  name: 'collected',
-                  value: e.target.value === 'true',
-                },
+                target: { name: 'collected', value: e.target.value === 'true' },
               })
             }
             label="Collected"
@@ -322,7 +319,7 @@ const AddEnquiryDialog = ({
           fullWidth
           margin="dense"
           InputLabelProps={{ shrink: true }}
-          value={localEnquiryData.expected_completion_date || ''}
+          value={localEnquiryData?.expected_completion_date || ''}
           onChange={handleEnquiryDataChange}
         />
         <TextField
@@ -331,7 +328,7 @@ const AddEnquiryDialog = ({
           variant="outlined"
           fullWidth
           margin="dense"
-          value={localEnquiryData.salesflow_code || ''}
+          value={localEnquiryData?.salesflow_code || ''}
           onChange={handleEnquiryDataChange}
           InputProps={{
             readOnly: true,
@@ -342,7 +339,7 @@ const AddEnquiryDialog = ({
           <Select
             name="contacttype"
             multiple
-            value={localEnquiryData.contacttype || []}
+            value={localEnquiryData?.contacttype || []}
             onChange={handleContactTypeChange}
             renderValue={(selected) => (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -380,8 +377,8 @@ const AddEnquiryDialog = ({
                     onClick={() => handleProductToggle(product)}
                   />
                   <ListItemText
-                    primary={product.product_name}
-                    secondary={`Price: ₹${product.price.toFixed(2)}`}
+                    primary={`${product.item_name} (${product.model_number})`}
+                    secondary={`Price: ₹${product.price?.toFixed(2)} | Company: ${product.company_name}`}
                   />
                   {selectedProducts[product.product_id] && (
                     <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
@@ -418,7 +415,7 @@ const AddEnquiryDialog = ({
               />
             </Box>
             <Typography variant="h6" sx={{ mt: 2 }}>
-              Total Estimate: ₹{totalEstimate.toFixed(2)}
+              Total Estimate: ₹{totalEstimate?.toFixed(2)}
             </Typography>
           </>
         )}
