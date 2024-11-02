@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import HomePage from './HomePage';
-import LoginPage from './LoginPage';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
 
 const PrivateRoute = ({ children }) => {
   const user = JSON.parse(localStorage.getItem('user'));
