@@ -1,111 +1,91 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Card, 
-  CardContent, 
-  Grid, 
-  Snackbar, 
-  Alert, 
-  Chip,
-  LinearProgress,
-  Pagination
+import {
+  Box, Typography, Grid, Snackbar, Alert, LinearProgress, Pagination
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import { supabase } from '../../supabaseClient';
 import InfoCard from './InfoCard';
 
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  transition: 'all 0.3s',
-  '&:hover': {
-    transform: 'translateY(-5px)',
-    boxShadow: theme.shadows[4],
-  },
-}));
-
-const StyledCardContent = styled(CardContent)({
-  flexGrow: 1,
-});
+const ITEMS_PER_PAGE = 12;
 
 const SearchComponent = ({ searchTerm }) => {
-  const [enquiries, setEnquiries] = useState([]);
-  const [serviceEnquiries, setServiceEnquiries] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [allEnquiries, setAllEnquiries] = useState([]);
+  const [allServiceEnquiries, setAllServiceEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const ITEMS_PER_PAGE = 12;
 
   useEffect(() => {
     fetchAllData();
-  }, [page, searchTerm]);
+  }, [searchTerm]);
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [{ data: enquiryData, error: enquiryError, count: enquiryCount }, { data: serviceEnquiryData, error: serviceEnquiryError, count: serviceEnquiryCount }, { data: taskData, error: taskError, count: taskCount }] = await Promise.all([
-        supabase
-          .from('enquiries')
-          .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false })
-          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1),
-        supabase
-          .from('service_enquiries')
-          .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false })
-          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1),
-        supabase
-          .from('tasks')
-          .select('*', { count: 'exact' })
-          .order('submission_date', { ascending: false })
-          .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1),
-      ]);
+      // Fetch all enquiries
+      const { data: enquiryData, error: enquiryError } = await supabase
+        .from('enquiries')
+        .select('*')
+        .or(`name.ilike.%${searchTerm}%,mobilenumber1.ilike.%${searchTerm}%,mobilenumber2.ilike.%${searchTerm}%`)
+        .order('created_at', { ascending: false });
 
-      if (enquiryError || serviceEnquiryError || taskError) {
-        throw new Error('Error fetching data');
+      if (enquiryError) {
+        throw new Error('Error fetching enquiries: ' + enquiryError.message);
       }
 
-      setEnquiries(enquiryData);
-      setServiceEnquiries(serviceEnquiryData);
-      setTasks(taskData);
-      setTotalPages(Math.ceil((enquiryCount + serviceEnquiryCount + taskCount) / ITEMS_PER_PAGE));
+      // Fetch all service enquiries
+      const { data: serviceEnquiryData, error: serviceEnquiryError } = await supabase
+        .from('service_enquiries')
+        .select('*')
+        .or(`customer_name.ilike.%${searchTerm}%,customer_mobile.ilike.%${searchTerm}%,job_card_no.ilike.%${searchTerm}%`)
+        .order('date', { ascending: false });
+
+      if (serviceEnquiryError) {
+        throw new Error('Error fetching service enquiries: ' + serviceEnquiryError.message);
+      }
+
+      setAllEnquiries(enquiryData);
+      setAllServiceEnquiries(serviceEnquiryData);
     } catch (error) {
       console.error('Error fetching data:', error.message);
-      setSnackbar({ open: true, message: 'Error fetching data: ' + error.message, severity: 'error' });
+      setSnackbar({ open: true, message: error.message, severity: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   const filteredEnquiries = useMemo(() => {
-    if (!searchTerm) return enquiries;
-    return enquiries.filter((enquiry) =>
+    if (!searchTerm) return allEnquiries;
+    return allEnquiries.filter((enquiry) =>
       enquiry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       enquiry.mobilenumber1.includes(searchTerm) ||
       enquiry.mobilenumber2?.includes(searchTerm)
     );
-  }, [enquiries, searchTerm]);
+  }, [allEnquiries, searchTerm]);
 
   const filteredServiceEnquiries = useMemo(() => {
-    if (!searchTerm) return serviceEnquiries;
-    return serviceEnquiries.filter((serviceEnquiry) =>
+    if (!searchTerm) return allServiceEnquiries;
+    return allServiceEnquiries.filter((serviceEnquiry) =>
       serviceEnquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       serviceEnquiry.customer_mobile.includes(searchTerm) ||
       serviceEnquiry.job_card_no.includes(searchTerm)
     );
-  }, [serviceEnquiries, searchTerm]);
+  }, [allServiceEnquiries, searchTerm]);
 
-  const filteredTasks = useMemo(() => {
-    if (!searchTerm) return tasks;
-    return tasks.filter((task) =>
-      task.task_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.task_message.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [tasks, searchTerm]);
+  const combinedResults = useMemo(() => {
+    return [...filteredEnquiries, ...filteredServiceEnquiries].sort((a, b) => {
+      const dateA = a.created_at || a.date;
+      const dateB = b.created_at || b.date;
+      return new Date(dateB) - new Date(dateA);
+    });
+  }, [filteredEnquiries, filteredServiceEnquiries]);
+
+  const paginatedResults = useMemo(() => {
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return combinedResults.slice(startIndex, endIndex);
+  }, [combinedResults, page]);
+
+  const totalPages = Math.ceil(combinedResults.length / ITEMS_PER_PAGE);
 
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
@@ -115,44 +95,44 @@ const SearchComponent = ({ searchTerm }) => {
     setPage(value);
   };
 
+  const handleEdit = (item) => {
+    console.log("Edit item", item);
+    // Implement your edit logic here
+    fetchAllData(); // Refresh data after edit
+  };
+
   return (
     <Box sx={{ width: '100%', maxWidth: 1200, margin: 'auto', padding: 2 }}>
-      <Typography variant="h4" gutterBottom>
-        Search Results {searchTerm && `(Filtered by: ${searchTerm})`}
-      </Typography>
-      
       {loading ? (
         <LinearProgress />
       ) : (
         <>
           <Grid container spacing={3}>
-            {filteredEnquiries.map((enquiry) => (
-              <Grid item xs={12} sm={6} md={4} key={enquiry.id}>
-                <InfoCard data={enquiry} type="enquiry" onEdit={() => fetchAllData()} />
-              </Grid>
-            ))}
-
-            {filteredServiceEnquiries.map((serviceEnquiry) => (
-              <Grid item xs={12} sm={6} md={4} key={serviceEnquiry.id}>
-                <InfoCard data={serviceEnquiry} type="serviceEnquiry" onEdit={() => fetchAllData()} />
-              </Grid>
-            ))}
-
-            {filteredTasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
-                <InfoCard data={task} type="task" onEdit={() => fetchAllData()} />
+            {paginatedResults.map((item) => (
+              <Grid item xs={12} sm={6} md={4} key={item.id}>
+                <InfoCard 
+                  data={item} 
+                  type={item.customer_name ? "serviceEnquiry" : "enquiry"} 
+                  onEdit={handleEdit}
+                />
               </Grid>
             ))}
           </Grid>
           
-          <Box mt={4} display="flex" justifyContent="center">
-            <Pagination 
-              count={totalPages} 
-              page={page} 
-              onChange={handlePageChange} 
-              color="primary" 
-            />
-          </Box>
+          {combinedResults.length > 0 ? (
+            <Box mt={4} display="flex" justifyContent="center">
+              <Pagination 
+                count={totalPages} 
+                page={page} 
+                onChange={handlePageChange} 
+                color="primary" 
+              />
+            </Box>
+          ) : (
+            <Typography variant="body1" sx={{ mt: 4, textAlign: 'center' }}>
+              No results found.
+            </Typography>
+          )}
         </>
       )}
 
@@ -160,7 +140,7 @@ const SearchComponent = ({ searchTerm }) => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}

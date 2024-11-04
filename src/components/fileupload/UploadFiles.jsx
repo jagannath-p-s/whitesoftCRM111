@@ -411,10 +411,10 @@ const UploadFiles = () => {
   component={Paper}
   className="shadow-md sm:rounded-lg overflow-auto"
   sx={{
-    marginTop: '0px', // Remove or reduce the top margin
-    marginBottom: '0px', // Remove or reduce the bottom margin
-    paddingTop: '0px', // Remove or reduce the top padding
-    paddingBottom: '0px', // Remove or reduce the bottom padding
+    marginTop: '0px', 
+    marginBottom: '0px', 
+    paddingTop: '0px', 
+    paddingBottom: '0px', 
   }}
 >
   <Table stickyHeader className="min-w-full">

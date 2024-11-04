@@ -44,7 +44,6 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   const [productSearchTerm, setProductSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
-
   const ITEMS_PER_PAGE = 10;
 
   const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'J';
@@ -57,7 +56,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
     fetchProducts();
     const taskSubscription = supabase
       .channel('public:tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${user.id}` }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${user.id}` }, () => {
         fetchUserTasks(user.id);
       })
       .subscribe();
@@ -84,7 +83,6 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         .select('*')
         .eq('assigned_to', userId)
         .not('completion_status', 'eq', 'completed');
-
       if (error) throw error;
       setTasks(data);
     } catch (error) {
@@ -116,15 +114,12 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   const fetchProducts = async () => {
     try {
       let query = supabase.from('products').select('*', { count: 'exact' });
-
       if (productSearchTerm) {
-        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
+        query = query.or(`item_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
       }
-
       const { data, error, count } = await query
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
-        .order('product_name');
-
+        .order('item_name');
       if (error) throw error;
       setProducts(data);
       setTotalProducts(count);
@@ -148,7 +143,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   };
 
   const handleEditClose = () => {
-    fetchUpdatedContact(); // Fetch updated contact after closing edit dialog
+    fetchUpdatedContact();
     setEditOpen(false);
   };
 
@@ -164,13 +159,29 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
 
   const handleSave = async (updatedEnquiry) => {
     try {
+      const productEntries = Object.entries(selectedProducts).reduce((acc, [key, product]) => {
+        acc[key] = {
+          product_id: product.product_id,
+          barcode_number: product.barcode_number,
+          item_name: product.item_name,
+          quantity: product.quantity,
+        };
+        return acc;
+      }, {});
+
+      const updatedData = {
+        ...updatedEnquiry,
+        products: productEntries,
+      };
+
       const { error } = await supabase
         .from('enquiries')
-        .update(updatedEnquiry)
+        .update(updatedData)
         .eq('id', contact.id);
       if (error) throw error;
+
       setEditOpen(false);
-      fetchUpdatedContact(); // Refresh contact data after save
+      fetchUpdatedContact();
     } catch (error) {
       console.error('Error updating enquiry:', error);
       setError('Failed to update enquiry. Please try again later.');
@@ -185,10 +196,23 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         .eq('id', contact.id)
         .single();
       if (error) throw error;
-      onUpdate(data); // Trigger update in the parent component
+      onUpdate(data);
     } catch (error) {
       console.error('Error fetching updated contact:', error);
     }
+  };
+
+  const parseProducts = (products) => {
+    if (!products) return {};
+    if (typeof products === 'string') {
+      try {
+        return JSON.parse(products);
+      } catch (error) {
+        console.error('Error parsing products:', error);
+        return {};
+      }
+    }
+    return products;
   };
 
   const getTextColorClass = (color) => {
@@ -201,26 +225,6 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
     };
     return colorMap[color] || 'text-gray-600';
   };
-
-  const parseProducts = (products) => {
-    if (!products) return {};
-    if (typeof products === 'string') {
-      try {
-        const cleanedProducts = products
-          .replace(/""/g, '"')
-          .replace(/\\\\"/g, '"')
-          .replace(/"({)/g, '$1')
-          .replace(/(})"/g, '$1');
-        return JSON.parse(cleanedProducts);
-      } catch (error) {
-        console.error('Error parsing products:', error);
-        return {};
-      }
-    }
-    return products; // If it's already an object, return as is
-  };
-
-  const productsData = parseProducts(contact?.products);
 
   const getRemainingDays = (submissionDate) => {
     const now = dayjs();
@@ -238,10 +242,6 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
     return user ? user.username : 'Unknown User';
   };
 
-  if (!contact || !user) {
-    return <div>Error: contact or user data is missing.</div>;
-  }
-
   return (
     <div className="mb-4 p-4 bg-white rounded-lg shadow-md border border-gray-200 flex flex-col justify-between">
       {error && <div className="text-red-500 mb-2">{error}</div>}
@@ -252,7 +252,6 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         {visibleFields.address && <p className="text-sm mb-1">Address: {contact.address}</p>}
         {visibleFields.location && <p className="text-sm mb-1">Location: {contact.location}</p>}
         {visibleFields.stage && <p className="text-sm mb-1">Stage: {contact.stage}</p>}
-        {visibleFields.mailid && <p className="text-sm mb-1">Email: {contact.mailid}</p>}
         {visibleFields.leadsource && <p className="text-sm mb-1">Lead Source: {contact.leadsource}</p>}
         {visibleFields.assignedto && <p className="text-sm mb-1">Assigned To: {username}</p>}
         {visibleFields.remarks && <p className="text-sm mb-1">Remarks: {contact.remarks}</p>}
@@ -262,13 +261,13 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         {visibleFields.created_at && <p className="text-sm mb-1">Date Created: {new Date(contact.created_at).toLocaleDateString()}</p>}
         {visibleFields.salesflow_code && <p className="text-sm mb-1">Salesflow Code: {contact.salesflow_code}</p>}
         {visibleFields.last_updated && <p className="text-sm mb-1">Last Updated: {new Date(contact.last_updated).toLocaleString()}</p>}
-        {visibleFields.products && Object.values(productsData).length > 0 && (
+        {visibleFields.products && Object.values(parseProducts(contact.products)).length > 0 && (
           <Box mt={2}>
             <Typography variant="body2">Products:</Typography>
-            {Object.values(productsData).map((product, index) => (
+            {Object.values(parseProducts(contact.products)).map((product, index) => (
               <Chip 
                 key={index}
-                label={`${product.product_name} (${product.quantity})`}
+                label={`${product.item_name} (${product.quantity})`}
                 size="small"
                 sx={{ mr: 1, mt: 1 }}
               />
@@ -307,26 +306,26 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         <DialogContent>
           {tasks.length > 0 ? (
             tasks.map((task) => (
-              <Card key={task.id} variant="outlined" sx={{ mb: 3, p: 2,  }}>
+              <Card key={task.id} variant="outlined" sx={{ mb: 3, p: 2 }}>
                 <CardContent>
                   <Box display="flex" alignItems="center" mb={2}>
                     <Assignment sx={{ mr: 1, fontSize: 20 }} />
                     <Typography variant="h6"><strong>Task Name:</strong> {task.task_name}</Typography>
                   </Box>
                   <Box display="flex" alignItems="center" mb={2}>
-                    <ReportProblem sx={{ mr: 1, fontSize: 20,  }} />
+                    <ReportProblem sx={{ mr: 1, fontSize: 20 }} />
                     <Typography variant="body1"><strong>Task Message:</strong> {task.task_message}</Typography>
                   </Box>
                   <Box display="flex" alignItems="center" mb={2}>
-                    <ReportProblem sx={{ mr: 1, fontSize: 20,  }} />
+                    <ReportProblem sx={{ mr: 1, fontSize: 20 }} />
                     <Typography variant="body2"><strong>Completion Status:</strong> {task.completion_status}</Typography>
                   </Box>
                   <Box display="flex" alignItems="center" mb={2}>
-                    <Person sx={{ mr: 1, fontSize: 20,  }} />
+                    <Person sx={{ mr: 1, fontSize: 20 }} />
                     <Typography variant="body2"><strong>Assigned To:</strong> {getUsername(task.assigned_to)}</Typography>
                   </Box>
                   <Box display="flex" alignItems="center" mb={2}>
-                    <CalendarToday sx={{ mr: 1, fontSize: 20,  }} />
+                    <CalendarToday sx={{ mr: 1, fontSize: 20 }} />
                     <Typography variant="body2"><strong>Remaining Days:</strong> {getRemainingDays(task.submission_date)}</Typography>
                   </Box>
                 </CardContent>
@@ -353,6 +352,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         users={users}
         products={products}
         selectedProducts={selectedProducts}
+        setSelectedProducts={setSelectedProducts}
         handleProductToggle={(product) => {
           setSelectedProducts((prev) => {
             const newSelected = { ...prev };
@@ -377,7 +377,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         handleProductSearchChange={(e) => setProductSearchTerm(e.target.value)}
         page={page}
         handlePageChange={(event, value) => setPage(value)}
-        totalEstimate={Object.values(selectedProducts).reduce((sum, product) => sum + product.price * product.quantity, 0)}
+        totalEstimate={Object.values(selectedProducts).reduce((sum, product) => sum + (product.price || 0) * product.quantity, 0)}
         ITEMS_PER_PAGE={ITEMS_PER_PAGE}
         totalProducts={totalProducts}
         currentUserId={user.id}

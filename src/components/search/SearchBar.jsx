@@ -48,8 +48,11 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     if (dialogOpen && dialogType === 'product') {
       fetchProducts();
     }
-    fetchUsers();
   }, [dialogOpen, dialogType, page, productSearchTerm]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     calculateTotalEstimate();
@@ -67,42 +70,32 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from('products')
-        .select('*, item_alias, item_name') // Select correct columns
-        .order('item_name', { ascending: true }) // Order by `item_name`
-        .ilike('item_name', `%${productSearchTerm}%`) // Apply `ilike` filter
-        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1); // Pagination using `range`
-  
-      if (error) {
-        console.error('Error fetching products:', error);
-      } else {
-        console.log('Products fetched:', data);
-        setProducts(data); // Set the fetched products
-        setTotalProducts(data.length); // Update total products count
-      }
+        .select('*', { count: 'exact' })
+        .order('item_name', { ascending: true })
+        .ilike('item_name', `%${productSearchTerm}%`)
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+
+      if (error) throw error;
+      setProducts(data);
+      setTotalProducts(count);
     } catch (error) {
       console.error('Error fetching products:', error.message);
+      showSnackbar('Failed to fetch products', 'error');
     }
   };
-  
 
   const handleInputChange = (e) => {
     setSearchTerm(e.target.value);
     onSearch(e.target.value);
   };
 
-  const handleProductSearchChange = (e) => {
-    setProductSearchTerm(e.target.value);
-  };
+  const handleProductSearchChange = (e) => setProductSearchTerm(e.target.value);
 
-  const handleAddClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
+  const handleAddClick = (event) => setAnchorEl(event.currentTarget);
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleMenuClose = () => setAnchorEl(null);
 
   const handleDialogOpen = async (type) => {
     setDialogType(type);
@@ -113,58 +106,51 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     setProductSearchTerm('');
 
     if (searchTerm) {
-      try {
-        const { data, error } = await supabase
-          .from('enquiries')
-          .select('name, mobilenumber1, mobilenumber2, address, location')
-          .eq('mobilenumber1', searchTerm)
-          .order('created_at', { ascending: false })
-          .limit(1);
+      const { data, error } = await supabase
+        .from('enquiries')
+        .select('name, mobilenumber1, mobilenumber2, address, location')
+        .eq('mobilenumber1', searchTerm)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-        if (error) {
-          console.error('Error fetching enquiry data:', error);
-        } else if (data && data.length > 0) {
-          const latestEnquiry = data[0];
-          setEnquiryData((prev) => ({
-            ...prev,
-            ...latestEnquiry,
-            mobilenumber1: searchTerm,
-          }));
-        } else {
-          setEnquiryData((prev) => ({
-            ...prev,
-            mobilenumber1: searchTerm,
-            name: '',
-            mobilenumber2: '',
-            address: '',
-            location: '',
-            stage: 'Lead',
-            dbt_userid_password: '',
-            leadsource: '',
-            assignedto: currentUserId,
-            remarks: '',
-            invoiced: false,
-            collected: false,
-            created_at: new Date().toISOString(),
-            salesflow_code: '',
-            won_date: null,
-            expected_completion_date: '',
-            state: '',
-            district: '',
-            contacttype: [],
-            subsidy: false,
-            dbt_c_o: '',
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching enquiry data:', error.message);
+      if (error) {
+        console.error('Error fetching enquiry data:', error);
+        showSnackbar('Failed to fetch enquiry data', 'error');
+      } else if (data && data.length > 0) {
+        setEnquiryData({ ...data[0], mobilenumber1: searchTerm });
+      } else {
+        resetEnquiryData();
       }
     }
   };
 
-  const handleDialogClose = () => {
-    setDialogOpen(false);
+  const resetEnquiryData = () => {
+    setEnquiryData({
+      name: '',
+      mobilenumber1: searchTerm,
+      mobilenumber2: '',
+      address: '',
+      location: '',
+      stage: 'Lead',
+      dbt_userid_password: '',
+      leadsource: '',
+      assignedto: currentUserId,
+      remarks: '',
+      invoiced: false,
+      collected: false,
+      created_at: new Date().toISOString(),
+      salesflow_code: '',
+      won_date: null,
+      expected_completion_date: '',
+      state: '',
+      district: '',
+      contacttype: [],
+      subsidy: false,
+      dbt_c_o: '',
+    });
   };
+
+  const handleDialogClose = () => setDialogOpen(false);
 
   const handleProductToggle = (product) => {
     setSelectedProducts((prev) => {
@@ -190,15 +176,13 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const calculateTotalEstimate = () => {
     const total = Object.values(selectedProducts).reduce((sum, product) => {
-      return sum + product.price * product.quantity;
+      return sum + (product.price || 0) * product.quantity;
     }, 0);
     setTotalEstimate(total);
   };
 
   const handleFormSubmit = async (formData) => {
     try {
-      console.log('Form data before submission:', formData);
-
       const formattedData = {
         ...formData,
         won_date: formData.won_date ? new Date(formData.won_date).toISOString() : null,
@@ -207,13 +191,9 @@ const SearchBar = ({ onSearch, currentUserId }) => {
         products: JSON.stringify(selectedProducts),
       };
 
-      const { data, error } = await supabase
-        .from('enquiries')
-        .insert([formattedData]);
+      const { error } = await supabase.from('enquiries').insert([formattedData]);
 
       if (error) throw error;
-
-      console.log('Enquiry saved successfully:', data);
       showSnackbar('Enquiry added successfully!', 'success');
       handleDialogClose();
     } catch (error) {
@@ -222,17 +202,11 @@ const SearchBar = ({ onSearch, currentUserId }) => {
     }
   };
 
-  const handlePageChange = (event, value) => {
-    setPage(value);
-  };
+  const handlePageChange = (event, value) => setPage(value);
 
-  const showSnackbar = (message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  };
+  const showSnackbar = (message, severity) => setSnackbar({ open: true, message, severity });
 
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  };
+  const handleCloseSnackbar = () => setSnackbar((prev) => ({ ...prev, open: false }));
 
   return (
     <Box sx={{ width: '100%', maxWidth: 600, margin: 'auto' }}>

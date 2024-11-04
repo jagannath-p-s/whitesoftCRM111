@@ -14,7 +14,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
+  DialogActions as MuiDialogActions,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -36,6 +36,7 @@ const InfoCard = ({ data, type, onEdit }) => {
   const [page, setPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [assignedUser, setAssignedUser] = useState('');
+  const [users, setUsers] = useState([]);
 
   const ITEMS_PER_PAGE = 10;
 
@@ -43,44 +44,42 @@ const InfoCard = ({ data, type, onEdit }) => {
     if (type === 'enquiry') {
       fetchProducts();
       fetchAssignedUser();
+      fetchUsers();
+      initializeSelectedProducts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, productSearchTerm, page]);
 
+  // Fetch Products with Pagination and Search
   const fetchProducts = async () => {
     try {
-      let query = supabase.from('products').select('*', { count: 'exact' });
-
-      if (productSearchTerm) {
-        query = query.or(`product_name.ilike.%${productSearchTerm}%,item_alias.ilike.%${productSearchTerm}%`);
-      }
-
-      const { data, error, count } = await query
+      const { data: productData, error, count } = await supabase
+        .from('products')
+        .select('*', { count: 'exact' })
+        .ilike('item_name', `%${productSearchTerm}%`)
         .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1)
-        .order('product_name');
+        .order('item_name');
 
       if (error) throw error;
-      setProducts(data);
+      setProducts(productData);
       setTotalProducts(count);
     } catch (error) {
       console.error('Error fetching products:', error.message);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch products.',
+        severity: 'error',
+      });
     }
   };
 
+  // Fetch Assigned User Details
   const fetchAssignedUser = async () => {
     try {
-      const assignedToId = data.assignedto;
-      console.log('Assigned To ID:', assignedToId); // Debugging
-
-      if (!assignedToId) {
-        console.error('Assigned To ID is undefined or null');
-        setAssignedUser('Unknown User');
-        return;
-      }
-
       const { data: userData, error } = await supabase
         .from('users')
         .select('username, employee_code')
-        .eq('id', assignedToId)
+        .eq('id', data.assignedto)
         .single();
 
       if (error) {
@@ -89,8 +88,6 @@ const InfoCard = ({ data, type, onEdit }) => {
         return;
       }
 
-      console.log('Fetched user data:', userData); // Debugging
-
       setAssignedUser(`${userData.username} (${userData.employee_code})`);
     } catch (error) {
       console.error('Error fetching assigned user:', error.message);
@@ -98,27 +95,79 @@ const InfoCard = ({ data, type, onEdit }) => {
     }
   };
 
+  // Fetch Users for Dropdown in Edit Dialog
+  const fetchUsers = async () => {
+    try {
+      const { data: usersData, error } = await supabase.from('users').select('*');
+      if (error) throw error;
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error fetching users:', error.message);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch users.',
+        severity: 'error',
+      });
+    }
+  };
+
+  // Initialize Selected Products with Prices
+  const initializeSelectedProducts = async () => {
+    if (!data.products) return;
+
+    const parsedProducts = parseProducts(data.products);
+    const updatedSelectedProducts = {};
+
+    for (const [productId, product] of Object.entries(parsedProducts)) {
+      const { data: productData, error } = await supabase
+        .from('products')
+        .select('price')
+        .eq('product_id', productId)
+        .single();
+
+      if (error) {
+        console.error(`Error fetching price for product ID ${productId}:`, error.message);
+        updatedSelectedProducts[productId] = {
+          ...product,
+          price: 0,
+        };
+      } else {
+        updatedSelectedProducts[productId] = {
+          ...product,
+          price: parseFloat(productData.price) || 0,
+        };
+      }
+    }
+    setSelectedProducts(updatedSelectedProducts);
+  };
+
+  // Handle Expand/Collapse of Card
   const handleExpandClick = () => {
     setExpanded(!expanded);
   };
 
+  // Handle Edit Button Click
   const handleEditClick = () => {
-    setSelectedProducts(parseProducts(data.products));
     setEditOpen(true);
   };
 
+  // Handle Edit Dialog Close
   const handleEditClose = () => setEditOpen(false);
 
+  // Handle Pipeline Button Click
   const handlePipelineClick = () => setPipelineOpen(true);
   const handlePipelineClose = () => setPipelineOpen(false);
 
+  // Handle Save from Edit Dialog
   const handleSave = async (updatedEnquiry) => {
     try {
       const { error } = await supabase
         .from('enquiries')
         .update(updatedEnquiry)
         .eq('id', data.id);
+
       if (error) throw error;
+
       setEditOpen(false);
       onEdit(updatedEnquiry);
       setSnackbar({
@@ -137,16 +186,12 @@ const InfoCard = ({ data, type, onEdit }) => {
     }
   };
 
+  // Parse Products from JSON/String
   const parseProducts = (products) => {
     if (!products) return {};
     if (typeof products === 'string') {
       try {
-        const cleanedProducts = products
-          .replace(/""/g, '"')
-          .replace(/\\\\"/g, '"')
-          .replace(/"({)/g, '$1')
-          .replace(/(})"/g, '$1');
-        return JSON.parse(cleanedProducts);
+        return JSON.parse(products);
       } catch (error) {
         console.error('Error parsing products:', error);
         return {};
@@ -155,63 +200,82 @@ const InfoCard = ({ data, type, onEdit }) => {
     return products;
   };
 
+  // Calculate Total Estimate Based on Selected Products
+  const calculateTotalEstimate = () => {
+    return Object.values(selectedProducts).reduce((sum, product) => {
+      return sum + (product.price || 0) * (product.quantity || 1);
+    }, 0);
+  };
+
+  // Handle Product Selection Toggle
+  const handleProductToggle = (product) => {
+    setSelectedProducts((prev) => {
+      const newSelected = { ...prev };
+      if (newSelected[product.product_id]) {
+        delete newSelected[product.product_id];
+      } else {
+        newSelected[product.product_id] = { ...product, quantity: 1, price: parseFloat(product.price) || 0 };
+      }
+      return newSelected;
+    });
+  };
+
+  // Handle Quantity Change for a Product
+  const handleQuantityChange = (productId, change) => {
+    setSelectedProducts((prev) => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        quantity: Math.max(1, prev[productId].quantity + change),
+      },
+    }));
+  };
+
+  // Render Card Content Based on Expansion
   const renderCardContent = () => {
     const productsData = parseProducts(data?.products);
 
-    switch (type) {
-      case 'enquiry':
-        return (
+    return (
+      <>
+        <Typography variant="h6" component="div">
+          {data.name || data.customer_name}
+        </Typography>
+        <Typography variant="body2">
+          Date: {new Date(data.created_at || data.date).toLocaleDateString()}
+        </Typography>
+        <Typography variant="body2">
+          Contact: {data.mobilenumber1 || data.customer_mobile}
+        </Typography>
+        {expanded && (
           <>
-            <Typography variant="h6" component="div">{data.name}</Typography>
-            <Typography variant="body2">Date: {new Date(data.created_at).toLocaleDateString()}</Typography>
-            <Typography variant="body2">Contact: {data.mobilenumber1}</Typography>
-            {expanded && (
-              <>
-                <Typography variant="body2">Address: {data.address}</Typography>
-                <Typography variant="body2">Location: {data.location}</Typography>
-                <Typography variant="body2">Stage: {data.stage}</Typography>
-                <Typography variant="body2">DBT id pass :{data.dbt_userid_password}</Typography>
-                <Typography variant="body2">Lead Source: {data.leadsource}</Typography>
-                <Typography variant="body2">Assigned To: {assignedUser}</Typography>
-                <Typography variant="body2">Remarks: {data.remarks}</Typography>
-                <Typography variant="body2">subsisidy: {data.subsidy ? 'Yes' : 'No'}</Typography>
-                <Typography variant="body2">Invoiced: {data.invoiced ? 'Yes' : 'No'}</Typography>
-                <Typography variant="body2">Collected: {data.collected ? 'Yes' : 'No'}</Typography>
-                <Typography variant="body2">Salesflow Code: {data.salesflow_code}</Typography>
-                {Object.values(productsData).length > 0 && (
-                  <Box mt={2}>
-                    <Typography variant="body2">Products:</Typography>
-                    {Object.values(productsData).map((product, index) => (
-                      <Chip 
-                        key={index}
-                        label={`${product.product_name} (${product.quantity})`}
-                        size="small"
-                        sx={{ mr: 1, mt: 1 }}
-                      />
-                    ))}
-                  </Box>
-                )}
-              </>
+            <Typography variant="body2">Address: {data.address}</Typography>
+            <Typography variant="body2">Location: {data.location}</Typography>
+            <Typography variant="body2">Stage: {data.stage}</Typography>
+            <Typography variant="body2">DBT User ID/Password: {data.dbt_userid_password}</Typography>
+            <Typography variant="body2">Lead Source: {data.leadsource}</Typography>
+            <Typography variant="body2">Assigned To: {assignedUser}</Typography>
+            <Typography variant="body2">Remarks: {data.remarks}</Typography>
+            <Typography variant="body2">Subsidy: {data.subsidy ? 'Yes' : 'No'}</Typography>
+            <Typography variant="body2">Invoiced: {data.invoiced ? 'Yes' : 'No'}</Typography>
+            <Typography variant="body2">Collected: {data.collected ? 'Yes' : 'No'}</Typography>
+            <Typography variant="body2">Salesflow Code: {data.salesflow_code}</Typography>
+            {Object.values(productsData).length > 0 && (
+              <Box mt={2}>
+                <Typography variant="body2">Products:</Typography>
+                {Object.values(productsData).map((product, index) => (
+                  <Chip
+                    key={index}
+                    label={`${product.item_name} (${product.quantity})`}
+                    size="small"
+                    sx={{ mr: 1, mt: 1 }}
+                  />
+                ))}
+              </Box>
             )}
           </>
-        );
-      case 'serviceEnquiry':
-        return (
-          <>
-            <Typography variant="h6" component="div">{data.customer_name}</Typography>
-            <Typography variant="body2">Date: {new Date(data.date).toLocaleDateString()}</Typography>
-            <Typography variant="body2">Job Card No: {data.job_card_no}</Typography>
-            {expanded && (
-              <>
-                <Typography variant="body2">Customer Mobile: {data.customer_mobile}</Typography>
-                <Typography variant="body2">Service Details: {data.service_details}</Typography>
-              </>
-            )}
-          </>
-        );
-      default:
-        return null;
-    }
+        )}
+      </>
+    );
   };
 
   return (
@@ -242,63 +306,53 @@ const InfoCard = ({ data, type, onEdit }) => {
         </Tooltip>
       </CardActions>
 
+      {/* Edit Enquiry Dialog */}
       <EditEnquiryDialog
         dialogOpen={editOpen}
         enquiryData={data}
         handleDialogClose={handleEditClose}
         handleFormSubmit={handleSave}
-        users={[]} // Replace with actual users data if available
+        users={users} // Now passing the fetched users
         products={products}
         selectedProducts={selectedProducts}
-        handleProductToggle={(product) => {
-          setSelectedProducts((prev) => {
-            const newSelected = { ...prev };
-            if (newSelected[product.product_id]) {
-              delete newSelected[product.product_id];
-            } else {
-              newSelected[product.product_id] = { ...product, quantity: 1 };
-            }
-            return newSelected;
-          });
-        }}
-        handleQuantityChange={(productId, change) => {
-          setSelectedProducts((prev) => ({
-            ...prev,
-            [productId]: {
-              ...prev[productId],
-              quantity: Math.max(1, prev[productId].quantity + change),
-            },
-          }));
-        }}
+        setSelectedProducts={setSelectedProducts}
+        handleProductToggle={handleProductToggle} // Added handler
+        handleQuantityChange={handleQuantityChange} // Added handler
         productSearchTerm={productSearchTerm}
         handleProductSearchChange={(e) => setProductSearchTerm(e.target.value)}
         page={page}
         handlePageChange={(event, value) => setPage(value)}
-        totalEstimate={Object.values(selectedProducts).reduce((sum, product) => sum + product.price * product.quantity, 0)}
+        totalEstimate={calculateTotalEstimate()}
         ITEMS_PER_PAGE={ITEMS_PER_PAGE}
         totalProducts={totalProducts}
-        currentUserId={data.assigned_to}
+        currentUserId={data.assignedto}
       />
 
+      {/* Pipeline Dialog */}
       <Dialog open={pipelineOpen} onClose={handlePipelineClose} maxWidth="md" fullWidth>
         <DialogTitle>Pipeline Form</DialogTitle>
         <DialogContent>
           <PipelineFormJSON enquiryId={data.id} />
         </DialogContent>
-        <DialogActions>
+        <MuiDialogActions>
           <Button onClick={handlePipelineClose} color="primary">
             Close
           </Button>
-        </DialogActions>
+        </MuiDialogActions>
       </Dialog>
 
+      {/* Snackbar for Notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

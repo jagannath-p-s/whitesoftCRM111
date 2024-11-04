@@ -115,28 +115,24 @@ const UserTable = () => {
             <Box className="flex items-center space-x-4">
               <TextField
                 type="text"
-                placeholder="Search for users"
+                placeholder="Search "
                 value={searchTerm}
                 onChange={handleSearch}
-                variant="outlined"
+                
                 size="small"
-                sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }}
+                
                 autoComplete="off"
-                InputProps={{
-                  startAdornment: (
-                    <IconButton size="small">
-                      <SearchIcon />
-                    </IconButton>
-                  ),
-                }}
+               
               />
               <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Filter by Stage</InputLabel>
+                
                 <Select
                   value={filterStage}
+                   placeholder="Search "
                   onChange={(e) => setFilterStage(e.target.value)}
-                  label="Filter by Stage"
+                 
                 >
+                  
                   <MenuItem value="">See All</MenuItem>
                   {stages.map((stage, idx) => (
                     <MenuItem key={idx} value={stage}>
@@ -152,7 +148,14 @@ const UserTable = () => {
 
       <div className="p-4 pt-0">
         {/* Table */}
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '8px', boxShadow: 'none', mt: 2 }}>
+        <TableContainer component={Paper}
+  className="shadow-md sm:rounded-lg overflow-auto"
+  sx={{
+    marginTop: '20px', 
+    marginBottom: '0px', 
+    paddingTop: '0px', 
+    paddingBottom: '0px', 
+  }}>
           {loading ? (
             <Box style={{ margin: 'auto', display: 'block' }} /> 
           ) : (
@@ -160,16 +163,16 @@ const UserTable = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>No</TableCell>
-                    <TableCell>Title</TableCell>
-                    <TableCell>Stage</TableCell>
-                    <TableCell>First Name</TableCell>
-                    <TableCell>Second Name</TableCell>
-                    <TableCell>Contact Number</TableCell>
-                    <TableCell>Alternate Contact</TableCell>
-                    <TableCell>User ID</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }} >No</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Title</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stage</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>First Name</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Second Name</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Contact Number</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Alternate Contact</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>User ID</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Description</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -177,7 +180,7 @@ const UserTable = () => {
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((user, index) => (
                       <TableRow key={user.id} hover>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                        <TableCell >{page * rowsPerPage + index + 1}</TableCell>
                         <TableCell>{user.title}</TableCell>
                         <TableCell>{user.stage}</TableCell>
                         <TableCell>{user.first_name}</TableCell>
@@ -196,7 +199,7 @@ const UserTable = () => {
                 </TableBody>
               </Table>
               <TablePagination
-                rowsPerPageOptions={[5, 10, 25, 50]}
+                rowsPerPageOptions={[25, 50, 100, 500]}
                 component="div"
                 count={filteredUsers.length}
                 rowsPerPage={rowsPerPage}
@@ -281,7 +284,7 @@ const UserTable = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditingUser(null)} color="secondary">
+          <Button onClick={() => setEditingUser(null)} >
             Cancel
           </Button>
           <Button onClick={saveUser} color="primary">

@@ -20,8 +20,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import PrintBillDialog from './PrintBillDialog';
 
 const Contacts = () => {
-  const initialExpandedColumns = [];
-  const [expanded, setExpanded] = useState(initialExpandedColumns);
+  const [expanded, setExpanded] = useState([]);
   const [view, setView] = useState('cards');
   const [columns, setColumns] = useState([]);
   const [users, setUsers] = useState({});
@@ -53,37 +52,37 @@ const Contacts = () => {
       const { data: enquiries, error: enquiriesError } = await supabase
         .from('enquiries')
         .select('*');
-
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('id, username');
 
       if (enquiriesError || usersError) {
         console.error('Error fetching data:', enquiriesError || usersError);
-      } else {
-        const categorizedData = [
-          { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
-          { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
-          { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
-          { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
-          { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
-        ];
-
-        enquiries.forEach((contact) => {
-          const category = categorizedData.find(c => c.name === contact.stage);
-          if (category) {
-            category.contacts.push(contact);
-          }
-        });
-
-        const usersMap = usersData.reduce((acc, user) => {
-          acc[user.id] = user;
-          return acc;
-        }, {});
-
-        setUsers(usersMap);
-        setColumns(categorizedData);
+        return;
       }
+
+      const categorizedData = [
+        { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
+        { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
+        { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
+        { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
+        { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
+      ];
+
+      enquiries.forEach((contact) => {
+        const category = categorizedData.find(c => c.name === contact.stage);
+        if (category) {
+          category.contacts.push(contact);
+        }
+      });
+
+      const usersMap = usersData.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {});
+
+      setUsers(usersMap);
+      setColumns(categorizedData);
     };
 
     fetchData();
@@ -126,8 +125,8 @@ const Contacts = () => {
       }));
 
       if (destination.droppableId === 'Customer-Won') {
-        setCustomerDetails(movedItem); // Pass customer details to the dialog
-        setPrintDialogOpen(true); // Open the print bill dialog
+        setCustomerDetails(movedItem);
+        setPrintDialogOpen(true);
         setDragResult(result);
       } else {
         const { error } = await supabase
@@ -148,10 +147,10 @@ const Contacts = () => {
       const movedItem = columns
         .find(column => column.name === destination.droppableId)
         .contacts.find(contact => contact.id === customerDetails.id);
-      
+
       movedItem.stage = destination.droppableId;
       movedItem.won_date = new Date().toISOString();
-      
+
       const { error } = await supabase
         .from('enquiries')
         .update({ stage: destination.droppableId, won_date: movedItem.won_date })
@@ -179,13 +178,8 @@ const Contacts = () => {
     }
   };
 
-  const handleSettingsOpen = () => {
-    setSettingsOpen(true);
-  };
-
-  const handleSettingsClose = () => {
-    setSettingsOpen(false);
-  };
+  const handleSettingsOpen = () => setSettingsOpen(true);
+  const handleSettingsClose = () => setSettingsOpen(false);
 
   const handleFieldChange = (event) => {
     setVisibleFields({ ...visibleFields, [event.target.name]: event.target.checked });
@@ -193,7 +187,6 @@ const Contacts = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      {/* Header */}
       <div className="bg-white shadow-md ">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
@@ -231,7 +224,6 @@ const Contacts = () => {
         </div>
       </div>
 
-      {/* Settings Dialog */}
       <Dialog open={settingsOpen} onClose={handleSettingsClose}>
         <DialogTitle>Customize Contact Card Fields</DialogTitle>
         <DialogContent>
@@ -251,9 +243,7 @@ const Contacts = () => {
           ))}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleSettingsClose} color="primary">
-            Close
-          </Button>
+          <Button onClick={handleSettingsClose} color="primary">Close</Button>
         </DialogActions>
       </Dialog>
 
@@ -263,7 +253,6 @@ const Contacts = () => {
         customer={customerDetails}
       />
 
-      {/* Content */}
       <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
         <DragDropContext onDragEnd={onDragEnd}>
           {view === 'cards' ? (

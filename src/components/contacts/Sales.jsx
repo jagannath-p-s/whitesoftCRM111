@@ -24,11 +24,13 @@ import Alert from '@mui/material/Alert';
 import dayjs from 'dayjs';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import Divider from '@mui/material/Divider';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
 
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
@@ -76,20 +78,54 @@ const Sales = () => {
   const [selectedStage, setSelectedStage] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // New states for user selection
+  const [selectedUser, setSelectedUser] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     fetchPipelines();
+    fetchUsers();
+    fetchCurrentUser();
   }, []);
 
   useEffect(() => {
     if (selectedPipeline) {
       fetchStages(selectedPipeline);
+    } else {
+      setStages([]); // Reset stages if no pipeline is selected
     }
   }, [selectedPipeline]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate]);
+  }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate, selectedUser]);
+
+  const fetchCurrentUser = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error('Error fetching current user:', error);
+    } else if (data.user) {
+      // Assuming the user ID is stored in data.user.id and matches users.id
+      setCurrentUser(data.user);
+      setSelectedUser(data.user.id); // Default to current user
+    }
+  };
+
+  const fetchUsers = async () => {
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, username, employee_code');
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+    } else {
+      const usersMap = usersData.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {});
+      setUsers(usersMap);
+    }
+  };
 
   const fetchPipelines = async () => {
     const { data: pipelineData, error } = await supabase.from('pipelines').select('*');
@@ -127,6 +163,10 @@ const Sales = () => {
       query = query.eq('stage', 'Customer-Won');
     }
 
+    if (selectedUser) {
+      query = query.eq('assignedto', selectedUser); // Corrected field name
+    }
+
     if (dateFilter === 'This Month') {
       query = query.gte('created_at', dayjs().startOf('month').toISOString());
     } else if (dateFilter === 'Last 30 Days') {
@@ -138,35 +178,30 @@ const Sales = () => {
     }
 
     const { data: enquiries, error: enquiriesError } = await query;
-    const { data: usersData, error: usersError } = await supabase.from('users').select('id, username');
 
-    if (enquiriesError || usersError) {
-      console.error('Error fetching data:', enquiriesError || usersError);
-    } else {
-      const categorizedData = [
-        { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
-        { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
-        { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
-        { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
-        { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
-      ];
-
-      enquiries.forEach((contact) => {
-        const category = categorizedData.find((c) => c.name === contact.stage);
-        if (category) {
-          category.contacts.push(contact);
-        }
-      });
-
-      const usersMap = usersData.reduce((acc, user) => {
-        acc[user.id] = user;
-        return acc;
-      }, {});
-
-      setUsers(usersMap);
-      setColumns(categorizedData);
+    if (enquiriesError) {
+      console.error('Error fetching enquiries:', enquiriesError);
+      return;
     }
-  }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate]);
+
+    // Categorize enquiries
+    const categorizedData = [
+      { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
+      { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
+      { name: 'Opportunity', color: 'indigo', bgColor: 'bg-indigo-50', contacts: [] },
+      { name: 'Customer-Won', color: 'green', bgColor: 'bg-green-50', contacts: [] },
+      { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
+    ];
+
+    enquiries.forEach((contact) => {
+      const category = categorizedData.find((c) => c.name === contact.stage);
+      if (category) {
+        category.contacts.push(contact);
+      }
+    });
+
+    setColumns(categorizedData);
+  }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate, selectedUser]);
 
   const handlePipelineSelect = (pipelineId) => {
     setSelectedPipeline(pipelineId);
@@ -207,9 +242,9 @@ const Sales = () => {
     setColumns(
       columns.map((column) => {
         if (column.name === source.droppableId) {
-          column.contacts = sourceItems;
+          return { ...column, contacts: sourceItems };
         } else if (column.name === destination.droppableId) {
-          column.contacts = destinationItems;
+          return { ...column, contacts: destinationItems };
         }
         return column;
       })
@@ -220,11 +255,17 @@ const Sales = () => {
       setPrintDialogOpen(true);
       setDragResult(result);
     } else {
+      const updatedStage = stages.find(stage => stage.stage_name === destination.droppableId);
+      if (!updatedStage) {
+        console.error('Stage not found:', destination.droppableId);
+        return;
+      }
+
       const { error } = await supabase
         .from('enquiries')
         .update({ 
           stage: destination.droppableId,
-          current_stage_id: stages.find(stage => stage.stage_name === destination.droppableId)?.stage_id
+          current_stage_id: updatedStage.stage_id
         })
         .eq('id', movedItem.id);
       if (error) {
@@ -298,11 +339,17 @@ const Sales = () => {
       const { destination } = dragResult;
       const movedItem = customerDetails;
 
+      const updatedStage = stages.find(stage => stage.stage_name === destination.droppableId);
+      if (!updatedStage) {
+        console.error('Stage not found:', destination.droppableId);
+        return;
+      }
+
       const { error } = await supabase
         .from('enquiries')
         .update({ 
           stage: destination.droppableId,
-          current_stage_id: stages.find(stage => stage.stage_name === destination.droppableId)?.stage_id,
+          current_stage_id: updatedStage.stage_id,
           won_date: new Date().toISOString()
         })
         .eq('id', movedItem.id);
@@ -336,6 +383,26 @@ const Sales = () => {
                   handleStartDateChange={handleStartDateChange}
                   handleEndDateChange={handleEndDateChange}
                 />
+                {/* User Selection Dropdown */}
+                <FormControl variant="outlined" size="small" style={{ minWidth: 180, marginLeft: 16 }}>
+                  <InputLabel id="assigned-user-label">Assigned To</InputLabel>
+                  <Select
+                    labelId="assigned-user-label"
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                    label="Assigned To"
+                  >
+                    <MenuItem value={currentUser ? currentUser.id : ''}>
+                      My Sales
+                    </MenuItem>
+                    <MenuItem value="">All Users</MenuItem>
+                    {Object.values(users).map((user) => (
+                      <MenuItem key={user.id} value={user.id}>
+                        {user.username} {user.employee_code ? `(${user.employee_code})` : ''}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -345,51 +412,50 @@ const Sales = () => {
                 </button>
               </Tooltip>
               <Menu
-  anchorEl={anchorEl}
-  open={Boolean(anchorEl)}
-  onClose={handleMenuClose}
-  anchorOrigin={{
-    vertical: 'bottom',
-    horizontal: 'left',  // Align menu to the left
-  }}
-  transformOrigin={{
-    vertical: 'top',
-    horizontal: 'left',  // Align menu to the left
-  }}
->
-  {/* Pipelines Section */}
-  <MenuItem onClick={() => { setSelectedPipeline(null); setSelectedStage(null); handleMenuClose(); }}>
-    <ListItemText primary="All Pipelines" />
-  </MenuItem>
-  {pipelines.map((pipeline) => (
-    <MenuItem
-      key={pipeline.pipeline_id}
-      onClick={() => handlePipelineSelect(pipeline.pipeline_id)}
-    >
-      <ListItemText primary={pipeline.pipeline_name} />
-      {selectedPipeline === pipeline.pipeline_id && (
-        <ArrowRightIcon />
-      )}
-    </MenuItem>
-  ))}
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
+                {/* Pipelines Section */}
+                <MenuItem onClick={() => { setSelectedPipeline(null); setSelectedStage(null); handleMenuClose(); }}>
+                  <ListItemText primary="All Pipelines" />
+                </MenuItem>
+                {pipelines.map((pipeline) => (
+                  <MenuItem
+                    key={pipeline.pipeline_id}
+                    onClick={() => handlePipelineSelect(pipeline.pipeline_id)}
+                  >
+                    <ListItemText primary={pipeline.pipeline_name} />
+                    {selectedPipeline === pipeline.pipeline_id && (
+                      <ArrowRightIcon />
+                    )}
+                  </MenuItem>
+                ))}
 
-  <Divider /> {/* Divider to separate pipelines from stages */}
+                <Divider /> {/* Divider to separate pipelines from stages */}
 
-  {/* Stages Section */}
-  <MenuItem onClick={() => handleStageSelect(null)}>
-    <ListItemText primary="All Stages" />
-  </MenuItem>
-  {selectedPipeline && stages.map((stage) => (
-    <MenuItem
-      key={stage.stage_id}
-      onClick={() => handleStageSelect(stage.stage_id)}
-      style={{ paddingLeft: '32px' }} // Indent to show it's related to the pipeline
-    >
-      <ListItemText primary={stage.stage_name} />
-    </MenuItem>
-  ))}
-</Menu>
-
+                {/* Stages Section */}
+                <MenuItem onClick={() => handleStageSelect(null)}>
+                  <ListItemText primary="All Stages" />
+                </MenuItem>
+                {selectedPipeline && stages.map((stage) => (
+                  <MenuItem
+                    key={stage.stage_id}
+                    onClick={() => handleStageSelect(stage.stage_id)}
+                    style={{ paddingLeft: '32px' }} // Indent to show it's related to the pipeline
+                  >
+                    <ListItemText primary={stage.stage_name} />
+                  </MenuItem>
+                ))}
+              </Menu>
 
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
@@ -404,14 +470,16 @@ const Sales = () => {
                   {view === 'cards' ? <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} /> : <ViewListIcon style={{ fontSize: '1.75rem' }} />}
                 </button>
               </Tooltip>
-              {/* <Tooltip title="View Completed Sales">
+              {/* Uncomment if you want to enable viewing completed sales
+              <Tooltip title="View Completed Sales">
                 <button
                   className={`flex items-center p-2 rounded-full ${viewCompletedSales ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}
                   onClick={() => setViewCompletedSales(!viewCompletedSales)}
                 >
                   <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
                 </button>
-              </Tooltip> */}
+              </Tooltip>
+              */}
             </div>
           </div>
         </div>

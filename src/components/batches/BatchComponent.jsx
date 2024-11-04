@@ -335,11 +335,11 @@ const BatchComponent = () => {
                   <FilterListIcon style={{ fontSize: '1.75rem' }} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Add">
+              {/* <Tooltip title="Add">
                 <IconButton onClick={handleOpenBatchDialog} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <AddIcon style={{ fontSize: '1.75rem' }} />
                 </IconButton>
-              </Tooltip>
+              </Tooltip> */}
               <Tooltip title="Upload CSV">
                 <IconButton component="label" style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <UploadIcon style={{ fontSize: '1.75rem' }} />
