@@ -14,7 +14,6 @@ import {
   MenuItem,
   Select,
   Button,
-  InputLabel,
   FormControl,
   Dialog,
   DialogActions,
@@ -24,11 +23,8 @@ import {
   CircularProgress,
   TablePagination,
   Box,
-  Tooltip,
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EditIcon from '@mui/icons-material/Edit';
-import SearchIcon from '@mui/icons-material/Search';
 
 const UserTable = () => {
   const [users, setUsers] = useState([]);
@@ -39,7 +35,7 @@ const UserTable = () => {
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
 
   useEffect(() => {
     fetchUsers();
@@ -57,9 +53,7 @@ const UserTable = () => {
     setLoading(false);
   };
 
-  const handleSearch = (event) => {
-    setSearchTerm(event.target.value);
-  };
+  const handleSearch = (event) => setSearchTerm(event.target.value);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -93,9 +87,7 @@ const UserTable = () => {
       )
     );
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
+  const handleChangePage = (event, newPage) => setPage(newPage);
 
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
@@ -104,7 +96,6 @@ const UserTable = () => {
 
   return (
     <Box className="bg-white rounded-lg shadow-md min-h-screen">
-      {/* Header */}
       <Box className="bg-white shadow-md">
         <Box className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Box className="flex justify-between items-center py-3">
@@ -115,24 +106,18 @@ const UserTable = () => {
             <Box className="flex items-center space-x-4">
               <TextField
                 type="text"
-                placeholder="Search "
+                placeholder="Search"
                 value={searchTerm}
                 onChange={handleSearch}
-                
                 size="small"
-                
                 autoComplete="off"
-               
               />
               <FormControl size="small" sx={{ minWidth: 150 }}>
-                
                 <Select
                   value={filterStage}
-                   placeholder="Search "
+                  displayEmpty
                   onChange={(e) => setFilterStage(e.target.value)}
-                 
                 >
-                  
                   <MenuItem value="">See All</MenuItem>
                   {stages.map((stage, idx) => (
                     <MenuItem key={idx} value={stage}>
@@ -147,32 +132,32 @@ const UserTable = () => {
       </Box>
 
       <div className="p-4 pt-0">
-        {/* Table */}
-        <TableContainer component={Paper}
-  className="shadow-md sm:rounded-lg overflow-auto"
-  sx={{
-    marginTop: '20px', 
-    marginBottom: '0px', 
-    paddingTop: '0px', 
-    paddingBottom: '0px', 
-  }}>
+        <TableContainer
+          component={Paper}
+          className="shadow-md sm:rounded-lg overflow-auto"
+          sx={{
+            marginTop: '20px',
+          }}
+        >
           {loading ? (
-            <Box style={{ margin: 'auto', display: 'block' }} /> 
+            <Box style={{ margin: 'auto', display: 'block' }}>
+              <CircularProgress />
+            </Box>
           ) : (
             <>
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }} >No</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Title</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stage</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>First Name</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Second Name</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Contact Number</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Alternate Contact</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>User ID</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Description</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>No</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Title</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Stage</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>First Name</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Second Name</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Contact Number</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Alternate Contact</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>User ID</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -180,7 +165,7 @@ const UserTable = () => {
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((user, index) => (
                       <TableRow key={user.id} hover>
-                        <TableCell >{page * rowsPerPage + index + 1}</TableCell>
+                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                         <TableCell>{user.title}</TableCell>
                         <TableCell>{user.stage}</TableCell>
                         <TableCell>{user.first_name}</TableCell>
@@ -212,86 +197,39 @@ const UserTable = () => {
         </TableContainer>
       </div>
 
-      {/* Edit User Dialog */}
       <Dialog open={editingUser !== null} onClose={() => setEditingUser(null)} fullWidth>
-        <DialogTitle>Edit User</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Edit the user details and save changes.</DialogContentText>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Title"
-            name="title"
-            fullWidth
-            value={updatedUser.title || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="Stage"
-            name="stage"
-            fullWidth
-            value={updatedUser.stage || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="First Name"
-            name="first_name"
-            fullWidth
-            value={updatedUser.first_name || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="Second Name"
-            name="second_name"
-            fullWidth
-            value={updatedUser.second_name || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="Contact Number"
-            name="contact_number"
-            fullWidth
-            value={updatedUser.contact_number || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="Alternate Contact"
-            name="alternate_contact_number"
-            fullWidth
-            value={updatedUser.alternate_contact_number || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="User ID"
-            name="user_id"
-            fullWidth
-            value={updatedUser.user_id || ''}
-            onChange={handleInputChange}
-          />
-          <TextField
-            margin="dense"
-            label="Description"
-            name="description"
-            fullWidth
-            value={updatedUser.description || ''}
-            onChange={handleInputChange}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingUser(null)} >
-            Cancel
-          </Button>
-          <Button onClick={saveUser} color="primary">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+  <DialogTitle>Edit User</DialogTitle>
+  <DialogContent>
+   
+    {[
+      { label: 'Title', name: 'title' },
+      { label: 'Stage', name: 'stage' },
+      { label: 'First Name', name: 'first_name' },
+      { label: 'Second Name', name: 'second_name' },
+      { label: 'Contact Number', name: 'contact_number' },
+      { label: 'Alternate Contact', name: 'alternate_contact_number' },
+      { label: 'User ID', name: 'user_id' },
+      { label: 'Description', name: 'description' },
+    ].map(({ label, name }) => (
+      <TextField
+        key={name}
+        label={label}
+        name={name}
+        fullWidth
+        value={updatedUser[name] || ''}
+        onChange={handleInputChange}
+        sx={{ marginBottom: 2 }} // Adds extra space between fields
+      />
+    ))}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setEditingUser(null)}>Cancel</Button>
+    <Button onClick={saveUser} color="primary">
+      Save
+    </Button>
+  </DialogActions>
+</Dialog>
+
     </Box>
   );
 };

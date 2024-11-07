@@ -48,16 +48,23 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     totalAmount: 0,
     repairDate: null,
     expectedCompletionDate: null,
-    expectedDeliveryDate: null, // Added field
+    expectedDeliveryDate: null,
     status: 'started',
   });
   const [partsOptions, setPartsOptions] = useState([]);
 
   useEffect(() => {
     const fetchParts = async () => {
-      const { data, error } = await supabase.from('products').select('*').eq('subcategory_id', 9);
-      if (error) console.error(error);
-      else setPartsOptions(data);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, categories!inner(category_id, category_name)')
+        .eq('categories.category_name', 'Service');
+
+      if (error) {
+        console.error('Error fetching parts:', error);
+      } else {
+        setPartsOptions(data);
+      }
     };
 
     fetchParts();
@@ -68,7 +75,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       const parsedCharges = JSON.parse(editingEnquiry.charges);
       const repairDate = editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null;
       const expectedCompletionDate = editingEnquiry.expected_completion_date ? dayjs(editingEnquiry.expected_completion_date) : null;
-      const expectedDeliveryDate = editingEnquiry.expected_delivery_date ? dayjs(editingEnquiry.expected_delivery_date) : null; // Handle expected_delivery_date
+      const expectedDeliveryDate = editingEnquiry.expected_delivery_date ? dayjs(editingEnquiry.expected_delivery_date) : null;
 
       setFormData({
         date: dayjs(editingEnquiry.date),
@@ -94,7 +101,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
         expectedCompletionDate: expectedCompletionDate,
-        expectedDeliveryDate: expectedDeliveryDate, // Set expected_delivery_date in formData
+        expectedDeliveryDate: expectedDeliveryDate,
         status: editingEnquiry.status
       });
     }
@@ -154,7 +161,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
   const fetchPartPrice = async (partId, index) => {
     const { data, error } = await supabase
       .from('products')
-      .select('price')
+      .select('price, item_name, barcode_number')
       .eq('product_id', partId)
       .single();
 
@@ -168,7 +175,9 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       newParts[index] = {
         ...newParts[index],
         rate: data.price,
-        amount: data.price * (parseFloat(newParts[index].qty) || 1)
+        amount: data.price * (parseFloat(newParts[index].qty) || 1),
+        partName: data.item_name,
+        partNumber: data.barcode_number,
       };
       return { ...prevData, parts: newParts };
     });
@@ -242,7 +251,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         total_amount: parseFloat(formData.totalAmount),
         repair_date: formData.repairDate ? formData.repairDate.toISOString() : null,
         expected_completion_date: formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null,
-        expected_delivery_date: formData.expectedDeliveryDate ? formData.expectedDeliveryDate.toISOString() : null, // Include expectedDeliveryDate
+        expected_delivery_date: formData.expectedDeliveryDate ? formData.expectedDeliveryDate.toISOString() : null,
         status: formData.status
       };
   
@@ -315,7 +324,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
 
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>
+      <DialogTitle sx={{ mb: 2 }}>
         {editingEnquiry ? 'Edit Service Enquiry' : 'Add Service Enquiry'}
       </DialogTitle>
       <DialogContent>
@@ -394,7 +403,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                     <MenuItem value="" disabled>Select a part</MenuItem>
                     {partsOptions.map((option) => (
                       <MenuItem key={option.product_id} value={option.product_id}>
-                        {option.product_name}
+                        {option.item_name}
                       </MenuItem>
                     ))}
                   </Select>
@@ -523,7 +532,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 <MenuItem value="paused">Paused</MenuItem>
                 <MenuItem value="paused due to parts unavailability">Paused due to Parts Unavailability</MenuItem>
                 <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="delivered">Delivered</MenuItem> {/* Added "Delivered" option */}
+                <MenuItem value="delivered">Delivered</MenuItem>
               </Select>
             </FormControl>
           </StyledPaper>

@@ -91,8 +91,8 @@ const BatchComponent = () => {
     const tenDaysFromNow = new Date();
     tenDaysFromNow.setDate(now.getDate() + 10);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    let filteredBatches = batches.filter(batch => {
+  
+    let filteredBatches = batches.filter((batch) => {
       if (!batch.expiry_date) return filter === ''; // Only include items without expiry date when no filter is applied
       const expiryDate = new Date(batch.expiry_date);
       switch (filter) {
@@ -105,20 +105,20 @@ const BatchComponent = () => {
         default:
           return true;
       }
-    }).filter(batch => {
+    }).filter((batch) => {
       if (productSearch) {
-        const product = products.find(p => p.barcode_number === batch.barcode_number);
-        return (
-          batch.batch_code.toLowerCase().includes(productSearch.toLowerCase()) ||
-          (product && (
-            product.item_name.toLowerCase().includes(productSearch.toLowerCase()) ||
-            product.item_alias.toLowerCase().includes(productSearch.toLowerCase())
-          ))
-        );
+        const product = products.find((p) => p.barcode_number === batch.barcode_number);
+  
+        // Check if product exists before attempting to access its properties
+        const batchCodeMatch = batch.batch_code?.toLowerCase().includes(productSearch.toLowerCase());
+        const productNameMatch = product?.item_name?.toLowerCase().includes(productSearch.toLowerCase());
+        const productAliasMatch = product?.item_alias?.toLowerCase().includes(productSearch.toLowerCase());
+  
+        return batchCodeMatch || productNameMatch || productAliasMatch;
       }
       return true;
     });
-
+  
     // Sort batches to move those without expiry dates to the bottom
     filteredBatches = filteredBatches.sort((a, b) => {
       if (!a.expiry_date && !b.expiry_date) return 0;
@@ -126,9 +126,10 @@ const BatchComponent = () => {
       if (!b.expiry_date) return -1;
       return new Date(a.expiry_date) - new Date(b.expiry_date);
     });
-
+  
     return filteredBatches;
   };
+  
 
   const handleOpenBatchDialog = () => {
     setBatchDialogOpen(true);
@@ -335,11 +336,11 @@ const BatchComponent = () => {
                   <FilterListIcon style={{ fontSize: '1.75rem' }} />
                 </IconButton>
               </Tooltip>
-              {/* <Tooltip title="Add">
+              <Tooltip title="Add">
                 <IconButton onClick={handleOpenBatchDialog} style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <AddIcon style={{ fontSize: '1.75rem' }} />
                 </IconButton>
-              </Tooltip> */}
+              </Tooltip>
               <Tooltip title="Upload CSV">
                 <IconButton component="label" style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}>
                   <UploadIcon style={{ fontSize: '1.75rem' }} />

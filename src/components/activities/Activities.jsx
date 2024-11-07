@@ -17,7 +17,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import TaskCard from './TaskCard';
 import InnerTaskContactCard from './InnerTaskContactCard';
-import AddTaskDialog from './AddTaskDialog1'; // Import the updated AddTaskDialog component
+import AddTaskDialog from './AddTaskDialog'; 
 import { supabase } from '../../supabaseClient';
 import dayjs from 'dayjs';
 

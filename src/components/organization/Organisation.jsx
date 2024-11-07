@@ -292,53 +292,54 @@ const Organisation = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-100 ">
       {/* Header */}
-      <div className="bg-white shadow-md ">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-3">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center">
-                <BusinessIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
-                <h1 className="text-xl font-semibold ml-2">Organization</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <TextField
-                type="text"
-                placeholder="Search for staff"
-                value={searchTerm}
-                onChange={handleSearch}
-                variant="outlined"
-                size="small"
-                sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }}
-                autoComplete="off"
-              />
-              <Tooltip title="Add new staff">
-                <IconButton
-                  className="p-2"
-                  onClick={() => handleDialogOpen('add')}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <PersonAddAltIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Download CSV">
-                <IconButton
-                  className="p-2"
-                  onClick={handleDownload}
-                  style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
-                >
-                  <DownloadIcon style={{ fontSize: '1.75rem' }} />
-                </IconButton>
-              </Tooltip>
-            </div>
-          </div>
+      <div className="bg-white shadow-lg border-b border-gray">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex justify-between items-center py-3">
+      <div className="flex items-center space-x-4">
+        <div className="flex items-center">
+          <BusinessIcon className="text-blue-500" style={{ fontSize: '1.75rem' }} />
+          <h1 className="text-xl font-semibold ml-2">Organization</h1>
         </div>
       </div>
+      <div className="flex items-center space-x-4">
+        <TextField
+          type="text"
+          placeholder="Search for staff"
+          value={searchTerm}
+          onChange={handleSearch}
+          variant="outlined"
+          size="small"
+          sx={{ pl: 1, pr: 1, py: 1, borderRadius: 2 }}
+          autoComplete="off"
+        />
+        <Tooltip title="Add new staff">
+          <IconButton
+            className="p-2"
+            onClick={() => handleDialogOpen('add')}
+            style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
+          >
+            <PersonAddAltIcon style={{ fontSize: '1.75rem' }} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Download CSV">
+          <IconButton
+            className="p-2"
+            onClick={handleDownload}
+            style={{ backgroundColor: '#e3f2fd', color: '#1e88e5', borderRadius: '12px' }}
+          >
+            <DownloadIcon style={{ fontSize: '1.75rem' }} />
+          </IconButton>
+        </Tooltip>
+      </div>
+    </div>
+  </div>
+</div>
+
 
       {/* Content */}
-      <div className="flex-grow p-4 space-x-4 overflow-x-auto">
+      <div className="flex-grow p-6 space-x-4 overflow-x-auto bg-white mt-0 ">
         <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
           <Table stickyHeader className="min-w-full">
             <TableHead>

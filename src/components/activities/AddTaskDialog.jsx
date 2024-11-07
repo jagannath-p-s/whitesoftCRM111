@@ -11,15 +11,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
   Box,
   Snackbar,
   Alert,
   Typography,
   Grid,
-  Paper,
   CircularProgress
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -32,13 +28,8 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
   const [taskMessage, setTaskMessage] = useState('');
   const [assignedTo, setAssignedTo] = useState(userRole === 'Admin' || userRole === 'Manager' ? '' : assignedBy); // Default to current user for non-admins
   const [users, setUsers] = useState([]);
-  const [dateTimeOption, setDateTimeOption] = useState('days');
-  const [daysToComplete, setDaysToComplete] = useState('');
-  const [submissionDate, setSubmissionDate] = useState(dayjs());
+  const [dueDate, setDueDate] = useState(dayjs().add(7, 'day')); // Default to 7 days from now
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [incompleteTasks, setIncompleteTasks] = useState(0);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -63,55 +54,10 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
     }
   }, [userRole]);
 
-  const fetchUserTasks = async (userId) => {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('assigned_to', userId)
-      .not('completion_status', 'eq', 'completed');
-
-    if (error) {
-      console.error('Error fetching user tasks:', error);
-      return [];
-    }
-
-    return data;
-  };
-
-  const handleAssignedToChange = async (e) => {
-    const userId = e.target.value;
-    setLoading(true);
-    const tasks = await fetchUserTasks(userId);
-    setIncompleteTasks(tasks.length);
-    setSelectedUser(userId);
-
-    if (tasks.length > 0) {
-      setConfirmDialogOpen(true);
-    } else {
-      setAssignedTo(userId);
-    }
-    setLoading(false);
-  };
-
-  const handleConfirmDialogClose = (confirm) => {
-    setConfirmDialogOpen(false);
-    if (confirm) {
-      setAssignedTo(selectedUser);
-    }
-    setSelectedUser(null);
-  };
-
-  const handleDateTimeOptionChange = (e) => {
-    setDateTimeOption(e.target.value);
-  };
-
   const validateForm = () => {
     const newErrors = {};
     if (!taskName.trim()) newErrors.taskName = 'Task name is required';
     if (!assignedTo) newErrors.assignedTo = 'Please assign the task to a user';
-    if (dateTimeOption === 'days' && !daysToComplete) {
-      newErrors.daysToComplete = 'Please specify the number of days';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -120,9 +66,6 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
     if (!validateForm()) return;
 
     setLoading(true);
-    const calculatedSubmissionDate = dateTimeOption === 'days'
-      ? dayjs().add(daysToComplete, 'day')
-      : submissionDate;
 
     try {
       // Insert the task
@@ -135,7 +78,7 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
           type: 'product',
           assigned_by: assignedBy,
           assigned_to: assignedTo,
-          submission_date: calculatedSubmissionDate.toISOString()
+          submission_date: dueDate.toISOString()
         });
 
       if (taskError) throw taskError;
@@ -205,14 +148,15 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
         <DialogTitle>
-          <Typography variant="h5" component="div" gutterBottom>
+          <Typography variant="h6" component="div" gutterBottom>
             Add New Task
           </Typography>
         </DialogTitle>
         <DialogContent>
-        <Grid container spacing={3} sx={{ mt: 1 }}> {/* Added mt: 2 for more top margin */}
+         <div className='mt-2'>
+         <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 autoFocus
@@ -233,21 +177,22 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
                 type="text"
                 fullWidth
                 multiline
-                rows={4}
+                rows={3}
                 value={taskMessage}
                 onChange={(e) => setTaskMessage(e.target.value)}
                 variant="outlined"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth variant="outlined" error={!!errors.assignedTo} required>
                 <InputLabel>Assign To</InputLabel>
                 <Select
                   value={assignedTo}
-                  onChange={handleAssignedToChange}
+                  onChange={(e) => setAssignedTo(e.target.value)}
                   label="Assign To"
                   disabled={!(userRole === 'Admin' || userRole === 'Manager')} // Disable for non-admins and non-managers
                 >
+                  <MenuItem value="">Select a user</MenuItem>
                   {users.map((user) => (
                     <MenuItem key={user.id} value={user.id}>
                       {user.username} ({user.employee_code})
@@ -258,58 +203,24 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <Paper elevation={3} sx={{ p: 2 }}>
-                <Typography variant="subtitle1" gutterBottom>
-                  Task Completion Time
-                </Typography>
-                <RadioGroup
-                  value={dateTimeOption}
-                  onChange={handleDateTimeOptionChange}
-                >
-                  <FormControlLabel
-                    value="days"
-                    control={<Radio />}
-                    label="Days to Complete"
-                  />
-                  <FormControlLabel
-                    value="datetime"
-                    control={<Radio />}
-                    label="Pick Date & Time"
-                  />
-                </RadioGroup>
-                {dateTimeOption === 'days' ? (
-                  <TextField
-                    margin="dense"
-                    label="Days to Complete"
-                    type="number"
-                    fullWidth
-                    value={daysToComplete}
-                    onChange={(e) => setDaysToComplete(e.target.value)}
-                    variant="outlined"
-                    error={!!errors.daysToComplete}
-                    helperText={errors.daysToComplete}
-                    required
-                  />
-                ) : (
-                  <Box sx={{ mt: 2 }}>
-                    <DateTimePicker
-                      label="Submission Date & Time"
-                      value={submissionDate}
-                      onChange={(newValue) => setSubmissionDate(newValue)}
-                      renderInput={(params) => <TextField {...params} fullWidth />}
-                    />
-                  </Box>
-                )}
-              </Paper>
+              <DateTimePicker
+                label="Due Date"
+                value={dueDate}
+                onChange={(newValue) => setDueDate(newValue)}
+                renderInput={(params) => <TextField {...params} fullWidth />}
+              />
             </Grid>
           </Grid>
+         </div>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleClose} variant="outlined" disabled={loading}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
-            color="primary" 
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleClose} variant="outlined" disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            color="primary"
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : null}
           >
@@ -327,27 +238,6 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
           {snackbar.message}
         </Alert>
       </Snackbar>
-      <Dialog
-        open={confirmDialogOpen}
-        onClose={() => handleConfirmDialogClose(false)}
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-description"
-      >
-        <DialogTitle id="confirm-dialog-title">Confirm Task Assignment</DialogTitle>
-        <DialogContent>
-          <Typography id="confirm-dialog-description">
-            This user already has {incompleteTasks} incomplete tasks. Do you still want to assign a new task to this user?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => handleConfirmDialogClose(false)} color="primary">
-            No
-          </Button>
-          <Button onClick={() => handleConfirmDialogClose(true)} color="primary" autoFocus>
-            Yes
-          </Button>
-        </DialogActions>
-      </Dialog>
     </LocalizationProvider>
   );
 };

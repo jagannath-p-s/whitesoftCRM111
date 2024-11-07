@@ -46,6 +46,8 @@ import {
 import { supabase } from '../../supabaseClient';
 import DownloadDialog from './DownloadDialog';
 import AddStockOptions from './AddStockOptions';
+import AddCategoryDialog from './AddCategoryDialog';
+import AddSubcategoryDialog from './AddSubcategoryDialog';
 import ManageCategoriesDialog from './ManageCategoriesDialog';
 
 const StockTable = () => {
@@ -62,6 +64,7 @@ const StockTable = () => {
   const [settingsAnchorEl, setSettingsAnchorEl] = useState(null);
   const [addAnchorEl, setAddAnchorEl] = useState(null);
   const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
+  
 
   const [visibleColumns, setVisibleColumns] = useState({
     slno: true,
@@ -88,6 +91,7 @@ const StockTable = () => {
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [selectedFileUrl, setSelectedFileUrl] = useState('');
   const [unsupportedFile, setUnsupportedFile] = useState(false);
+  
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -426,6 +430,18 @@ const StockTable = () => {
       </div>
 
       {/* Add Menu */}
+      <AddCategoryDialog
+  open={categoryDialogOpen}
+  onClose={() => setCategoryDialogOpen(false)}
+  fetchCategories={fetchCategories}
+/>
+
+<AddSubcategoryDialog
+  open={subcategoryDialogOpen}
+  onClose={() => setSubcategoryDialogOpen(false)}
+  fetchSubcategories={fetchSubcategories}
+  categories={categories}
+/>
       <Menu anchorEl={addAnchorEl} open={Boolean(addAnchorEl)} onClose={() => handleMenuClose('add')}>
         <MenuItem onClick={handleOpenProductDialog}>
           <ListItemIcon>
