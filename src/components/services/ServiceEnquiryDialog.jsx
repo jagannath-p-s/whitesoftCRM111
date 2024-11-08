@@ -40,11 +40,12 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     customerName: '',
     customerMobile: '',
     customerRemarks: '',
+    companyRemarks: '',
     complaintType: [],
     complaints: [''],
     parts: [{ partId: '', partName: '', partNumber: '', qty: 1, rate: 0, amount: 0 }],
     technicians: [],
-    charges: { oil: 0, petrol: 0, labour: 0 },
+    charges: { mistCharges: 0, oilPetrol: 0, labour: 0 },
     totalAmount: 0,
     repairDate: null,
     expectedCompletionDate: null,
@@ -73,6 +74,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
       const parsedComplaints = JSON.parse(editingEnquiry.complaints);
       const parsedCharges = JSON.parse(editingEnquiry.charges);
+      const mappedCharges = {
+        mistCharges: parsedCharges.oil || 0,
+        oilPetrol: parsedCharges.petrol || 0,
+        labour: parsedCharges.labour || 0,
+      };
       const repairDate = editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null;
       const expectedCompletionDate = editingEnquiry.expected_completion_date ? dayjs(editingEnquiry.expected_completion_date) : null;
       const expectedDeliveryDate = editingEnquiry.expected_delivery_date ? dayjs(editingEnquiry.expected_delivery_date) : null;
@@ -83,6 +89,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         customerName: editingEnquiry.customer_name,
         customerMobile: editingEnquiry.customer_mobile,
         customerRemarks: editingEnquiry.customer_remarks,
+        companyRemarks: editingEnquiry.company_remarks || '',
         complaintType: parsedComplaintType,
         complaints: parsedComplaints,
         parts: editingEnquiry.service_enquiry_parts.map(part => ({
@@ -97,13 +104,34 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           const tech = techniciansOptions.find(t => t.name === name);
           return tech ? tech.id : null;
         }).filter(id => id !== null) : [],
-        charges: parsedCharges,
+        charges: mappedCharges,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
         expectedCompletionDate: expectedCompletionDate,
         expectedDeliveryDate: expectedDeliveryDate,
         status: editingEnquiry.status
       });
+    } else {
+      // Fetch max job card number when adding a new enquiry
+      const fetchMaxJobCardNo = async () => {
+        const { data, error } = await supabase
+          .from('service_enquiries')
+          .select('job_card_no');
+
+        if (error) {
+          console.error('Error fetching job card numbers:', error);
+          setFormData(prevData => ({ ...prevData, jobCardNo: '1' }));
+        } else if (data && data.length > 0) {
+          const jobCardNos = data.map(item => parseInt(item.job_card_no, 10)).filter(num => !isNaN(num));
+          const maxJobCardNo = jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
+          const newJobCardNo = maxJobCardNo + 1;
+          setFormData(prevData => ({ ...prevData, jobCardNo: newJobCardNo.toString() }));
+        } else {
+          setFormData(prevData => ({ ...prevData, jobCardNo: '1' }));
+        }
+      };
+
+      fetchMaxJobCardNo();
     }
   }, [editingEnquiry, techniciansOptions]);
 
@@ -233,17 +261,25 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
   const handleSubmit = async () => {
     try {
       console.log('Submitting form data:', formData);
-  
+
       const complaintsJson = JSON.stringify(formData.complaints);
       const complaintTypeJson = JSON.stringify(formData.complaintType);
-      const chargesJson = JSON.stringify(formData.charges);
-  
+
+      // Map 'mistCharges' and 'oilPetrol' back to 'oil' and 'petrol' for saving
+      const chargesForSave = {
+        oil: formData.charges.mistCharges || 0,
+        petrol: formData.charges.oilPetrol || 0,
+        labour: formData.charges.labour || 0,
+      };
+      const chargesJson = JSON.stringify(chargesForSave);
+
       const serviceEnquiryData = {
         date: formData.date.toISOString(),
         job_card_no: formData.jobCardNo,
         customer_name: formData.customerName,
         customer_mobile: formData.customerMobile,
         customer_remarks: formData.customerRemarks,
+        company_remarks: formData.companyRemarks,
         machine_type: complaintTypeJson,
         complaints: complaintsJson,
         technician_name: formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name).join(', '),
@@ -254,7 +290,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         expected_delivery_date: formData.expectedDeliveryDate ? formData.expectedDeliveryDate.toISOString() : null,
         status: formData.status
       };
-  
+
       let serviceEnquiry;
       if (editingEnquiry) {
         const { data, error: serviceEnquiryError } = await supabase
@@ -263,14 +299,14 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           .eq('id', editingEnquiry.id)
           .select()
           .single();
-  
+
         if (serviceEnquiryError) throw serviceEnquiryError;
         serviceEnquiry = data;
-  
+
         // Track and save technician changes
         const oldTechnicians = editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ') : [];
         const newTechnicians = formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name);
-  
+
         if (JSON.stringify(oldTechnicians) !== JSON.stringify(newTechnicians)) {
           const changes = {
             oldTechnicians,
@@ -281,7 +317,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
             .from('technician_changes')
             .insert({ service_id: serviceEnquiry.id, changes: JSON.stringify(changes) });
         }
-  
+
         // Delete old parts and insert new parts
         await supabase.from('service_enquiry_parts').delete().eq('service_enquiry_id', editingEnquiry.id);
       } else {
@@ -290,11 +326,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           .insert(serviceEnquiryData)
           .select()
           .single();
-  
+
         if (serviceEnquiryError) throw serviceEnquiryError;
         serviceEnquiry = data;
       }
-  
+
       const partsData = formData.parts.map(part => ({
         service_enquiry_id: serviceEnquiry.id,
         part_id: parseInt(part.partId),
@@ -304,15 +340,15 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         rate: parseFloat(part.rate),
         amount: parseFloat(part.amount)
       }));
-  
+
       const { data: parts, error: partsError } = await supabase
         .from('service_enquiry_parts')
         .insert(partsData);
-  
+
       if (partsError) throw partsError;
-  
+
       console.log('Parts inserted:', parts);
-  
+
       handleFormSubmit();
       handleDialogClose();
     } catch (error) {
@@ -320,7 +356,13 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       // Handle the error, e.g., show a notification to the user
     }
   };
-  
+
+  // Mapping for charge labels
+  const chargeLabels = {
+    mistCharges: 'Mist Charges',
+    oilPetrol: 'Oil/Petrol',
+    labour: 'Labour',
+  };
 
   return (
     <Dialog open={dialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
@@ -348,6 +390,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
             {renderInputField('Customer Name', 'customerName')}
             {renderInputField('Customer Mobile', 'customerMobile')}
             {renderInputField('Customer Remarks', 'customerRemarks')}
+            {renderInputField('Company Remarks', 'companyRemarks')}
           </StyledPaper>
 
           <StyledPaper elevation={3}>
@@ -470,7 +513,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 <Grid item xs={12} sm={4} key={charge}>
                   <TextField
                     name={`charges.${charge}`}
-                    label={charge.charAt(0).toUpperCase() + charge.slice(1)}
+                    label={chargeLabels[charge]}
                     type="number"
                     variant="outlined"
                     fullWidth
