@@ -4,7 +4,6 @@ import ShoppingBagOutlinedIcon from '@mui/icons-material/ShoppingBagOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import ViewListIcon from '@mui/icons-material/ViewList';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import Column from './Column';
 import FilterSelect from './FilterSelect';
 import DialogContentText from '@mui/material/DialogContentText';
@@ -470,16 +469,6 @@ const Sales = () => {
                   {view === 'cards' ? <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} /> : <ViewListIcon style={{ fontSize: '1.75rem' }} />}
                 </button>
               </Tooltip>
-              {/* Uncomment if you want to enable viewing completed sales
-              <Tooltip title="View Completed Sales">
-                <button
-                  className={`flex items-center p-2 rounded-full ${viewCompletedSales ? 'text-blue-500 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}
-                  onClick={() => setViewCompletedSales(!viewCompletedSales)}
-                >
-                  <CheckCircleOutlineIcon style={{ fontSize: '1.75rem' }} />
-                </button>
-              </Tooltip>
-              */}
             </div>
           </div>
         </div>

@@ -350,19 +350,19 @@ const StockTable = () => {
           <Table stickyHeader className="min-w-full">
             <TableHead>
               <TableRow>
-                {visibleColumns.slno && <TableCell align="center">SL No</TableCell>}
-                {visibleColumns.barcodeNumber && <TableCell align="center">Barcode Number</TableCell>}
-                {visibleColumns.itemName && <TableCell>Item Name</TableCell>}
-                {visibleColumns.modelNumber && <TableCell>Model Number</TableCell>}
-                {visibleColumns.companyName && <TableCell>Company Name</TableCell>}
-                {visibleColumns.category && <TableCell>Category</TableCell>}
-                {visibleColumns.subcategory && <TableCell>Subcategory</TableCell>}
-                {visibleColumns.uom && <TableCell>UOM</TableCell>}
-                {visibleColumns.price && <TableCell>Price (MRP)</TableCell>}
-                {visibleColumns.minStock && <TableCell>Minimum Stock</TableCell>}
-                {visibleColumns.currentStock && <TableCell>Stock</TableCell>}
-                {visibleColumns.imageLink && <TableCell>Image</TableCell>}
-                <TableCell>Options</TableCell>
+                {visibleColumns.slno && <TableCell sx={{ fontWeight: 'bold', color: 'black' }} align="center">SL No</TableCell>}
+                {visibleColumns.barcodeNumber && <TableCell sx={{ fontWeight: 'bold', color: 'black' }} align="center">Barcode Number</TableCell>}
+                {visibleColumns.itemName && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Item Name</TableCell>}
+                {visibleColumns.modelNumber && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Model Number</TableCell>}
+                {visibleColumns.companyName && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Company Name</TableCell>}
+                {visibleColumns.category && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Category</TableCell>}
+                {visibleColumns.subcategory && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Subcategory</TableCell>}
+                {visibleColumns.uom && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>UOM</TableCell>}
+                {visibleColumns.price && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Price (MRP)</TableCell>}
+                {visibleColumns.minStock && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Minimum Stock</TableCell>}
+                {visibleColumns.currentStock && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>}
+                {visibleColumns.imageLink && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Image</TableCell>}
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Options</TableCell>
               </TableRow>
             </TableHead>
 

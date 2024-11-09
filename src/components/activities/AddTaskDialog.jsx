@@ -214,13 +214,12 @@ const AddTaskDialog = ({ open, handleClose, enquiryId, assignedBy, userRole }) =
          </div>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} variant="outlined" disabled={loading}>
+          <Button onClick={handleClose}  disabled={loading}>
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            variant="contained"
-            color="primary"
+            
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : null}
           >
