@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient'; 
+// BatchComponent.js
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../../supabaseClient';
 import {
   TextField,
   IconButton,
@@ -27,6 +28,7 @@ import {
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon, // Import EditIcon
   FilterList as FilterListIcon,
   Inventory as InventoryIcon,
   Search as SearchIcon,
@@ -36,12 +38,14 @@ import { LocalizationProvider, DatePicker } from '@mui/lab';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import { format, parse, isValid } from 'date-fns';
 import BatchDialog from './BatchDialog';
+import EditBatchDialog from './EditBatchDialog'; // Import the new EditBatchDialog
 import Papa from 'papaparse'; // for CSV parsing
 
 const BatchComponent = () => {
   const [batches, setBatches] = useState([]);
   const [products, setProducts] = useState([]);
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [editBatchDialogOpen, setEditBatchDialogOpen] = useState(false); // State for edit dialog
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [filter, setFilter] = useState('');
@@ -49,6 +53,7 @@ const BatchComponent = () => {
   const [productSearch, setProductSearch] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState(null);
+  const [batchToEdit, setBatchToEdit] = useState(null); // State to hold the batch being edited
 
   useEffect(() => {
     fetchBatches();
@@ -91,7 +96,7 @@ const BatchComponent = () => {
     const tenDaysFromNow = new Date();
     tenDaysFromNow.setDate(now.getDate() + 10);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  
+
     let filteredBatches = batches.filter((batch) => {
       if (!batch.expiry_date) return filter === ''; // Only include items without expiry date when no filter is applied
       const expiryDate = new Date(batch.expiry_date);
@@ -108,17 +113,17 @@ const BatchComponent = () => {
     }).filter((batch) => {
       if (productSearch) {
         const product = products.find((p) => p.barcode_number === batch.barcode_number);
-  
+
         // Check if product exists before attempting to access its properties
         const batchCodeMatch = batch.batch_code?.toLowerCase().includes(productSearch.toLowerCase());
         const productNameMatch = product?.item_name?.toLowerCase().includes(productSearch.toLowerCase());
         const productAliasMatch = product?.item_alias?.toLowerCase().includes(productSearch.toLowerCase());
-  
+
         return batchCodeMatch || productNameMatch || productAliasMatch;
       }
       return true;
     });
-  
+
     // Sort batches to move those without expiry dates to the bottom
     filteredBatches = filteredBatches.sort((a, b) => {
       if (!a.expiry_date && !b.expiry_date) return 0;
@@ -126,10 +131,9 @@ const BatchComponent = () => {
       if (!b.expiry_date) return -1;
       return new Date(a.expiry_date) - new Date(b.expiry_date);
     });
-  
+
     return filteredBatches;
   };
-  
 
   const handleOpenBatchDialog = () => {
     setBatchDialogOpen(true);
@@ -254,6 +258,78 @@ const BatchComponent = () => {
     setDeleteDialogOpen(true);
   };
 
+  const handleOpenEditBatchDialog = (batch) => {
+    setBatchToEdit(batch);
+    setEditBatchDialogOpen(true);
+  };
+
+  const handleCloseEditBatchDialog = () => {
+    setEditBatchDialogOpen(false);
+    setBatchToEdit(null);
+  };
+
+  const handleSaveEditedBatch = async (updatedBatch) => {
+    try {
+      // Fetch the existing batch to get the previous stock
+      const { data: existingBatch, error: fetchError } = await supabase
+        .from('batches')
+        .select('*')
+        .eq('batch_id', updatedBatch.batch_id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const stockDifference = updatedBatch.current_stock - existingBatch.current_stock;
+
+      // Update the batch
+      const { error: updateBatchError } = await supabase
+        .from('batches')
+        .update({
+          batch_code: updatedBatch.batch_code,
+          expiry_date: updatedBatch.expiry_date,
+          current_stock: updatedBatch.current_stock,
+          store: updatedBatch.store,
+          rack_number: updatedBatch.rack_number,
+          box_number: updatedBatch.box_number,
+        })
+        .eq('batch_id', existingBatch.batch_id);
+
+      if (updateBatchError) throw updateBatchError;
+
+      // Fetch the current stock of the product
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .select('current_stock')
+        .eq('barcode_number', updatedBatch.barcode_number)
+        .single();
+
+      if (productError) throw productError;
+
+      // Calculate the new stock
+      const newStock = productData.current_stock + stockDifference;
+
+      if (newStock < 0) {
+        throw new Error('Resulting stock cannot be negative.');
+      }
+
+      // Update the product's stock
+      const { error: updateProductError } = await supabase
+        .from('products')
+        .update({ current_stock: newStock })
+        .eq('barcode_number', updatedBatch.barcode_number);
+
+      if (updateProductError) throw updateProductError;
+
+      showSnackbar('Batch updated successfully', 'success');
+      fetchBatches();
+      fetchProducts();
+      handleCloseEditBatchDialog();
+    } catch (error) {
+      console.error('Error updating batch:', error.message);
+      showSnackbar(`Error updating batch: ${error.message}`, 'error');
+    }
+  };
+
   const showSnackbar = (message, severity) => {
     setSnackbar({ open: true, message, severity });
   };
@@ -296,6 +372,33 @@ const BatchComponent = () => {
           const { error: insertError } = await supabase.from('batches').insert(formattedData);
           if (insertError) throw insertError;
 
+          // Update the stock in the products table based on the inserted batches
+          const groupedByBarcode = formattedData.reduce((acc, batch) => {
+            acc[batch.barcode_number] = (acc[batch.barcode_number] || 0) + batch.current_stock;
+            return acc;
+          }, {});
+
+          const stockUpdatePromises = Object.entries(groupedByBarcode).map(async ([barcode, totalAddedStock]) => {
+            const { data: productData, error: productError } = await supabase
+              .from('products')
+              .select('current_stock')
+              .eq('barcode_number', barcode)
+              .single();
+
+            if (productError) throw productError;
+
+            const newStock = productData.current_stock + totalAddedStock;
+
+            const { error: updateError } = await supabase
+              .from('products')
+              .update({ current_stock: newStock })
+              .eq('barcode_number', barcode);
+
+            if (updateError) throw updateError;
+          });
+
+          await Promise.all(stockUpdatePromises);
+
           showSnackbar('Batches uploaded successfully', 'success');
           fetchBatches();
         } catch (error) {
@@ -308,6 +411,7 @@ const BatchComponent = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
+      {/* Header */}
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
@@ -351,22 +455,26 @@ const BatchComponent = () => {
                 <MenuItem onClick={() => handleFilterChange('')}>All</MenuItem>
                 <MenuItem onClick={() => handleFilterChange('expiringInNext10Days')}>Expiring in Next 10 Days</MenuItem>
                 <MenuItem onClick={() => handleFilterChange('expiringThisMonth')}>Expiring This Month</MenuItem>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <MenuItem>
+                <MenuItem>
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
                     <DatePicker
                       label="Custom Expiry Date"
                       value={customExpiryDate}
-                      onChange={(newDate) => setCustomExpiryDate(newDate)}
+                      onChange={(newDate) => {
+                        setCustomExpiryDate(newDate);
+                        handleFilterChange('customExpiryDate');
+                      }}
                       renderInput={(params) => <TextField {...params} />}
                     />
-                  </MenuItem>
-                </LocalizationProvider>
+                  </LocalizationProvider>
+                </MenuItem>
               </Menu>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Table */}
       <div className="flex-grow p-4 space-x-4 overflow-x-auto">
         <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
           <Table stickyHeader className="min-w-full">
@@ -378,32 +486,47 @@ const BatchComponent = () => {
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Product</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Barcode</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Store</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Rack Number</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Box Number</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filterBatches(batches).map((batch, index) => (
-                <TableRow key={batch.batch_id} className="bg-white border-b">
-                  <TableCell>{index + 1}</TableCell> 
-                  <TableCell>{batch.batch_code}</TableCell>
-                  <TableCell>{batch.expiry_date}</TableCell>
-                  <TableCell>{batch.current_stock}</TableCell>
-                  <TableCell>{products.find((product) => product.barcode_number === batch.barcode_number)?.item_name}</TableCell>
-                  <TableCell>{products.find((product) => product.barcode_number === batch.barcode_number)?.barcode_number}</TableCell>
-                  <TableCell>
-                    <Tooltip title="Delete">
-                      <IconButton onClick={() => confirmDeleteBatch(batch)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filterBatches(batches).map((batch, index) => {
+                const product = products.find((p) => p.barcode_number === batch.barcode_number);
+                return (
+                  <TableRow key={batch.batch_id} className="bg-white border-b">
+                    <TableCell>{index + 1}</TableCell> 
+                    <TableCell>{batch.batch_code}</TableCell>
+                    <TableCell>{batch.expiry_date || 'N/A'}</TableCell>
+                    <TableCell>{batch.current_stock}</TableCell>
+                    <TableCell>{product ? product.item_name : 'Unknown Product'}</TableCell>
+                    <TableCell>{batch.barcode_number}</TableCell>
+                    <TableCell>{batch.store || 'N/A'}</TableCell>
+                    <TableCell>{batch.rack_number || 'N/A'}</TableCell>
+                    <TableCell>{batch.box_number || 'N/A'}</TableCell>
+                    <TableCell>
+                      <Tooltip title="Edit">
+                        <IconButton onClick={() => handleOpenEditBatchDialog(batch)} style={{ marginRight: '8px' }}>
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton onClick={() => confirmDeleteBatch(batch)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
       </div>
 
+      {/* Add Batch Dialog */}
       <BatchDialog
         open={batchDialogOpen}
         onClose={handleCloseBatchDialog}
@@ -411,6 +534,18 @@ const BatchComponent = () => {
         products={products}
       />
 
+      {/* Edit Batch Dialog */}
+      {batchToEdit && (
+        <EditBatchDialog
+          open={editBatchDialogOpen}
+          onClose={handleCloseEditBatchDialog}
+          onSave={handleSaveEditedBatch}
+          batch={batchToEdit}
+          products={products}
+        />
+      )}
+
+      {/* Confirm Delete Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -427,19 +562,24 @@ const BatchComponent = () => {
           <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
             Cancel
           </Button>
-          <Button onClick={handleDeleteBatch} autoFocus>
+          <Button onClick={handleDeleteBatch} color="error" autoFocus>
             Delete
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar for Notifications */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={2000}
+        autoHideDuration={3000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
