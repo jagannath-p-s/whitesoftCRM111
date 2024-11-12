@@ -391,9 +391,7 @@ const Sales = () => {
                     onChange={(e) => setSelectedUser(e.target.value)}
                     label="Assigned To"
                   >
-                    <MenuItem value={currentUser ? currentUser.id : ''}>
-                      My Sales
-                    </MenuItem>
+                    
                     <MenuItem value="">All Users</MenuItem>
                     {Object.values(users).map((user) => (
                       <MenuItem key={user.id} value={user.id}>

@@ -263,10 +263,10 @@ const HomePage = () => {
                   open={Boolean(anchorEl)}
                   onClose={handleMenuClose}
                 >
-                  <MenuItem onClick={handleMenuClose} className="flex items-center">
+                {/* <MenuItem onClick={handleMenuClose} className="flex items-center">
                     <SettingsOutlinedIcon className="mr-2" style={{ fontSize: '20px' }} />
                     <span className="text-sm">Settings</span>
-                  </MenuItem>
+                  </MenuItem>  */}
                   <MenuItem onClick={() => { handleMenuClose(); localStorage.removeItem('user'); window.location.href = '/login'; }} className="flex items-center">
                     <ExitToAppIcon className="mr-2" style={{ fontSize: '20px' }} />
                     <span className="text-sm">Logout</span>
