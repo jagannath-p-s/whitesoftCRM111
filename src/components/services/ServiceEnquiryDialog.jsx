@@ -59,7 +59,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
       const { data, error } = await supabase
         .from('products')
         .select('*, categories!inner(category_id, category_name)')
-        .eq('categories.category_name', 'Service');
+        .eq('categories.category_name', 'SERVICE');
 
       if (error) {
         console.error('Error fetching parts:', error);
