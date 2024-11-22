@@ -26,18 +26,19 @@ const AddStockOptions = ({
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [newProduct, setNewProduct] = useState({
+    product_id: null,
+    barcode_number: '',
+    item_alias: '',
+    model_number: '',
     item_name: '',
-    company_name: '',
     category_id: '',
     subcategory_id: '',
     price: '',
     min_stock: '',
     current_stock: '',
-    item_alias: '',
-    model_number: '',
-    uom: '',
-    barcode_number: '',
     image_link: '',
+    company_name: '',
+    uom: '',
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -57,7 +58,7 @@ const AddStockOptions = ({
     if (selectedProduct) {
       setNewProduct(selectedProduct);
       setImagePreview(selectedProduct.image_link || '');
-      const filePath = selectedProduct.image_link?.split('/').pop(); // Get the filename of the image to use for deletion
+      const filePath = selectedProduct.image_link?.split('/').pop(); // Extract the image file name
       setPreviousImagePath(filePath);
     } else {
       resetForm();
@@ -82,18 +83,19 @@ const AddStockOptions = ({
 
   const resetForm = () => {
     setNewProduct({
+      product_id: null,
+      barcode_number: '',
+      item_alias: '',
+      model_number: '',
       item_name: '',
-      company_name: '',
       category_id: '',
       subcategory_id: '',
       price: '',
       min_stock: '',
       current_stock: '',
-      item_alias: '',
-      model_number: '',
-      uom: '',
-      barcode_number: '',
       image_link: '',
+      company_name: '',
+      uom: '',
     });
     setImageFile(null);
     setImagePreview('');
@@ -188,16 +190,15 @@ const AddStockOptions = ({
   return (
     <>
       {/* Product Dialog */}
-      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)} className="rounded-lg shadow-xl">
-        <DialogTitle className="text-lg font-semibold p-4">{selectedProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-        <DialogContent className="p-6 space-y-4">
+      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)}>
+        <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+        <DialogContent>
           <TextField
             label="Item Name"
             value={newProduct.item_name}
             onChange={(e) => setNewProduct({ ...newProduct, item_name: e.target.value })}
             fullWidth
             margin="dense"
-            variant="outlined"
           />
           <TextField
             label="Company Name"
@@ -205,14 +206,12 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, company_name: e.target.value })}
             fullWidth
             margin="dense"
-            variant="outlined"
           />
-          <FormControl fullWidth margin="dense" variant="outlined">
+          <FormControl fullWidth margin="dense">
             <InputLabel>Category</InputLabel>
             <Select
               value={newProduct.category_id}
               onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
-              style={{ borderRadius: '8px', padding: '12px' }} // Improved dropdown style
             >
               {categories.map((category) => (
                 <MenuItem key={category.category_id} value={category.category_id}>
@@ -221,12 +220,11 @@ const AddStockOptions = ({
               ))}
             </Select>
           </FormControl>
-          <FormControl fullWidth margin="dense" variant="outlined">
+          <FormControl fullWidth margin="dense">
             <InputLabel>Subcategory</InputLabel>
             <Select
               value={newProduct.subcategory_id}
               onChange={(e) => setNewProduct({ ...newProduct, subcategory_id: e.target.value })}
-              style={{ borderRadius: '8px', padding: '12px' }} // Improved dropdown style
             >
               {subcategories
                 .filter((sub) => sub.category_id === newProduct.category_id)
@@ -244,7 +242,34 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
             fullWidth
             margin="dense"
-            variant="outlined"
+          />
+          <TextField
+            label="Barcode Number"
+            value={newProduct.barcode_number}
+            onChange={(e) => setNewProduct({ ...newProduct, barcode_number: e.target.value })}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            label="Item Alias"
+            value={newProduct.item_alias}
+            onChange={(e) => setNewProduct({ ...newProduct, item_alias: e.target.value })}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            label="Model Number"
+            value={newProduct.model_number}
+            onChange={(e) => setNewProduct({ ...newProduct, model_number: e.target.value })}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            label="UOM"
+            value={newProduct.uom}
+            onChange={(e) => setNewProduct({ ...newProduct, uom: e.target.value })}
+            fullWidth
+            margin="dense"
           />
           <TextField
             label="Min Stock"
@@ -253,7 +278,6 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, min_stock: e.target.value })}
             fullWidth
             margin="dense"
-            variant="outlined"
           />
           <TextField
             label="Current Stock"
@@ -262,10 +286,8 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, current_stock: e.target.value })}
             fullWidth
             margin="dense"
-            variant="outlined"
           />
 
-          {/* Dotted container for image preview */}
           <Box
             sx={{
               border: '2px dashed #ccc',
@@ -284,7 +306,6 @@ const AddStockOptions = ({
             )}
           </Box>
 
-          {/* Input for file upload */}
           <input
             accept="image/*"
             type="file"
@@ -293,22 +314,19 @@ const AddStockOptions = ({
             id="image-upload"
           />
           <label htmlFor="image-upload">
-            <Button variant="contained" component="span" fullWidth sx={{ mt: 2 }}>
+            <Button variant="contained" component="span" fullWidth>
               Choose Image
             </Button>
           </label>
         </DialogContent>
-        <DialogActions className="p-4">
-          <Button onClick={() => setProductDialogOpen(false)} className="text-gray-600 hover:text-gray-800">
-            Cancel
-          </Button>
-          <Button onClick={handleAddProduct} className="bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-md px-4 py-2 ml-4">
+        <DialogActions>
+          <Button onClick={() => setProductDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddProduct}>
             {selectedProduct ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
       <Snackbar
         anchorOrigin={{
           vertical: 'bottom',
@@ -318,7 +336,7 @@ const AddStockOptions = ({
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>
