@@ -26,7 +26,7 @@ const AddStockOptions = ({
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [newProduct, setNewProduct] = useState({
-    product_id: null,
+    // Removed product_id and slno from initial state
     barcode_number: '',
     item_alias: '',
     model_number: '',
@@ -35,7 +35,7 @@ const AddStockOptions = ({
     subcategory_id: '',
     price: '',
     min_stock: '',
-    current_stock: '',
+    current_stock: 0,
     image_link: '',
     company_name: '',
     uom: '',
@@ -56,7 +56,20 @@ const AddStockOptions = ({
 
   useEffect(() => {
     if (selectedProduct) {
-      setNewProduct(selectedProduct);
+      setNewProduct({
+        barcode_number: selectedProduct.barcode_number || '',
+        item_alias: selectedProduct.item_alias || '',
+        model_number: selectedProduct.model_number || '',
+        item_name: selectedProduct.item_name || '',
+        category_id: selectedProduct.category_id || '',
+        subcategory_id: selectedProduct.subcategory_id || '',
+        price: selectedProduct.price || '',
+        min_stock: selectedProduct.min_stock || '',
+        current_stock: selectedProduct.current_stock || 0,
+        image_link: selectedProduct.image_link || '',
+        company_name: selectedProduct.company_name || '',
+        uom: selectedProduct.uom || '',
+      });
       setImagePreview(selectedProduct.image_link || '');
       const filePath = selectedProduct.image_link?.split('/').pop(); // Extract the image file name
       setPreviousImagePath(filePath);
@@ -83,7 +96,6 @@ const AddStockOptions = ({
 
   const resetForm = () => {
     setNewProduct({
-      product_id: null,
       barcode_number: '',
       item_alias: '',
       model_number: '',
@@ -92,7 +104,7 @@ const AddStockOptions = ({
       subcategory_id: '',
       price: '',
       min_stock: '',
-      current_stock: '',
+      current_stock: 0,
       image_link: '',
       company_name: '',
       uom: '',
@@ -151,7 +163,7 @@ const AddStockOptions = ({
     return publicUrlData.publicUrl;
   };
 
-  const handleAddProduct = async () => {
+  const handleAddOrUpdateProduct = async () => {
     let imageUrl = newProduct.image_link;
 
     if (imageFile) {
@@ -159,20 +171,42 @@ const AddStockOptions = ({
         await removePreviousImage(previousImagePath); // Remove the old image
       }
       imageUrl = await uploadImage(); // Upload the new image
+      if (!imageUrl) return; // If image upload failed, abort
     }
 
     const productData = { ...newProduct, image_link: imageUrl };
 
-    const { data, error } = await supabase.from('products').upsert([productData], { onConflict: 'product_id' });
+    try {
+      if (selectedProduct) {
+        // Update existing product
+        const { data, error } = await supabase
+          .from('products')
+          .update(productData)
+          .eq('product_id', selectedProduct.product_id);
 
-    if (error) {
-      console.error('Error adding/updating product:', error);
-      showSnackbar('Error adding/updating product', 'error');
-    } else {
+        if (error) {
+          throw error;
+        }
+
+        showSnackbar('Product updated successfully', 'success');
+      } else {
+        // Insert new product
+        const { data, error } = await supabase.from('products').insert([productData]);
+
+        if (error) {
+          throw error;
+        }
+
+        showSnackbar('Product added successfully', 'success');
+      }
+
       fetchProducts();
       setProductDialogOpen(false);
       resetForm();
-      showSnackbar(selectedProduct ? 'Product updated successfully' : 'Product added successfully', 'success');
+      setSelectedProduct(null);
+    } catch (error) {
+      console.error('Error adding/updating product:', error);
+      showSnackbar('Error adding/updating product', 'error');
     }
   };
 
@@ -190,7 +224,7 @@ const AddStockOptions = ({
   return (
     <>
       {/* Product Dialog */}
-      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)}>
+      <Dialog open={productDialogOpen} onClose={() => setProductDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{selectedProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
         <DialogContent>
           <TextField
@@ -212,6 +246,7 @@ const AddStockOptions = ({
             <Select
               value={newProduct.category_id}
               onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+              label="Category"
             >
               {categories.map((category) => (
                 <MenuItem key={category.category_id} value={category.category_id}>
@@ -225,6 +260,7 @@ const AddStockOptions = ({
             <Select
               value={newProduct.subcategory_id}
               onChange={(e) => setNewProduct({ ...newProduct, subcategory_id: e.target.value })}
+              label="Subcategory"
             >
               {subcategories
                 .filter((sub) => sub.category_id === newProduct.category_id)
@@ -242,6 +278,7 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
             fullWidth
             margin="dense"
+            inputProps={{ step: '0.01' }}
           />
           <TextField
             label="Barcode Number"
@@ -278,6 +315,7 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, min_stock: e.target.value })}
             fullWidth
             margin="dense"
+            inputProps={{ min: '0', step: '1' }}
           />
           <TextField
             label="Current Stock"
@@ -286,6 +324,7 @@ const AddStockOptions = ({
             onChange={(e) => setNewProduct({ ...newProduct, current_stock: e.target.value })}
             fullWidth
             margin="dense"
+            inputProps={{ min: '0', step: '1' }}
           />
 
           <Box
@@ -297,6 +336,7 @@ const AddStockOptions = ({
               justifyContent: 'center',
               alignItems: 'center',
               minHeight: '150px',
+              mt: 2,
             }}
           >
             {imagePreview ? (
@@ -314,14 +354,16 @@ const AddStockOptions = ({
             id="image-upload"
           />
           <label htmlFor="image-upload">
-            <Button variant="contained" component="span" fullWidth>
-              Choose Image
+            <Button variant="contained" component="span" fullWidth sx={{ mt: 2 }}>
+              {imagePreview ? 'Change Image' : 'Choose Image'}
             </Button>
           </label>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setProductDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddProduct}>
+          <Button onClick={() => { setProductDialogOpen(false); resetForm(); setSelectedProduct(null); }}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddOrUpdateProduct} variant="contained" color="primary">
             {selectedProduct ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
@@ -336,7 +378,7 @@ const AddStockOptions = ({
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
