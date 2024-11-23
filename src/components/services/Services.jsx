@@ -95,6 +95,8 @@ const FilterSelect = ({ label, value, handleChange, options, withDatePicker, sta
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Services = () => {
+  const [subscription, setSubscription] = useState(null);
+
   const [enquiries, setEnquiries] = useState([]);
   const [filteredEnquiries, setFilteredEnquiries] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -191,6 +193,40 @@ const Services = () => {
 
     filterEnquiries();
   }, [searchTerm, technicianFilter, statusFilter, dateFilter, startDate, endDate, enquiries]);
+
+  // Set up real-time subscription to service_enquiries
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:service_enquiries')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_enquiries' },
+        (payload) => {
+          console.log('Change received in service_enquiries!', payload);
+          fetchEnquiries();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to service_enquiry_parts as well if needed
+    const partsChannel = supabase
+      .channel('public:service_enquiry_parts')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_enquiry_parts' },
+        (payload) => {
+          console.log('Change received in service_enquiry_parts!', payload);
+          fetchEnquiries();
+        }
+      )
+      .subscribe();
+
+    // Clean up subscriptions on unmount
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(partsChannel);
+    };
+  }, [fetchEnquiries]);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
