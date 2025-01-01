@@ -1,6 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Checkbox, FormControlLabel, IconButton, Typography, Box, Grid, Paper, Divider, MenuItem, Select, FormControl, InputLabel, Chip
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Button,
+  TextField,
+  Checkbox,
+  FormControlLabel,
+  IconButton,
+  Typography,
+  Box,
+  Grid,
+  Paper,
+  Divider,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Chip,
+  Autocomplete, // Import Autocomplete
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -33,7 +52,13 @@ const StyledIconButton = styled(IconButton)(({ theme }) => ({
   color: theme.palette.error.main,
 }));
 
-const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit, editingEnquiry, techniciansOptions }) => {
+const ServiceEnquiryDialog = ({
+  dialogOpen,
+  handleDialogClose,
+  handleFormSubmit,
+  editingEnquiry,
+  techniciansOptions,
+}) => {
   const [formData, setFormData] = useState({
     date: dayjs(),
     jobCardNo: '',
@@ -43,7 +68,16 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     companyRemarks: '',
     complaintType: [],
     complaints: [''],
-    parts: [{ partId: '', partName: '', partNumber: '', qty: 1, rate: 0, amount: 0 }],
+    parts: [
+      {
+        partId: '',
+        partName: '',
+        partNumber: '',
+        qty: 1,
+        rate: 0,
+        amount: 0,
+      },
+    ],
     technicians: [],
     charges: { mistCharges: 0, oilPetrol: 0, labour: 0 },
     totalAmount: 0,
@@ -58,7 +92,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
     const fetchParts = async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*, categories!inner(category_id, category_name)')
+        .select('*, categories(category_id, category_name)')
         .eq('categories.category_name', 'SERVICE');
 
       if (error) {
@@ -79,9 +113,15 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         oilPetrol: parsedCharges.petrol || 0,
         labour: parsedCharges.labour || 0,
       };
-      const repairDate = editingEnquiry.repair_date ? dayjs(editingEnquiry.repair_date) : null;
-      const expectedCompletionDate = editingEnquiry.expected_completion_date ? dayjs(editingEnquiry.expected_completion_date) : null;
-      const expectedDeliveryDate = editingEnquiry.expected_delivery_date ? dayjs(editingEnquiry.expected_delivery_date) : null;
+      const repairDate = editingEnquiry.repair_date
+        ? dayjs(editingEnquiry.repair_date)
+        : null;
+      const expectedCompletionDate = editingEnquiry.expected_completion_date
+        ? dayjs(editingEnquiry.expected_completion_date)
+        : null;
+      const expectedDeliveryDate = editingEnquiry.expected_delivery_date
+        ? dayjs(editingEnquiry.expected_delivery_date)
+        : null;
 
       setFormData({
         date: dayjs(editingEnquiry.date),
@@ -92,24 +132,29 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         companyRemarks: editingEnquiry.company_remarks || '',
         complaintType: parsedComplaintType,
         complaints: parsedComplaints,
-        parts: editingEnquiry.service_enquiry_parts.map(part => ({
+        parts: editingEnquiry.service_enquiry_parts.map((part) => ({
           partId: part.part_id,
           partName: part.part_name,
           partNumber: part.part_number,
           qty: part.qty,
           rate: part.rate,
-          amount: part.amount
+          amount: part.amount,
         })),
-        technicians: editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ').map(name => {
-          const tech = techniciansOptions.find(t => t.name === name);
-          return tech ? tech.id : null;
-        }).filter(id => id !== null) : [],
+        technicians: editingEnquiry.technician_name
+          ? editingEnquiry.technician_name
+              .split(', ')
+              .map((name) => {
+                const tech = techniciansOptions.find((t) => t.name === name);
+                return tech ? tech.id : null;
+              })
+              .filter((id) => id !== null)
+          : [],
         charges: mappedCharges,
         totalAmount: editingEnquiry.total_amount,
         repairDate: repairDate,
         expectedCompletionDate: expectedCompletionDate,
         expectedDeliveryDate: expectedDeliveryDate,
-        status: editingEnquiry.status
+        status: editingEnquiry.status,
       });
     } else {
       // Fetch max job card number when adding a new enquiry
@@ -120,14 +165,20 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
 
         if (error) {
           console.error('Error fetching job card numbers:', error);
-          setFormData(prevData => ({ ...prevData, jobCardNo: '1' }));
+          setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
         } else if (data && data.length > 0) {
-          const jobCardNos = data.map(item => parseInt(item.job_card_no, 10)).filter(num => !isNaN(num));
-          const maxJobCardNo = jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
+          const jobCardNos = data
+            .map((item) => parseInt(item.job_card_no, 10))
+            .filter((num) => !isNaN(num));
+          const maxJobCardNo =
+            jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
           const newJobCardNo = maxJobCardNo + 1;
-          setFormData(prevData => ({ ...prevData, jobCardNo: newJobCardNo.toString() }));
+          setFormData((prevData) => ({
+            ...prevData,
+            jobCardNo: newJobCardNo.toString(),
+          }));
         } else {
-          setFormData(prevData => ({ ...prevData, jobCardNo: '1' }));
+          setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
         }
       };
 
@@ -151,8 +202,14 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         if (field === 'partId') {
           fetchPartPrice(value, index);
         } else if (field === 'qty' || field === 'rate') {
-          const qty = field === 'qty' ? parseFloat(value) || 0 : parseFloat(newData.parts[index].qty) || 0;
-          const rate = field === 'rate' ? parseFloat(value) || 0 : parseFloat(newData.parts[index].rate) || 0;
+          const qty =
+            field === 'qty'
+              ? parseFloat(value) || 0
+              : parseFloat(newData.parts[index].qty) || 0;
+          const rate =
+            field === 'rate'
+              ? parseFloat(value) || 0
+              : parseFloat(newData.parts[index].rate) || 0;
           newData.parts[index].amount = qty * rate;
         }
       } else if (type === 'checkbox') {
@@ -161,7 +218,10 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           : prevData.complaintType.filter((item) => item !== value);
       } else if (name.startsWith('charges.')) {
         const chargeField = name.split('.')[1];
-        newData.charges = { ...prevData.charges, [chargeField]: parseFloat(value) || 0 };
+        newData.charges = {
+          ...prevData.charges,
+          [chargeField]: parseFloat(value) || 0,
+        };
       } else {
         newData[name] = value;
       }
@@ -212,29 +272,46 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
   };
 
   const calculateTotalAmount = () => {
-    const partsTotal = formData.parts.reduce((sum, part) => sum + (part.amount || 0), 0);
-    const chargesTotal = Object.values(formData.charges).reduce((sum, charge) => sum + parseFloat(charge || 0), 0);
+    const partsTotal = formData.parts.reduce(
+      (sum, part) => sum + (part.amount || 0),
+      0
+    );
+    const chargesTotal = Object.values(formData.charges).reduce(
+      (sum, charge) => sum + parseFloat(charge || 0),
+      0
+    );
     const total = partsTotal + chargesTotal;
 
     setFormData((prevData) => ({
       ...prevData,
-      totalAmount: total.toFixed(2)
+      totalAmount: total.toFixed(2),
     }));
   };
 
   const addItem = (type) => {
     setFormData((prevData) => ({
       ...prevData,
-      [type]: type === 'parts'
-        ? [...prevData[type], { partId: '', partName: '', partNumber: '', qty: 1, rate: 0, amount: 0 }]
-        : [...prevData[type], '']
+      [type]:
+        type === 'parts'
+          ? [
+              ...prevData[type],
+              {
+                partId: '',
+                partName: '',
+                partNumber: '',
+                qty: 1,
+                rate: 0,
+                amount: 0,
+              },
+            ]
+          : [...prevData[type], ''],
     }));
   };
 
   const removeItem = (type, index) => {
     setFormData((prevData) => ({
       ...prevData,
-      [type]: prevData[type].filter((_, i) => i !== index)
+      [type]: prevData[type].filter((_, i) => i !== index),
     }));
   };
 
@@ -282,13 +359,21 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         company_remarks: formData.companyRemarks,
         machine_type: complaintTypeJson,
         complaints: complaintsJson,
-        technician_name: formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name).join(', '),
+        technician_name: formData.technicians
+          .map((id) => techniciansOptions.find((tech) => tech.id === id)?.name)
+          .join(', '),
         charges: chargesJson,
         total_amount: parseFloat(formData.totalAmount),
-        repair_date: formData.repairDate ? formData.repairDate.toISOString() : null,
-        expected_completion_date: formData.expectedCompletionDate ? formData.expectedCompletionDate.toISOString() : null,
-        expected_delivery_date: formData.expectedDeliveryDate ? formData.expectedDeliveryDate.toISOString() : null,
-        status: formData.status
+        repair_date: formData.repairDate
+          ? formData.repairDate.toISOString()
+          : null,
+        expected_completion_date: formData.expectedCompletionDate
+          ? formData.expectedCompletionDate.toISOString()
+          : null,
+        expected_delivery_date: formData.expectedDeliveryDate
+          ? formData.expectedDeliveryDate.toISOString()
+          : null,
+        status: formData.status,
       };
 
       let serviceEnquiry;
@@ -304,22 +389,30 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         serviceEnquiry = data;
 
         // Track and save technician changes
-        const oldTechnicians = editingEnquiry.technician_name ? editingEnquiry.technician_name.split(', ') : [];
-        const newTechnicians = formData.technicians.map(id => techniciansOptions.find(tech => tech.id === id)?.name);
+        const oldTechnicians = editingEnquiry.technician_name
+          ? editingEnquiry.technician_name.split(', ')
+          : [];
+        const newTechnicians = formData.technicians.map(
+          (id) => techniciansOptions.find((tech) => tech.id === id)?.name
+        );
 
         if (JSON.stringify(oldTechnicians) !== JSON.stringify(newTechnicians)) {
           const changes = {
             oldTechnicians,
             newTechnicians,
-            changedAt: new Date().toISOString()
+            changedAt: new Date().toISOString(),
           };
-          await supabase
-            .from('technician_changes')
-            .insert({ service_id: serviceEnquiry.id, changes: JSON.stringify(changes) });
+          await supabase.from('technician_changes').insert({
+            service_id: serviceEnquiry.id,
+            changes: JSON.stringify(changes),
+          });
         }
 
         // Delete old parts and insert new parts
-        await supabase.from('service_enquiry_parts').delete().eq('service_enquiry_id', editingEnquiry.id);
+        await supabase
+          .from('service_enquiry_parts')
+          .delete()
+          .eq('service_enquiry_id', editingEnquiry.id);
       } else {
         const { data, error: serviceEnquiryError } = await supabase
           .from('service_enquiries')
@@ -331,14 +424,14 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
         serviceEnquiry = data;
       }
 
-      const partsData = formData.parts.map(part => ({
+      const partsData = formData.parts.map((part) => ({
         service_enquiry_id: serviceEnquiry.id,
         part_id: parseInt(part.partId),
         part_name: part.partName,
         part_number: part.partNumber,
         qty: parseInt(part.qty),
         rate: parseFloat(part.rate),
-        amount: parseFloat(part.amount)
+        amount: parseFloat(part.amount),
       }));
 
       const { data: parts, error: partsError } = await supabase
@@ -378,7 +471,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                   <DatePicker
                     label="Date"
                     value={formData.date}
-                    onChange={(date) => handleChange({ target: { name: 'date', value: date } })}
+                    onChange={(date) =>
+                      handleChange({
+                        target: { name: 'date', value: date },
+                      })
+                    }
                     slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
                   />
                 </LocalizationProvider>
@@ -396,7 +493,19 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
           <StyledPaper elevation={3}>
             <StyledTypography variant="h6">Complaint Type</StyledTypography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {['Blade', 'Tap n go', 'Cup/Cup Nut', 'Side Cover, Nut', 'Bar, Bar Cover', 'Chain', 'Air filter/Cover', 'Engine only', 'Paid Service', 'With Transmission', 'Hose & Gun'].map((type) =>
+              {[
+                'Blade',
+                'Tap n go',
+                'Cup/Cup Nut',
+                'Side Cover, Nut',
+                'Bar, Bar Cover',
+                'Chain',
+                'Air filter/Cover',
+                'Engine only',
+                'Paid Service',
+                'With Transmission',
+                'Hose & Gun',
+              ].map((type) => (
                 <FormControlLabel
                   key={type}
                   control={
@@ -408,12 +517,17 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                   }
                   label={type}
                 />
-              )}
+              ))}
             </Box>
 
-            <StyledTypography variant="h6">Machine type & Complaints</StyledTypography>
+            <StyledTypography variant="h6">
+              Machine type & Complaints
+            </StyledTypography>
             {formData.complaints.map((complaint, index) => (
-              <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box
+                key={index}
+                sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+              >
                 <TextField
                   name={`complaints.${index}`}
                   type="text"
@@ -423,52 +537,117 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                   value={complaint}
                   onChange={(e) => handleComplaintsChange(e, index)}
                 />
-                <StyledIconButton onClick={() => removeItem('complaints', index)}>
+                <StyledIconButton
+                  onClick={() => removeItem('complaints', index)}
+                >
                   <RemoveCircleIcon />
                 </StyledIconButton>
               </Box>
             ))}
-            <StyledButton onClick={() => addItem('complaints')} variant="contained" startIcon={<AddCircleIcon />}>
+            <StyledButton
+              onClick={() => addItem('complaints')}
+              variant="contained"
+              startIcon={<AddCircleIcon />}
+            >
               Add Complaint
             </StyledButton>
 
             <StyledTypography variant="h6">Parts</StyledTypography>
             {formData.parts.map((part, index) => (
-              <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>Part</InputLabel>
-                  <Select
-                    name="parts"
-                    value={part.partId}
-                    onChange={(e) => handleChange(e, index, 'partId')}
-                    label="Part"
-                  >
-                    <MenuItem value="" disabled>Select a part</MenuItem>
-                    {partsOptions.map((option) => (
-                      <MenuItem key={option.product_id} value={option.product_id}>
-                        {option.item_name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+              <Box
+                key={index}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 2,
+                }}
+              >
+                {/* Autocomplete for Part Selection */}
+                <Autocomplete
+                  options={partsOptions}
+                  getOptionLabel={(option) =>
+                    `${option.item_name} (${option.barcode_number})`
+                  }
+                  filterOptions={(options, { inputValue }) =>
+                    options.filter(
+                      (option) =>
+                        option.item_name
+                          .toLowerCase()
+                          .includes(inputValue.toLowerCase()) ||
+                        option.barcode_number
+                          .toLowerCase()
+                          .includes(inputValue.toLowerCase())
+                    )
+                  }
+                  value={
+                    partsOptions.find(
+                      (option) => option.product_id === part.partId
+                    ) || null
+                  }
+                  onChange={(event, newValue) => {
+                    if (newValue) {
+                      setFormData((prevData) => {
+                        const newParts = [...prevData.parts];
+                        newParts[index] = {
+                          ...newParts[index],
+                          partId: newValue.product_id,
+                          partName: newValue.item_name,
+                          partNumber: newValue.barcode_number,
+                          rate: newValue.price || 0, // Assuming price is available
+                          amount:
+                            (newValue.price || 0) *
+                            (parseFloat(newParts[index].qty) || 1),
+                        };
+                        return { ...prevData, parts: newParts };
+                      });
+                    } else {
+                      setFormData((prevData) => {
+                        const newParts = [...prevData.parts];
+                        newParts[index] = {
+                          ...newParts[index],
+                          partId: '',
+                          partName: '',
+                          partNumber: '',
+                          rate: 0,
+                          amount: 0,
+                        };
+                        return { ...prevData, parts: newParts };
+                      });
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Part"
+                      variant="outlined"
+                      margin="dense"
+                      fullWidth
+                    />
+                  )}
+                  sx={{ flex: 2 }}
+                />
+
                 <TextField
-                  name="parts"
+                  name="qty"
                   label="Qty"
                   type="number"
                   value={part.qty}
                   onChange={(e) => handleChange(e, index, 'qty')}
                   sx={{ width: '100px' }}
+                  InputProps={{ inputProps: { min: 1 } }}
                 />
                 <TextField
-                  name="parts"
+                  name="rate"
                   label="Rate"
                   type="number"
                   value={part.rate}
                   onChange={(e) => handleChange(e, index, 'rate')}
                   sx={{ width: '100px' }}
+                  InputProps={{ inputProps: { min: 0 } }}
                 />
                 <TextField
-                  name="parts"
+                  name="amount"
                   label="Amount"
                   type="number"
                   value={part.amount}
@@ -480,7 +659,11 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 </StyledIconButton>
               </Box>
             ))}
-            <StyledButton onClick={() => addItem('parts')} variant="contained" startIcon={<AddCircleIcon />}>
+            <StyledButton
+              onClick={() => addItem('parts')}
+              variant="contained"
+              startIcon={<AddCircleIcon />}
+            >
               Add Part
             </StyledButton>
           </StyledPaper>
@@ -493,9 +676,21 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 value={formData.technicians}
                 onChange={handleTechnicianChange}
                 renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                    }}
+                  >
                     {selected.map((value) => (
-                      <Chip key={value} label={techniciansOptions.find((tech) => tech.id === value)?.name} />
+                      <Chip
+                        key={value}
+                        label={
+                          techniciansOptions.find((tech) => tech.id === value)
+                            ?.name
+                        }
+                      />
                     ))}
                   </Box>
                 )}
@@ -520,6 +715,7 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                     margin="dense"
                     value={formData.charges[charge]}
                     onChange={handleChange}
+                    InputProps={{ inputProps: { min: 0 } }}
                   />
                 </Grid>
               ))}
@@ -538,22 +734,35 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
               <DatePicker
                 label="Expected Completion Date"
                 value={formData.expectedCompletionDate}
-                onChange={(date) => handleChange({ target: { name: 'expectedCompletionDate', value: date } })}
+                onChange={(date) =>
+                  handleChange({
+                    target: { name: 'expectedCompletionDate', value: date },
+                  })
+                }
                 slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
               />
               <DatePicker
                 label="Expected Delivery/Followup Date"
                 value={formData.expectedDeliveryDate}
-                onChange={(date) => handleChange({ target: { name: 'expectedDeliveryDate', value: date } })}
+                onChange={(date) =>
+                  handleChange({
+                    target: { name: 'expectedDeliveryDate', value: date },
+                  })
+                }
                 slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
               />
               <DatePicker
                 label="Repair Date"
                 value={formData.repairDate}
                 onChange={(date) => {
-                  handleChange({ target: { name: 'repairDate', value: date } });
+                  handleChange({
+                    target: { name: 'repairDate', value: date },
+                  });
                   if (date) {
-                    setFormData(prevData => ({ ...prevData, status: 'completed' }));
+                    setFormData((prevData) => ({
+                      ...prevData,
+                      status: 'completed',
+                    }));
                   }
                 }}
                 slotProps={{ textField: { fullWidth: true, margin: 'dense' } }}
@@ -573,7 +782,9 @@ const ServiceEnquiryDialog = ({ dialogOpen, handleDialogClose, handleFormSubmit,
                 <MenuItem value="started">Started</MenuItem>
                 <MenuItem value="ongoing">Ongoing</MenuItem>
                 <MenuItem value="paused">Paused</MenuItem>
-                <MenuItem value="paused due to parts unavailability">Paused due to Parts Unavailability</MenuItem>
+                <MenuItem value="paused due to parts unavailability">
+                  Paused due to Parts Unavailability
+                </MenuItem>
                 <MenuItem value="completed">Completed</MenuItem>
                 <MenuItem value="delivered">Delivered</MenuItem>
               </Select>

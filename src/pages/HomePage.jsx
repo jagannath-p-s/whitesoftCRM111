@@ -129,22 +129,20 @@ const HomePage = () => {
     { icon: <EventNoteIcon />, tooltip: "Activities", component: 'Activities' },
     { icon: <EqualizerIcon />, tooltip: "Dashboard", component: 'Dashboard', permission: 'can_see_performance' },
     { icon: <StorageIcon />, tooltip: "Stock", component: 'Stock', permission: 'can_edit_stock' },
-    { icon: <BuildIcon />, tooltip: "Services", component: 'Services', permission: 'can_edit_product' },
-   
+    { icon: <BuildIcon />, tooltip: "Services", component: 'Services', permission: 'can_edit_service_enquiry' }, // Updated permission
     { icon: <BusinessIcon />, tooltip: "Organisation", component: 'Organisation', permission: 'can_edit_staff' },
     { icon: <InventoryIcon />, tooltip: "Batches", component: 'BatchComponent' },
     { icon: <SettingsOutlinedIcon />, tooltip: "Pipelines", component: 'Pipelines', permission: 'can_edit_pipeline' },
     { icon: <CloudUploadOutlinedIcon />, tooltip: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
     { icon: <HistoryIcon />, tooltip: "UserTable", component: 'UserTable', permission: 'can_edit_sales' },
   ];
-
   const renderComponent = () => {
     if (!user) return null;
 
     switch (activeComponent) {
       case 'Sales':
         return user.permissions.can_edit_sales ? <Sales userId={user.id} /> : null;
-        case 'UserTable':
+      case 'UserTable':
         return user.permissions.can_edit_sales ? <UserTable userId={user.id} /> : null;
       case 'Activities':
         return <Activities userId={user.id} userRole={user.role} />;
@@ -153,7 +151,7 @@ const HomePage = () => {
       case 'Stock':
         return user.permissions.can_edit_stock ? <Stock userId={user.id} /> : null;
       case 'Services':
-        return user.permissions.can_edit_product ? <Services userId={user.id} /> : null;
+        return user.permissions.can_edit_service_enquiry ? <Services userId={user.id} /> : null; // Permission check matches navItems
       case 'Organisation':
         return user.permissions.can_edit_staff ? <Organisation userId={user.id} /> : null;
       case 'UploadFiles':
@@ -163,7 +161,7 @@ const HomePage = () => {
       case 'Pipelines':
         return user.permissions.can_edit_pipeline ? <Pipelines userId={user.id} /> : null;
       case 'SearchComponent':
-        return <SearchComponent searchTerm={searchTerm}  userId={user.id} />;
+        return <SearchComponent searchTerm={searchTerm} userId={user.id} />;
       default:
         return user.permissions.can_see_performance ? <Dashboard /> : <Activities userId={user.id} />;
     }
