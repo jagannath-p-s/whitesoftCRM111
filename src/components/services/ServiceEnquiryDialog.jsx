@@ -565,68 +565,68 @@ const ServiceEnquiryDialog = ({
               >
                 {/* Autocomplete for Part Selection */}
                 <Autocomplete
-                  options={partsOptions}
-                  getOptionLabel={(option) =>
-                    `${option.item_name} (${option.barcode_number})`
-                  }
-                  filterOptions={(options, { inputValue }) =>
-                    options.filter(
-                      (option) =>
-                        option.item_name
-                          .toLowerCase()
-                          .includes(inputValue.toLowerCase()) ||
-                        option.barcode_number
-                          .toLowerCase()
-                          .includes(inputValue.toLowerCase())
-                    )
-                  }
-                  value={
-                    partsOptions.find(
-                      (option) => option.product_id === part.partId
-                    ) || null
-                  }
-                  onChange={(event, newValue) => {
-                    if (newValue) {
-                      setFormData((prevData) => {
-                        const newParts = [...prevData.parts];
-                        newParts[index] = {
-                          ...newParts[index],
-                          partId: newValue.product_id,
-                          partName: newValue.item_name,
-                          partNumber: newValue.barcode_number,
-                          rate: newValue.price || 0, // Assuming price is available
-                          amount:
-                            (newValue.price || 0) *
-                            (parseFloat(newParts[index].qty) || 1),
-                        };
-                        return { ...prevData, parts: newParts };
-                      });
-                    } else {
-                      setFormData((prevData) => {
-                        const newParts = [...prevData.parts];
-                        newParts[index] = {
-                          ...newParts[index],
-                          partId: '',
-                          partName: '',
-                          partNumber: '',
-                          rate: 0,
-                          amount: 0,
-                        };
-                        return { ...prevData, parts: newParts };
-                      });
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Part"
-                      variant="outlined"
-                      margin="dense"
-                      fullWidth
-                    />
-                  )}
-                  sx={{ flex: 2 }}
-                />
+  options={partsOptions}
+  getOptionLabel={(option) =>
+    `${option?.item_name || ''} (${option?.barcode_number || ''})`
+  }
+  filterOptions={(options, { inputValue }) =>
+    options.filter(
+      (option) =>
+        (option.item_name?.toLowerCase() || '').includes(
+          inputValue?.toLowerCase() || ''
+        ) ||
+        (option.barcode_number?.toLowerCase() || '').includes(
+          inputValue?.toLowerCase() || ''
+        )
+    )
+  }
+  value={
+    partsOptions.find(
+      (option) => option.product_id === part.partId
+    ) || null
+  }
+  onChange={(event, newValue) => {
+    if (newValue) {
+      setFormData((prevData) => {
+        const newParts = [...prevData.parts];
+        newParts[index] = {
+          ...newParts[index],
+          partId: newValue.product_id,
+          partName: newValue.item_name || '',
+          partNumber: newValue.barcode_number || '',
+          rate: newValue.price || 0,
+          amount:
+            (newValue.price || 0) *
+            (parseFloat(newParts[index].qty) || 1),
+        };
+        return { ...prevData, parts: newParts };
+      });
+    } else {
+      setFormData((prevData) => {
+        const newParts = [...prevData.parts];
+        newParts[index] = {
+          ...newParts[index],
+          partId: '',
+          partName: '',
+          partNumber: '',
+          rate: 0,
+          amount: 0,
+        };
+        return { ...prevData, parts: newParts };
+      });
+    }
+  }}
+  renderInput={(params) => (
+    <TextField
+      {...params}
+      label="Part"
+      variant="outlined"
+      margin="dense"
+      fullWidth
+    />
+  )}
+  sx={{ flex: 2 }}
+/>
 
                 <TextField
                   name="qty"

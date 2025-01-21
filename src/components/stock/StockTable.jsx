@@ -95,14 +95,38 @@ const StockTable = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('products').select('*');
-      if (error) throw error;
-      setProducts(data);
+      // First get the total count of products
+      const { count, error: countError } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) throw countError;
+
+      // Then fetch all products in batches of 1000
+      let allProducts = [];
+      const batchSize = 1000;
+      const totalBatches = Math.ceil(count / batchSize);
+
+      for (let i = 0; i < totalBatches; i++) {
+        const from = i * batchSize;
+        const to = from + batchSize - 1;
+
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .range(from, to);
+
+        if (error) throw error;
+        allProducts = [...allProducts, ...data];
+      }
+
+      setProducts(allProducts);
     } catch (error) {
       setError(error.message);
+      console.error('Error fetching products:', error);
     }
   }, []);
-
+  
   const fetchCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('categories').select('*');
