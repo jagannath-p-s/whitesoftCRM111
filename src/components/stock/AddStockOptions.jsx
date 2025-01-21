@@ -26,7 +26,6 @@ const AddStockOptions = ({
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [newProduct, setNewProduct] = useState({
-    // Removed product_id and slno from initial state
     barcode_number: '',
     item_alias: '',
     model_number: '',
@@ -39,6 +38,8 @@ const AddStockOptions = ({
     image_link: '',
     company_name: '',
     uom: '',
+    rack_number: '',    // New field
+    box_number: '',     // New field
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -69,6 +70,8 @@ const AddStockOptions = ({
         image_link: selectedProduct.image_link || '',
         company_name: selectedProduct.company_name || '',
         uom: selectedProduct.uom || '',
+        rack_number: selectedProduct.rack_number || '',  // New field
+        box_number: selectedProduct.box_number || '',    // New field
       });
       setImagePreview(selectedProduct.image_link || '');
       const filePath = selectedProduct.image_link?.split('/').pop(); // Extract the image file name
@@ -108,6 +111,8 @@ const AddStockOptions = ({
       image_link: '',
       company_name: '',
       uom: '',
+      rack_number: '',    // New field reset
+      box_number: '',     // New field reset
     });
     setImageFile(null);
     setImagePreview('');
@@ -179,7 +184,7 @@ const AddStockOptions = ({
     try {
       if (selectedProduct) {
         // Update existing product
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('product_id', selectedProduct.product_id);
@@ -191,7 +196,7 @@ const AddStockOptions = ({
         showSnackbar('Product updated successfully', 'success');
       } else {
         // Insert new product
-        const { data, error } = await supabase.from('products').insert([productData]);
+        const { error } = await supabase.from('products').insert([productData]);
 
         if (error) {
           throw error;
@@ -309,6 +314,20 @@ const AddStockOptions = ({
             margin="dense"
           />
           <TextField
+            label="Rack Number"
+            value={newProduct.rack_number}
+            onChange={(e) => setNewProduct({ ...newProduct, rack_number: e.target.value })}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            label="Box Number"
+            value={newProduct.box_number}
+            onChange={(e) => setNewProduct({ ...newProduct, box_number: e.target.value })}
+            fullWidth
+            margin="dense"
+          />
+          <TextField
             label="Min Stock"
             type="number"
             value={newProduct.min_stock}
@@ -360,7 +379,13 @@ const AddStockOptions = ({
           </label>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setProductDialogOpen(false); resetForm(); setSelectedProduct(null); }}>
+          <Button
+            onClick={() => {
+              setProductDialogOpen(false);
+              resetForm();
+              setSelectedProduct(null);
+            }}
+          >
             Cancel
           </Button>
           <Button onClick={handleAddOrUpdateProduct} variant="contained" color="primary">

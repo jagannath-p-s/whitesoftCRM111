@@ -65,7 +65,6 @@ const StockTable = () => {
   const [addAnchorEl, setAddAnchorEl] = useState(null);
   const [openDownloadDialog, setOpenDownloadDialog] = useState(false);
   
-
   const [visibleColumns, setVisibleColumns] = useState({
     slno: true,
     barcodeNumber: true,
@@ -80,7 +79,10 @@ const StockTable = () => {
     modelNumber: true,
     uom: true,
     imageLink: true,
+    rackNumber: true,   // Always visible
+    boxNumber: true,    // Always visible
   });
+  
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -91,18 +93,14 @@ const StockTable = () => {
   const [fileDialogOpen, setFileDialogOpen] = useState(false);
   const [selectedFileUrl, setSelectedFileUrl] = useState('');
   const [unsupportedFile, setUnsupportedFile] = useState(false);
-  
 
   const fetchProducts = useCallback(async () => {
     try {
-      // First get the total count of products
       const { count, error: countError } = await supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
-      
       if (countError) throw countError;
 
-      // Then fetch all products in batches of 1000
       let allProducts = [];
       const batchSize = 1000;
       const totalBatches = Math.ceil(count / batchSize);
@@ -110,12 +108,10 @@ const StockTable = () => {
       for (let i = 0; i < totalBatches; i++) {
         const from = i * batchSize;
         const to = from + batchSize - 1;
-
         const { data, error } = await supabase
           .from('products')
           .select('*')
           .range(from, to);
-
         if (error) throw error;
         allProducts = [...allProducts, ...data];
       }
@@ -126,7 +122,7 @@ const StockTable = () => {
       console.error('Error fetching products:', error);
     }
   }, []);
-  
+
   const fetchCategories = useCallback(async () => {
     try {
       const { data, error } = await supabase.from('categories').select('*');
@@ -191,7 +187,6 @@ const StockTable = () => {
     setAddAnchorEl(event.currentTarget);
   };
 
-  // Modified handleMenuClose to accept a parameter specifying which menu to close
   const handleMenuClose = (menu) => {
     if (menu === 'filter') {
       setFilterAnchorEl(null);
@@ -326,6 +321,7 @@ const StockTable = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
+      {/* Header Section */}
       <div className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-3">
@@ -369,6 +365,7 @@ const StockTable = () => {
         </div>
       </div>
 
+      {/* Table Section */}
       <div className="flex-grow p-4 space-x-4 overflow-x-auto">
         <TableContainer component={Paper} className="shadow-md sm:rounded-lg overflow-auto">
           <Table stickyHeader className="min-w-full">
@@ -386,6 +383,9 @@ const StockTable = () => {
                 {visibleColumns.minStock && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Minimum Stock</TableCell>}
                 {visibleColumns.currentStock && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Stock</TableCell>}
                 {visibleColumns.imageLink && <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Image</TableCell>}
+                {/* Always visible columns */}
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Rack Number</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Box Number</TableCell>
                 <TableCell sx={{ fontWeight: 'bold', color: 'black' }}>Options</TableCell>
               </TableRow>
             </TableHead>
@@ -399,10 +399,14 @@ const StockTable = () => {
                   {visibleColumns.modelNumber && <TableCell>{product.model_number}</TableCell>}
                   {visibleColumns.companyName && <TableCell>{product.company_name}</TableCell>}
                   {visibleColumns.category && (
-                    <TableCell>{categories.find((cat) => cat.category_id === product.category_id)?.category_name}</TableCell>
+                    <TableCell>
+                      {categories.find((cat) => cat.category_id === product.category_id)?.category_name}
+                    </TableCell>
                   )}
                   {visibleColumns.subcategory && (
-                    <TableCell>{subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name}</TableCell>
+                    <TableCell>
+                      {subcategories.find((sub) => sub.subcategory_id === product.subcategory_id)?.subcategory_name}
+                    </TableCell>
                   )}
                   {visibleColumns.uom && <TableCell>{product.uom}</TableCell>}
                   {visibleColumns.price && <TableCell>{product.price}</TableCell>}
@@ -425,6 +429,9 @@ const StockTable = () => {
                       )}
                     </TableCell>
                   )}
+                  {/* Always visible columns for rack and box numbers */}
+                  <TableCell>{product.rack_number}</TableCell>
+                  <TableCell>{product.box_number}</TableCell>
                   <TableCell>
                     <Tooltip title="More options">
                       <IconButton onClick={(event) => handleOptionsMenuOpen(event, product)}>
@@ -453,19 +460,22 @@ const StockTable = () => {
         </div>
       </div>
 
+      {/* Menus, Dialogs, Snackbar, and other components follow unchanged */}
+
       {/* Add Menu */}
       <AddCategoryDialog
-  open={categoryDialogOpen}
-  onClose={() => setCategoryDialogOpen(false)}
-  fetchCategories={fetchCategories}
-/>
+        open={categoryDialogOpen}
+        onClose={() => setCategoryDialogOpen(false)}
+        fetchCategories={fetchCategories}
+      />
 
-<AddSubcategoryDialog
-  open={subcategoryDialogOpen}
-  onClose={() => setSubcategoryDialogOpen(false)}
-  fetchSubcategories={fetchSubcategories}
-  categories={categories}
-/>
+      <AddSubcategoryDialog
+        open={subcategoryDialogOpen}
+        onClose={() => setSubcategoryDialogOpen(false)}
+        fetchSubcategories={fetchSubcategories}
+        categories={categories}
+      />
+
       <Menu anchorEl={addAnchorEl} open={Boolean(addAnchorEl)} onClose={() => handleMenuClose('add')}>
         <MenuItem onClick={handleOpenProductDialog}>
           <ListItemIcon>
@@ -504,18 +514,25 @@ const StockTable = () => {
         <Box sx={{ p: 2 }}>
           <FormControl component="fieldset" variant="standard">
             {Object.entries(visibleColumns).map(([key, value]) => (
-              <MenuItem key={key}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={value}
-                      onChange={(event) => setVisibleColumns({ ...visibleColumns, [key]: event.target.checked })}
-                      name={key}
-                    />
-                  }
-                  label={key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()}
-                />
-              </MenuItem>
+              // Do not include rackNumber and boxNumber if you want them always visible
+              (key === 'rackNumber' || key === 'boxNumber') ? null : (
+                <MenuItem key={key}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={value}
+                        onChange={(event) =>
+                          setVisibleColumns({ ...visibleColumns, [key]: event.target.checked })
+                        }
+                        name={key}
+                      />
+                    }
+                    label={
+                      key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim()
+                    }
+                  />
+                </MenuItem>
+              )
             ))}
           </FormControl>
         </Box>
@@ -549,7 +566,10 @@ const StockTable = () => {
         setSelectedProduct={setSelectedProduct}
       />
 
-      <ManageCategoriesDialog open={manageCategoriesDialogOpen} handleClose={handleCloseManageCategoriesDialog} />
+      <ManageCategoriesDialog
+        open={manageCategoriesDialogOpen}
+        handleClose={handleCloseManageCategoriesDialog}
+      />
 
       <DownloadDialog
         open={openDownloadDialog}
@@ -573,7 +593,9 @@ const StockTable = () => {
               style={{ width: '100%', maxHeight: '600px', objectFit: 'contain' }}
             />
           ) : (
-            <Typography variant="body1">Unsupported file type for preview. Download it to view.</Typography>
+            <Typography variant="body1">
+              Unsupported file type for preview. Download it to view.
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
