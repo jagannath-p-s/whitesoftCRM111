@@ -1,22 +1,25 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+// App.jsx
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 
-const PrivateRoute = ({ children }) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  return user && new Date().getTime() < user.expiry ? children : <Navigate to="/login" />;
-};
-
-const App = () => {
+function App() {
   return (
     <Router>
       <Routes>
+        <Route 
+          path="/" 
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
       </Routes>
     </Router>
   );
-};
+}
 
 export default App;

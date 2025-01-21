@@ -1,298 +1,252 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  Menu as MenuIcon,
-  NotificationsNone as NotificationsNoneIcon,
-  Add as AddIcon,
-  PeopleOutline as PeopleOutlineIcon,
-  CloudUploadOutlined as CloudUploadOutlinedIcon,
-  EventNote as EventNoteIcon,
-  Equalizer as EqualizerIcon,
-  SettingsOutlined as SettingsOutlinedIcon,
-  ExitToApp as ExitToAppIcon,
-  ShoppingBagOutlined as ShoppingBagOutlinedIcon,
-  Build as BuildIcon,
-  Storage as StorageIcon,
-  Business as BusinessIcon,
-  Inventory as InventoryIcon,
-} from '@mui/icons-material';
-import HistoryIcon from '@mui/icons-material/History';
-import ManageSearchIcon from '@mui/icons-material/ManageSearch';
-import { Tooltip, Menu, MenuItem, Snackbar, Alert, Badge, CircularProgress } from '@mui/material';
-import Contacts from '../components/contacts/Contacts';
-import Sales from '../components/contacts/Sales';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Menu, 
+  Bell,
+  Search,
+  LogOut,
+  ShoppingBag,
+  ClipboardList,
+  LayoutDashboard,
+  Boxes,
+  Hammer,
+  Users,
+  Package,
+  GitBranch,
+  FileUp,
+  History
+} from 'lucide-react';
+import { Alert, Snackbar } from '@mui/material';
 import Activities from '../components/activities/Activities';
+import Sales from '../components/contacts/Sales';
 import Dashboard from '../components/dashboard/Dashboard';
 import Services from '../components/services/Services';
 import Stock from '../components/stock/Stock';
-import UploadFiles from '../components/fileupload/UploadFiles';
 import Organisation from '../components/organization/Organisation';
-import SearchComponent from '../components/search/SearchComponent';
-import SearchBar from '../components/search/SearchBar';
 import BatchComponent from '../components/batches/BatchComponent';
 import Pipelines from '../components/pipelines/Pipelines';
+import UploadFiles from '../components/fileupload/UploadFiles';
 import UserTable from '../components/oldusers/UserTable';
-import { supabase } from '../supabaseClient';
+import SearchComponent from '../components/search/SearchComponent';
+import SearchBar from '../components/search/SearchBar';
 
 const HomePage = () => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [addMenuAnchorEl, setAddMenuAnchorEl] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeComponent, setActiveComponent] = useState('Activities'); // Default to 'Activities'
-  const [previousComponent, setPreviousComponent] = useState('Activities'); // Default to 'Activities'
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [newMessages, setNewMessages] = useState(false);
-  const sidebarRef = useRef(null);
+  const [activeComponent, setActiveComponent] = useState('Activities');
+  const [previousComponent, setPreviousComponent] = useState('Activities');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+  const sidebarRef = useRef(null);
+  const userMenuRef = useRef(null);
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    console.log('Stored user:', storedUser); // Debug log
-    if (storedUser && storedUser.expiry > Date.now()) {
-      setUser(storedUser);
-      fetchUserPermissions(storedUser.id);
-    } else {
-      localStorage.removeItem('user');
+    const session = localStorage.getItem('session');
+    const permissions = localStorage.getItem('userPermissions');
+    
+    if (!session || !permissions) {
       window.location.href = '/login';
+      return;
     }
+
+    try {
+      const sessionData = JSON.parse(session);
+      const permissionsData = JSON.parse(permissions);
+      
+      if (new Date(sessionData.expiresAt) < new Date()) {
+        localStorage.removeItem('session');
+        localStorage.removeItem('userPermissions');
+        window.location.href = '/login';
+        return;
+      }
+
+      setUser({ ...sessionData.user, permissions: permissionsData });
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      window.location.href = '/login';
+      return;
+    }
+    
     setLoading(false);
   }, []);
 
-  const fetchUserPermissions = async (userId) => {
-    if (!userId) {
-      console.error('Invalid userId:', userId); // Debug log
-      showSnackbar(`Error fetching user permissions: Invalid userId`, 'error');
-      return;
-    }
-    try {
-      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
-      if (error) throw error;
-      setUser((prevUser) => ({ ...prevUser, ...data }));
-      localStorage.setItem('user', JSON.stringify({ ...user, ...data }));
-    } catch (error) {
-      showSnackbar(`Error fetching user permissions: ${error.message}`, 'error');
-    }
-  };
-
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleAddMenuOpen = (event) => {
-    setAddMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleAddMenuClose = () => {
-    setAddMenuAnchorEl(null);
-  };
-
-  const handleToggle = () => {
-    setIsExpanded((prev) => !prev);
-  };
-
-  const handleClickOutside = useCallback((event) => {
-    if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-      setIsExpanded(false);
-    }
-  }, []);
-
-  const handleSearchClick = useCallback((term) => {
+  const handleSearchClick = (term) => {
     setPreviousComponent(activeComponent);
     setActiveComponent('SearchComponent');
     setSearchTerm(term);
-  }, [activeComponent]);
+  };
 
-  const handleNewMessage = useCallback(() => {
-    setNewMessages(true);
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+        setIsExpanded(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [handleClickOutside]);
-
-  useEffect(() => {
-    if (activeComponent === 'Chat') {
-      setNewMessages(false);
-    }
-  }, [activeComponent]);
-
   const navItems = [
-    { icon: <ShoppingBagOutlinedIcon />, tooltip: "Sales", component: 'Sales', permission: 'can_edit_sales' },
-    { icon: <EventNoteIcon />, tooltip: "Activities", component: 'Activities' },
-    { icon: <EqualizerIcon />, tooltip: "Dashboard", component: 'Dashboard', permission: 'can_see_performance' },
-    { icon: <StorageIcon />, tooltip: "Stock", component: 'Stock', permission: 'can_edit_stock' },
-    { icon: <BuildIcon />, tooltip: "Services", component: 'Services', permission: 'can_edit_service_enquiry' }, // Updated permission
-    { icon: <BusinessIcon />, tooltip: "Organisation", component: 'Organisation', permission: 'can_edit_staff' },
-    { icon: <InventoryIcon />, tooltip: "Batches", component: 'BatchComponent' },
-    { icon: <SettingsOutlinedIcon />, tooltip: "Pipelines", component: 'Pipelines', permission: 'can_edit_pipeline' },
-    { icon: <CloudUploadOutlinedIcon />, tooltip: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
-    { icon: <HistoryIcon />, tooltip: "UserTable", component: 'UserTable', permission: 'can_edit_sales' },
+    { icon: <ShoppingBag size={24} />, label: "Sales", component: 'Sales', permission: 'canEditSales' },
+    { icon: <ClipboardList size={24} />, label: "Activities", component: 'Activities' },
+    { icon: <LayoutDashboard size={24} />, label: "Dashboard", component: 'Dashboard', permission: 'canSeePerformance' },
+    { icon: <Boxes size={24} />, label: "Stock", component: 'Stock', permission: 'canEditStock' },
+    { icon: <Hammer size={24} />, label: "Services", component: 'Services', permission: 'canEditServiceEnquiry' },
+    { icon: <Users size={24} />, label: "Organisation", component: 'Organisation', permission: 'canEditStaff' },
+    { icon: <Package size={24} />, label: "Batches", component: 'BatchComponent' },
+    { icon: <GitBranch size={24} />, label: "Pipelines", component: 'Pipelines', permission: 'canEditPipeline' },
+    { icon: <FileUp size={24} />, label: "Upload Files", component: 'UploadFiles', permission: 'canEditFiles' },
+    { icon: <History size={24} />, label: "UserTable", component: 'UserTable', permission: 'canEditSales' }
   ];
+
   const renderComponent = () => {
     if (!user) return null;
 
-    switch (activeComponent) {
-      case 'Sales':
-        return user.permissions.can_edit_sales ? <Sales userId={user.id} /> : null;
-      case 'UserTable':
-        return user.permissions.can_edit_sales ? <UserTable userId={user.id} /> : null;
-      case 'Activities':
-        return <Activities userId={user.id} userRole={user.role} />;
-      case 'Dashboard':
-        return user.permissions.can_see_performance ? <Dashboard /> : null;
-      case 'Stock':
-        return user.permissions.can_edit_stock ? <Stock userId={user.id} /> : null;
-      case 'Services':
-        return user.permissions.can_edit_service_enquiry ? <Services userId={user.id} /> : null; // Permission check matches navItems
-      case 'Organisation':
-        return user.permissions.can_edit_staff ? <Organisation userId={user.id} /> : null;
-      case 'UploadFiles':
-        return user.permissions.can_edit_files ? <UploadFiles userId={user.id} /> : null;
-      case 'BatchComponent':
-        return <BatchComponent userId={user.id} />;
-      case 'Pipelines':
-        return user.permissions.can_edit_pipeline ? <Pipelines userId={user.id} /> : null;
-      case 'SearchComponent':
-        return <SearchComponent searchTerm={searchTerm} userId={user.id} />;
-      default:
-        return user.permissions.can_see_performance ? <Dashboard /> : <Activities userId={user.id} />;
-    }
+    const components = {
+      Sales: () => user.permissions.canEditSales ? <Sales userId={user.id} /> : null,
+      Activities: () => <Activities userId={user.id} userRole={user.role} />,
+      Dashboard: () => user.permissions.canSeePerformance ? <Dashboard /> : null,
+      Stock: () => user.permissions.canEditStock ? <Stock userId={user.id} /> : null,
+      Services: () => user.permissions.canEditServiceEnquiry ? <Services userId={user.id} /> : null,
+      Organisation: () => user.permissions.canEditStaff ? <Organisation userId={user.id} /> : null,
+      BatchComponent: () => <BatchComponent userId={user.id} />,
+      Pipelines: () => user.permissions.canEditPipeline ? <Pipelines userId={user.id} /> : null,
+      UploadFiles: () => user.permissions.canEditFiles ? <UploadFiles userId={user.id} /> : null,
+      UserTable: () => user.permissions.canEditSales ? <UserTable userId={user.id} /> : null,
+      SearchComponent: () => <SearchComponent searchTerm={searchTerm} userId={user.id} onBackClick={() => {
+        setActiveComponent(previousComponent);
+        setSearchTerm('');
+      }} />
+    };
+
+    const Component = components[activeComponent];
+    return Component ? <Component /> : null;
   };
 
-  const showSnackbar = useCallback((message, severity) => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
-
-  const handleCloseSnackbar = useCallback(() => {
-    setSnackbar((prev) => ({ ...prev, open: false }));
-  }, []);
+  const handleLogout = () => {
+    localStorage.removeItem('session');
+    localStorage.removeItem('userPermissions');
+    window.location.href = '/login';
+  };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <CircularProgress />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return null; // or redirect to login
-  }
-
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
       <div
         ref={sidebarRef}
-        className={`sticky top-0 h-screen bg-white shadow-lg flex flex-col items-start py-4 px-3 border-r border-gray-200 transition-all duration-300 ${
-          isExpanded ? 'w-48' : 'w-20 items-center'
+        className={`fixed left-0 h-screen bg-white shadow-lg flex flex-col py-4 px-3 border-r border-gray-200 transition-all duration-300 ${
+          isExpanded ? 'w-48' : 'w-20'
         }`}
       >
-        <div className="flex items-center justify-center mt-6 mb-6 w-full">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/4/43/Logo-WS.png" alt="Logo" className="w-10 h-10" />
+        <div className="flex items-center justify-center mt-6 mb-6">
+          <img src="/haritha.svg" alt="Logo" className="w-10 h-10" />
         </div>
-        <nav className={`flex flex-col w-full ${isExpanded ? 'space-y-1' : 'space-y-1 items-center'}`}>
+
+        <nav className="flex flex-col space-y-2">
           {navItems.map((item, index) => (
             (!item.permission || user.permissions[item.permission]) && (
-              <Tooltip key={index} title={!isExpanded ? item.tooltip : ''} placement="right">
-                <button
-                  onClick={() => setActiveComponent(item.component)}
-                  className={`p-2 uppercase rounded-lg hover:bg-blue-100 transition duration-200 flex items-center ${
-                    isExpanded ? 'pl-2 pr-3' : 'justify-center'
-                  } ${activeComponent === item.component ? 'bg-blue-100' : ''}`}
-                >
-                  <Badge
-                    color="error"
-                    variant="dot"
-                    invisible={item.component !== 'Chat' || !newMessages}
-                  >
-                    {React.cloneElement(item.icon, { className: "text-gray-600", style: { fontSize: '1.75rem' } })}
-                  </Badge>
-                  {isExpanded && <span className="ml-3 text-xs font-semibold text-gray-700">{item.tooltip}</span>}
-                </button>
-              </Tooltip>
+              <button
+                key={index}
+                onClick={() => setActiveComponent(item.component)}
+                className={`p-2 rounded-lg hover:bg-blue-100 transition-colors duration-200 flex items-center ${
+                  isExpanded ? 'w-full' : 'justify-center'
+                } ${activeComponent === item.component ? 'bg-blue-100' : ''}`}
+              >
+                {React.cloneElement(item.icon, { className: 'text-gray-600' })}
+                {isExpanded && (
+                  <span className="ml-3 text-sm font-medium text-gray-700">
+                    {item.label}
+                  </span>
+                )}
+              </button>
             )
           ))}
         </nav>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-x-auto">
-        {/* Topbar */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-300 w-full">
-          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-3" style={{ width: '100%' }}>
-              <div className="flex items-center space-x-4">
-                <Tooltip title="Toggle Sidenav">
-                  <button onClick={handleToggle} className="p-2 rounded-full text-gray-500 hover:bg-gray-100">
-                    <MenuIcon />
-                  </button>
-                </Tooltip>
+      <div className={`flex-1 ${isExpanded ? 'ml-48' : 'ml-20'}`}>
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
+          <div className="px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
+                
                 <SearchBar onSearch={handleSearchClick} currentUserId={user.id} />
               </div>
-              <div className="flex items-center space-x-4">
-                <Menu
-                  anchorEl={addMenuAnchorEl}
-                  open={Boolean(addMenuAnchorEl)}
-                  onClose={handleAddMenuClose}
-                >
-                  <MenuItem onClick={handleAddMenuClose} className="flex items-center">
-                    <AddIcon className="mr-2" style={{ fontSize: '20px' }} />
-                    <span className="text-sm">Add Direct Sale</span>
-                  </MenuItem>
-                </Menu>
-                <button
-                  className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center text-white text-lg font-bold uppercase"
-                  onClick={handleMenuOpen}
-                >
-                  {user.username[0].toUpperCase()}
-                </button>
 
-                <Menu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={handleMenuClose}
-                >
-                {/* <MenuItem onClick={handleMenuClose} className="flex items-center">
-                    <SettingsOutlinedIcon className="mr-2" style={{ fontSize: '20px' }} />
-                    <span className="text-sm">Settings</span>
-                  </MenuItem>  */}
-                  <MenuItem onClick={() => { handleMenuClose(); localStorage.removeItem('user'); window.location.href = '/login'; }} className="flex items-center">
-                    <ExitToAppIcon className="mr-2" style={{ fontSize: '20px' }} />
-                    <span className="text-sm">Logout</span>
-                  </MenuItem>
-                </Menu>
+              <div className="flex items-center gap-4">
+                <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-600">
+                  <Bell className="h-6 w-6" />
+                </button>
+                
+                <div ref={userMenuRef} className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold"
+                  >
+                    {user?.username?.[0]?.toUpperCase() || 'U'}
+                  </button>
+
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 border border-gray-200">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div className=" flex-1">
-          <div className="max-w-full">
-            {renderComponent()}
-          </div>
+        <div className="bg-white">
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={6000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          >
+            <Alert 
+              onClose={handleCloseSnackbar} 
+              severity={snackbar.severity}
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+          {renderComponent()}
         </div>
       </div>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </div>
   );
 };

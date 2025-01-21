@@ -43,16 +43,39 @@ const UserTable = () => {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('user_details').select('*');
-    if (error) {
-      console.error('Error fetching users:', error);
-    } else {
-      setUsers(data);
-      setStages([...new Set(data.map((user) => user.stage))]);
+    try {
+      let allData = [];
+      let page = 0;
+      const pageSize = 1000; // Maximum rows per request
+      
+      while (true) {
+        const { data, error } = await supabase
+          .from('user_details')
+          .select('*')
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (error) {
+          console.error('Error fetching users:', error);
+          break;
+        }
+        
+        if (data.length === 0) {
+          break; // No more data to fetch
+        }
+        
+        allData = [...allData, ...data];
+        page++;
+      }
+      
+      setUsers(allData);
+      setStages([...new Set(allData.map((user) => user.stage))]);
+    } catch (error) {
+      console.error('Error in fetchUsers:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
-
+  
   const handleSearch = (event) => setSearchTerm(event.target.value);
 
   const handleInputChange = (e) => {

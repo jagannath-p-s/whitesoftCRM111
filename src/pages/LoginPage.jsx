@@ -1,138 +1,218 @@
-import React, { useState, useEffect, useRef, useCallback , memo  } from 'react';
-import { useNavigate } from 'react-router-dom';
+// LoginPage.jsx
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import bcrypt from 'bcryptjs';
 
-
-memo
-
-const CustomAlert = ({ message }) => (
-  <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-md mt-4" role="alert">
-    <div className="flex items-center">
-      <svg className="h-6 w-6 text-red-500 mr-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-      <p>{message}</p>
-    </div>
-  </div>
-);
-
-const LoginPage = () => {
-  const [credentials, setCredentials] = useState({ email: '', password: '' });
+function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [redirectMessage, setRedirectMessage] = useState('');
 
-  const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setCredentials((prev) => ({ ...prev, [name]: value }));
-  }, []);
-
-  const handleLogin = useCallback(
-    async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setError('');
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, useremail, username, password, role, can_edit_staff, can_edit_pipeline, can_edit_product, can_edit_files, can_edit_enquiries, can_edit_stock, can_edit_product_enquiry, can_edit_service_enquiry, can_edit_sales, can_see_performance')
-          .eq('useremail', credentials.email)
-          .single();
-
-        if (error || !data) {
-          console.error('Error fetching user:', error);
-          throw new Error('Invalid email or password');
-        }
-
-        const isPasswordCorrect = bcrypt.compareSync(credentials.password, data.password);
-        if (!isPasswordCorrect) {
-          throw new Error('Invalid email or password');
-        }
-
-        const userData = {
-          id: data.id,
-          useremail: data.useremail,
-          username: data.username,
-          role: data.role,
-          permissions: {
-            can_edit_staff: data.can_edit_staff,
-            can_edit_pipeline: data.can_edit_pipeline,
-            can_edit_product: data.can_edit_product,
-            can_edit_files: data.can_edit_files,
-            can_edit_enquiries: data.can_edit_enquiries,
-            can_edit_stock: data.can_edit_stock,
-            can_edit_product_enquiry: data.can_edit_product_enquiry,
-            can_edit_service_enquiry: data.can_edit_service_enquiry,
-            can_edit_sales: data.can_edit_sales,
-            can_see_performance: data.can_see_performance,
-          }
-        };
-        const expirationDate = new Date(new Date().getTime() + 15 * 24 * 60 * 60 * 1000);
-        localStorage.setItem('user', JSON.stringify({ ...userData, expiry: expirationDate.getTime() }));
-
-        navigate('/');
-      } catch (error) {
-        setError(error.message || 'Something went wrong, please try again');
-      } finally {
-        setLoading(false);
+  // Check if user was redirected from another page
+  useEffect(() => {
+    const checkRedirect = () => {
+      if (location.state?.from) {
+        setRedirectMessage('Please log in to access that page');
       }
-    },
-    [credentials, navigate]
-  );
+    };
+
+    checkRedirect();
+  }, [location]);
+
+  // Check if already logged in
+  useEffect(() => {
+    const checkAuth = () => {
+      const session = localStorage.getItem('session');
+      if (session) {
+        try {
+          const parsedSession = JSON.parse(session);
+          if (new Date(parsedSession.expiresAt) > new Date()) {
+            // Valid session exists, redirect to home
+            navigate('/', { replace: true });
+          } else {
+            // Session expired
+            localStorage.removeItem('session');
+            localStorage.removeItem('userPermissions');
+          }
+        } catch (error) {
+          // Invalid session data
+          localStorage.removeItem('session');
+          localStorage.removeItem('userPermissions');
+        }
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      // Query the database
+      const { data: user, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('useremail', email.toLowerCase())
+        .maybeSingle();
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw new Error('Login failed. Please try again.');
+      }
+
+      if (!user) {
+        throw new Error('Invalid email or password');
+      }
+
+      // Verify password
+      const validPassword = await bcrypt.compare(password, user.password);
+      
+      if (!validPassword) {
+        throw new Error('Invalid email or password');
+      }
+
+      // Create session data
+      const sessionData = {
+        user: {
+          email: user.useremail,
+          role: user.role,
+          username: user.username,
+          employee_code: user.employee_code
+        },
+        expiresAt: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      };
+
+      // Create permissions object
+      const permissions = {
+        role: user.role,
+        canEditStaff: user.can_edit_staff || false,
+        canEditPipeline: user.can_edit_pipeline || false,
+        canEditProduct: user.can_edit_product || false,
+        canEditFiles: user.can_edit_files || false,
+        canEditEnquiries: user.can_edit_enquiries || false,
+        canEditStock: user.can_edit_stock || false,
+        canEditProductEnquiry: user.can_edit_product_enquiry || false,
+        canEditServiceEnquiry: user.can_edit_service_enquiry || false,
+        canEditSales: user.can_edit_sales || false,
+        canSeePerformance: user.can_see_performance || false,
+        canViewStaff: user.can_view_staff || false,
+        canViewPipeline: user.can_view_pipeline || false,
+        canViewProduct: user.can_view_product || false,
+        canViewFiles: user.can_view_files || false,
+        canViewEnquiries: user.can_view_enquiries || false,
+        canViewStock: user.can_view_stock || false,
+        canViewProductEnquiry: user.can_view_product_enquiry || false,
+        canViewServiceEnquiry: user.can_view_service_enquiry || false,
+        canViewSales: user.can_view_sales || false
+      };
+
+      // Save to localStorage
+      localStorage.setItem('session', JSON.stringify(sessionData));
+      localStorage.setItem('userPermissions', JSON.stringify(permissions));
+
+      // Redirect to intended page or home
+      const redirectTo = location.state?.from || '/';
+      navigate(redirectTo, { replace: true });
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg">
-        <h1 className="text-3xl font-bold text-center text-gray-800">Login</h1>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <InputField
-            type="email"
-            id="email"
-            name="email"
-            value={credentials.email}
-            onChange={handleInputChange}
-            label="Email"
-            className="w-full px-4 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out"
-          />
-          <InputField
-            type="password"
-            id="password"
-            name="password"
-            value={credentials.password}
-            onChange={handleInputChange}
-            label="Password"
-            className="w-full px-4 py-2 text-gray-700 bg-gray-50 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out"
-          />
-          <button
-            type="submit"
-            className="w-full px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-150 ease-in-out disabled:bg-blue-300 disabled:cursor-not-allowed"
-            disabled={loading}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-        {error && <CustomAlert message={error} />}
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <img
+          className="mx-auto h-20 w-auto"
+          src="/haritha.svg"
+          alt="Haritha Logo"
+        />
+        <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          Sign in to your account
+        </h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          {redirectMessage && (
+            <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-700">{redirectMessage}</p>
+            </div>
+          )}
+          
+          <form className="space-y-6" onSubmit={handleLogin}>
+            <div>
+              <label 
+                htmlFor="email" 
+                className="block text-sm font-medium text-gray-700"
+              >
+                Email address
+              </label>
+              <div className="mt-1">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label 
+                htmlFor="password" 
+                className="block text-sm font-medium text-gray-700"
+              >
+                Password
+              </label>
+              <div className="mt-1">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-2 text-sm text-red-600 bg-red-50 rounded-md">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Signing in...' : 'Sign in'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
-};
-
-const InputField = memo(({ type, id, name, value, onChange, label, className }) => (
-  <div className="space-y-1">
-    <label htmlFor={id} className="block text-sm font-medium text-gray-700">
-      {label}
-    </label>
-    <input
-      type={type}
-      id={id}
-      name={name}
-      value={value}
-      onChange={onChange}
-      required
-      className={className}
-    />
-  </div>
-));
+}
 
 export default LoginPage;
