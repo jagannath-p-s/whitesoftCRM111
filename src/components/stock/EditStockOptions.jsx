@@ -15,13 +15,14 @@ const EditStockOptions = ({ fetchProducts, productDialogOpen, setProductDialogOp
     current_stock: '',
     company_name: '',
     uom: '',
-    rack_number: '',    // New field
-    box_number: '',     // New field
+    rack_number: '',    
+    box_number: '',     
     image_file: null,
   });
 
   useEffect(() => {
     if (selectedProduct) {
+      console.log('Selected product loaded:', selectedProduct);
       setFormData({
         barcode_number: selectedProduct.barcode_number || '',
         item_alias: selectedProduct.item_alias || '',
@@ -29,13 +30,13 @@ const EditStockOptions = ({ fetchProducts, productDialogOpen, setProductDialogOp
         item_name: selectedProduct.item_name || '',
         category_id: selectedProduct.category_id || '',
         subcategory_id: selectedProduct.subcategory_id || '',
-        price: selectedProduct.price || '',
-        min_stock: selectedProduct.min_stock || '',
-        current_stock: selectedProduct.current_stock || '',
+        price: selectedProduct.price ? selectedProduct.price.toString() : '',
+        min_stock: selectedProduct.min_stock ? selectedProduct.min_stock.toString() : '',
+        current_stock: selectedProduct.current_stock ? selectedProduct.current_stock.toString() : '',
         company_name: selectedProduct.company_name || '',
         uom: selectedProduct.uom || '',
-        rack_number: selectedProduct.rack_number || '',  // New field
-        box_number: selectedProduct.box_number || '',    // New field
+        rack_number: selectedProduct.rack_number ? selectedProduct.rack_number.toString() : '',
+        box_number: selectedProduct.box_number ? selectedProduct.box_number.toString() : '',
         image_file: null,
       });
     }
@@ -43,6 +44,7 @@ const EditStockOptions = ({ fetchProducts, productDialogOpen, setProductDialogOp
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Input change: ${name} = ${value}`);
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -50,6 +52,7 @@ const EditStockOptions = ({ fetchProducts, productDialogOpen, setProductDialogOp
   };
 
   const handleFileChange = (e) => {
+    console.log('File selected:', e.target.files[0]);
     setFormData((prev) => ({
       ...prev,
       image_file: e.target.files[0],
@@ -58,20 +61,48 @@ const EditStockOptions = ({ fetchProducts, productDialogOpen, setProductDialogOp
 
   const handleSubmit = async () => {
     try {
+      console.log('Submitting form with data:', formData);
       let imageUrl = selectedProduct.image_link;
+      
+      // Handle file upload if new file is provided
       if (formData.image_file) {
         const fileExt = formData.image_file.name.split('.').pop();
         const fileName = `${formData.barcode_number || Date.now()}.${fileExt}`;
-        const { error } = await supabase.storage
+        console.log('Uploading file:', fileName);
+        
+        const { error: uploadError } = await supabase.storage
           .from('uploads')
           .upload(`public/${fileName}`, formData.image_file);
 
-        if (error) throw error;
+        if (uploadError) {
+          console.error('Error uploading file:', uploadError);
+          throw uploadError;
+        }
         const { publicURL } = supabase.storage
           .from('uploads')
           .getPublicUrl(`public/${fileName}`);
         imageUrl = publicURL;
+        console.log('File uploaded, public URL:', imageUrl);
       }
+
+      // Safely parse integers and floats, defaulting to null when needed
+      const parsedPrice = formData.price ? parseFloat(formData.price) : null;
+      const parsedMinStock = formData.min_stock ? parseInt(formData.min_stock, 10) : null;
+      const parsedCurrentStock = formData.current_stock ? parseInt(formData.current_stock, 10) : 0;
+      const parsedCategoryId = formData.category_id ? parseInt(formData.category_id, 10) : null;
+      const parsedSubcategoryId = formData.subcategory_id ? parseInt(formData.subcategory_id, 10) : null;
+      const parsedRackNumber = formData.rack_number ? parseInt(formData.rack_number, 10) : null;
+      const parsedBoxNumber = formData.box_number ? parseInt(formData.box_number, 10) : null;
+
+      console.log('Parsed values:', {
+        parsedPrice,
+        parsedMinStock,
+        parsedCurrentStock,
+        parsedCategoryId,
+        parsedSubcategoryId,
+        parsedRackNumber,
+        parsedBoxNumber,
+      });
 
       const { error: updateError } = await supabase
         .from('products')
@@ -80,21 +111,25 @@ const EditStockOptions = ({ fetchProducts, productDialogOpen, setProductDialogOp
           item_alias: formData.item_alias || null,
           model_number: formData.model_number || null,
           item_name: formData.item_name,
-          category_id: formData.category_id || null,
-          subcategory_id: formData.subcategory_id || null,
-          price: formData.price ? parseFloat(formData.price) : null,
-          min_stock: formData.min_stock ? parseInt(formData.min_stock, 10) : null,
-          current_stock: formData.current_stock ? parseInt(formData.current_stock, 10) : 0,
+          category_id: parsedCategoryId,
+          subcategory_id: parsedSubcategoryId,
+          price: parsedPrice,
+          min_stock: parsedMinStock,
+          current_stock: parsedCurrentStock,
           company_name: formData.company_name || null,
           uom: formData.uom || null,
-          rack_number: formData.rack_number || null,   // New field
-          box_number: formData.box_number || null,     // New field
+          rack_number: parsedRackNumber,
+          box_number: parsedBoxNumber,
           image_link: imageUrl || null,
         })
         .eq('product_id', selectedProduct.product_id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error during update:', updateError);
+        throw updateError;
+      }
 
+      console.log('Product updated successfully');
       setProductDialogOpen(false);
       fetchProducts();
     } catch (error) {

@@ -16,6 +16,16 @@ import {
 } from '@mui/material';
 import { supabase } from '../../supabaseClient';
 
+const safeParseInt = (value) => {
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? null : parsed;
+};
+
+const safeParseFloat = (value) => {
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+};
+
 const AddStockOptions = ({
   fetchProducts,
   productDialogOpen,
@@ -34,12 +44,12 @@ const AddStockOptions = ({
     subcategory_id: '',
     price: '',
     min_stock: '',
-    current_stock: 0,
+    current_stock: '0',
     image_link: '',
     company_name: '',
     uom: '',
-    rack_number: '',    // New field
-    box_number: '',     // New field
+    rack_number: '',
+    box_number: '',
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -62,19 +72,19 @@ const AddStockOptions = ({
         item_alias: selectedProduct.item_alias || '',
         model_number: selectedProduct.model_number || '',
         item_name: selectedProduct.item_name || '',
-        category_id: selectedProduct.category_id || '',
-        subcategory_id: selectedProduct.subcategory_id || '',
-        price: selectedProduct.price || '',
-        min_stock: selectedProduct.min_stock || '',
-        current_stock: selectedProduct.current_stock || 0,
+        category_id: selectedProduct.category_id ? selectedProduct.category_id.toString() : '',
+        subcategory_id: selectedProduct.subcategory_id ? selectedProduct.subcategory_id.toString() : '',
+        price: selectedProduct.price !== null ? selectedProduct.price.toString() : '',
+        min_stock: selectedProduct.min_stock !== null ? selectedProduct.min_stock.toString() : '',
+        current_stock: selectedProduct.current_stock !== null ? selectedProduct.current_stock.toString() : '0',
         image_link: selectedProduct.image_link || '',
         company_name: selectedProduct.company_name || '',
         uom: selectedProduct.uom || '',
-        rack_number: selectedProduct.rack_number || '',  // New field
-        box_number: selectedProduct.box_number || '',    // New field
+        rack_number: selectedProduct.rack_number || '',
+        box_number: selectedProduct.box_number || '',
       });
       setImagePreview(selectedProduct.image_link || '');
-      const filePath = selectedProduct.image_link?.split('/').pop(); // Extract the image file name
+      const filePath = selectedProduct.image_link?.split('/').pop() || '';
       setPreviousImagePath(filePath);
     } else {
       resetForm();
@@ -107,12 +117,12 @@ const AddStockOptions = ({
       subcategory_id: '',
       price: '',
       min_stock: '',
-      current_stock: 0,
+      current_stock: '0',
       image_link: '',
       company_name: '',
       uom: '',
-      rack_number: '',    // New field reset
-      box_number: '',     // New field reset
+      rack_number: '',
+      box_number: '',
     });
     setImageFile(null);
     setImagePreview('');
@@ -147,10 +157,10 @@ const AddStockOptions = ({
     const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
     const filePath = `product_images/${fileName}`;
 
-    const { data, error } = await supabase.storage.from('files').upload(filePath, imageFile);
+    const { error: uploadError } = await supabase.storage.from('files').upload(filePath, imageFile);
 
-    if (error) {
-      console.error('Error uploading image:', error);
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
       showSnackbar('Error uploading image', 'error');
       return null;
     }
@@ -169,17 +179,35 @@ const AddStockOptions = ({
   };
 
   const handleAddOrUpdateProduct = async () => {
+    // Use safe parsing for numeric fields
+    const parsedPrice = safeParseFloat(newProduct.price);
+    const parsedMinStock = safeParseInt(newProduct.min_stock);
+    const parsedCurrentStock = safeParseInt(newProduct.current_stock);
+    const parsedCategoryId = safeParseInt(newProduct.category_id);
+    const parsedSubcategoryId = safeParseInt(newProduct.subcategory_id);
+
     let imageUrl = newProduct.image_link;
 
     if (imageFile) {
       if (previousImagePath) {
-        await removePreviousImage(previousImagePath); // Remove the old image
+        await removePreviousImage(previousImagePath);
       }
-      imageUrl = await uploadImage(); // Upload the new image
-      if (!imageUrl) return; // If image upload failed, abort
+      imageUrl = await uploadImage();
+      if (!imageUrl) return;
     }
 
-    const productData = { ...newProduct, image_link: imageUrl };
+    const productData = {
+      ...newProduct,
+      price: parsedPrice,
+      min_stock: parsedMinStock,
+      current_stock: parsedCurrentStock,
+      category_id: parsedCategoryId,
+      subcategory_id: parsedSubcategoryId,
+      // rack_number and box_number remain strings, so no need to parse
+      image_link: imageUrl,
+    };
+
+    console.log('Submitting product data:', productData);
 
     try {
       if (selectedProduct) {
@@ -190,6 +218,7 @@ const AddStockOptions = ({
           .eq('product_id', selectedProduct.product_id);
 
         if (error) {
+          console.error('Update error:', error);
           throw error;
         }
 
@@ -199,6 +228,7 @@ const AddStockOptions = ({
         const { error } = await supabase.from('products').insert([productData]);
 
         if (error) {
+          console.error('Insert error:', error);
           throw error;
         }
 
@@ -223,7 +253,7 @@ const AddStockOptions = ({
     if (reason === 'clickaway') {
       return;
     }
-    setSnackbar({ ...snackbar, open: false });
+    setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
   return (
@@ -250,11 +280,13 @@ const AddStockOptions = ({
             <InputLabel>Category</InputLabel>
             <Select
               value={newProduct.category_id}
-              onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+              onChange={(e) =>
+                setNewProduct({ ...newProduct, category_id: e.target.value, subcategory_id: '' })
+              }
               label="Category"
             >
               {categories.map((category) => (
-                <MenuItem key={category.category_id} value={category.category_id}>
+                <MenuItem key={category.category_id} value={category.category_id.toString()}>
                   {category.category_name}
                 </MenuItem>
               ))}
@@ -268,9 +300,9 @@ const AddStockOptions = ({
               label="Subcategory"
             >
               {subcategories
-                .filter((sub) => sub.category_id === newProduct.category_id)
+                .filter((sub) => sub.category_id.toString() === newProduct.category_id)
                 .map((subcategory) => (
-                  <MenuItem key={subcategory.subcategory_id} value={subcategory.subcategory_id}>
+                  <MenuItem key={subcategory.subcategory_id} value={subcategory.subcategory_id.toString()}>
                     {subcategory.subcategory_name}
                   </MenuItem>
                 ))}
