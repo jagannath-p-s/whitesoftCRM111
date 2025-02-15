@@ -14,7 +14,6 @@ import {
   Chip,
   Card,
   CardContent,
-  IconButton,
   TextField,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -24,7 +23,6 @@ import Assignment from '@mui/icons-material/Assignment';
 import CalendarToday from '@mui/icons-material/CalendarToday';
 import Person from '@mui/icons-material/Person';
 import ReportProblem from '@mui/icons-material/ReportProblem';
-import WarningIcon from '@mui/icons-material/Warning';
 import { supabase } from '../../supabaseClient';
 import AddTaskDialog from './AddTaskDialog';
 import EditEnquiryDialog from './EditEnquiryDialog';
@@ -32,6 +30,9 @@ import PipelineFormJSON from './PipelineFormJSON';
 import dayjs from 'dayjs';
 
 const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
+  // Use passed user if available; otherwise fallback.
+  const userData = user && user.id ? user : { id: null, username: 'Unknown' };
+
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addTaskOpen, setAddTaskOpen] = useState(false);
@@ -55,26 +56,38 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   const [editingSpecial, setEditingSpecial] = useState(false);
   const [newReason, setNewReason] = useState('');
 
-  const userInitial = user?.username ? user.username.charAt(0).toUpperCase() : 'J';
-  const username = user?.username ? user.username : 'Unknown User';
+  const userInitial = userData.username ? userData.username.charAt(0).toUpperCase() : 'J';
+  const username = userData.username ? userData.username : 'Unknown User';
 
   useEffect(() => {
     fetchPipelines();
-    fetchUserTasks(user.id);
+    if (userData.id) {
+      fetchUserTasks(userData.id);
+    }
     fetchUsers();
     fetchProducts();
     checkSpecialAttention();
-    const taskSubscription = supabase
-      .channel('public:tasks')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${user.id}` }, () => {
-        fetchUserTasks(user.id);
-      })
-      .subscribe();
+
+    let taskSubscription;
+    if (userData.id) {
+      taskSubscription = supabase
+        .channel('public:tasks')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tasks', filter: `assigned_to=eq.${userData.id}` },
+          () => {
+            fetchUserTasks(userData.id);
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
-      supabase.removeChannel(taskSubscription);
+      if (taskSubscription) {
+        supabase.removeChannel(taskSubscription);
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userData.id]);
 
   // Fetch Special Attention Status
   const checkSpecialAttention = async () => {
@@ -162,6 +175,10 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   };
 
   const fetchUserTasks = async (userId) => {
+    if (!userId) {
+      console.warn('User ID is missing, skipping fetchUserTasks');
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('tasks')
@@ -175,7 +192,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
       setSnackbar({
         open: true,
         message: 'Failed to fetch tasks. Please try again later.',
-        severity: 'error'
+        severity: 'error',
       });
       setTasks([]);
     }
@@ -191,7 +208,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
       setSnackbar({
         open: true,
         message: 'Failed to fetch users. Please try again later.',
-        severity: 'error'
+        severity: 'error',
       });
     }
   };
@@ -214,7 +231,9 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
   };
 
   const handleInitialClick = async () => {
-    await fetchUserTasks(user.id);
+    if (userData.id) {
+      await fetchUserTasks(userData.id);
+    }
     setOpen(true);
   };
 
@@ -282,7 +301,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         .single();
       if (error) throw error;
       onUpdate(data);
-      checkSpecialAttention();  // Re-check special status in case of changes
+      checkSpecialAttention();
     } catch (error) {
       console.error('Error fetching updated contact:', error);
     }
@@ -307,7 +326,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
       red: 'text-red-600',
       green: 'text-green-600',
       yellow: 'text-yellow-600',
-      purple: 'text-purple-600'
+      purple: 'text-purple-600',
     };
     return colorMap[color] || 'text-gray-600';
   };
@@ -316,16 +335,12 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
     const now = dayjs();
     const submission = dayjs(submissionDate);
     const diff = submission.diff(now, 'day');
-    if (diff >= 0) {
-      return diff;
-    } else {
-      return `Overdue by ${Math.abs(diff)} days`;
-    }
+    return diff >= 0 ? diff : `Overdue by ${Math.abs(diff)} days`;
   };
 
   const getUsername = (userId) => {
-    const userObj = users.find(u => u.id === userId);
-    return userObj ? userObj.username : 'Unknown User';
+    const foundUser = users.find((u) => u.id === userId);
+    return foundUser ? foundUser.username : 'Unknown User';
   };
 
   return (
@@ -339,7 +354,6 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
       {/* Special Attention Indicator */}
       {isSpecialAttention && (
         <Box display="flex" alignItems="center" mb={1}>
-         
           <Tooltip title={`Special Attention: ${specialReason}`}>
             <Typography variant="body2" color="error" className="ml-4">
               See Remarks
@@ -350,9 +364,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
 
       <div>
         {visibleFields.name && (
-          <div className={`text-sm font-bold ${getTextColorClass(color)} mb-2`}>
-            {contact.name}
-          </div>
+          <div className={`text-sm font-bold ${getTextColorClass(color)} mb-2`}>{contact.name}</div>
         )}
         {visibleFields.mobilenumber1 && <p className="text-sm mb-1">Contact No: {contact.mobilenumber1}</p>}
         {visibleFields.mobilenumber2 && <p className="text-sm mb-1">Contact No 2: {contact.mobilenumber2}</p>}
@@ -383,12 +395,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
             <Box mt={2}>
               <Typography variant="body2">Products:</Typography>
               {Object.values(parseProducts(contact.products)).map((product, index) => (
-                <Chip
-                  key={index}
-                  label={`${product.item_name} (${product.quantity})`}
-                  size="small"
-                  sx={{ mr: 1, mt: 1 }}
-                />
+                <Chip key={index} label={`${product.item_name} (${product.quantity})`} size="small" sx={{ mr: 1, mt: 1 }} />
               ))}
             </Box>
           )}
@@ -398,11 +405,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
       <Box mt={2} display="flex" alignItems="center" justifyContent="space-between">
         {isSpecialAttention ? (
           <>
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={unmarkSpecialAttention}
-            >
+            <Button variant="outlined" color="error" onClick={unmarkSpecialAttention}>
               Unmark
             </Button>
             <Button
@@ -413,16 +416,12 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
                 setNewReason(specialReason);
               }}
             >
-              Edit 
+              Edit
             </Button>
           </>
         ) : (
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={() => setEditingSpecial(true)}
-          >
-          Remark
+          <Button variant="outlined" color="secondary" onClick={() => setEditingSpecial(true)}>
+            Remark
           </Button>
         )}
       </Box>
@@ -477,7 +476,7 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
           </button>
         </Tooltip>
         <Tooltip title="Assigned To">
-          <div 
+          <div
             className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center cursor-pointer"
             onClick={handleInitialClick}
           >
@@ -578,14 +577,14 @@ const ContactCard = ({ contact, user, color, visibleFields, onUpdate }) => {
         )}
         ITEMS_PER_PAGE={ITEMS_PER_PAGE}
         totalProducts={totalProducts}
-        currentUserId={user.id}
+        currentUserId={userData.id}
       />
 
       <AddTaskDialog
         open={addTaskOpen}
-        handleClose={handleAddTaskClose}
+        handleClose={() => setAddTaskOpen(false)}
         enquiryId={contact.id}
-        assignedBy={user.id}
+        assignedBy={userData.id}
       />
 
       <Dialog open={pipelineOpen} onClose={handlePipelineClose} maxWidth="md" fullWidth>

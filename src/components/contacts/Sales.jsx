@@ -34,11 +34,11 @@ import Select from '@mui/material/Select';
 const dateOptions = ['See All', 'This Month', 'Last 30 Days', 'Last 60 Days', 'Custom Date Range'];
 
 const Sales = () => {
-  const initialExpandedColumns = ['Lead', 'Prospect', 'Opportunity', 'Customer-Won', 'Lost/Rejected'];
-  const [expanded, setExpanded] = useState(initialExpandedColumns);
+  // State for filters and view
+  const [expanded, setExpanded] = useState(['Lead', 'Prospect', 'Opportunity', 'Customer-Won', 'Lost/Rejected']);
   const [view, setView] = useState('cards');
   const [columns, setColumns] = useState([]);
-  const [users, setUsers] = useState({});
+  const [users, setUsers] = useState({}); // users keyed by id
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [visibleFields, setVisibleFields] = useState({
     name: true,
@@ -49,7 +49,7 @@ const Sales = () => {
     stage: false,
     dbt_userid_password: false,
     leadsource: false,
-    assignedto: false,
+    assignedto: true, // Display assigned-to field
     remarks: false,
     invoiced: true,
     collected: false,
@@ -77,95 +77,100 @@ const Sales = () => {
   const [selectedStage, setSelectedStage] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
+
   // New states for user selection
   const [selectedUser, setSelectedUser] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Fetch the current user from Supabase Auth
   useEffect(() => {
-    fetchPipelines();
-    fetchUsers();
+    const fetchCurrentUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error fetching current user:', error);
+      } else if (data.user) {
+        setCurrentUser(data.user);
+        setSelectedUser(data.user.id);
+      }
+    };
     fetchCurrentUser();
   }, []);
 
+  // Fetch users and pipelines once on mount
+  useEffect(() => {
+    fetchPipelines();
+    fetchUsers();
+  }, []);
+
+  // When a pipeline is selected, fetch its stages
   useEffect(() => {
     if (selectedPipeline) {
       fetchStages(selectedPipeline);
     } else {
-      setStages([]); // Reset stages if no pipeline is selected
+      setStages([]);
     }
   }, [selectedPipeline]);
 
+  // Refetch enquiries when any filter changes
   useEffect(() => {
     fetchData();
   }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate, selectedUser]);
 
-  const fetchCurrentUser = async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-      console.error('Error fetching current user:', error);
-    } else if (data.user) {
-      // Assuming the user ID is stored in data.user.id and matches users.id
-      setCurrentUser(data.user);
-      setSelectedUser(data.user.id); // Default to current user
-    }
-  };
-
   const fetchUsers = async () => {
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('id, username, employee_code');
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-    } else {
+    try {
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('id, username, employee_code');
+      if (usersError) throw usersError;
       const usersMap = usersData.reduce((acc, user) => {
         acc[user.id] = user;
         return acc;
       }, {});
       setUsers(usersMap);
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
   const fetchPipelines = async () => {
-    const { data: pipelineData, error } = await supabase.from('pipelines').select('*');
-    if (error) {
+    try {
+      const { data, error } = await supabase.from('pipelines').select('*');
+      if (error) throw error;
+      setPipelines(data);
+    } catch (error) {
       console.error('Error fetching pipelines:', error);
-    } else {
-      setPipelines(pipelineData);
     }
   };
 
   const fetchStages = async (pipelineId) => {
-    const { data: stageData, error } = await supabase
-      .from('pipeline_stages')
-      .select('*')
-      .eq('pipeline_id', pipelineId);
-    if (error) {
+    try {
+      const { data, error } = await supabase
+        .from('pipeline_stages')
+        .select('*')
+        .eq('pipeline_id', pipelineId);
+      if (error) throw error;
+      setStages(data);
+    } catch (error) {
       console.error('Error fetching stages:', error);
-    } else {
-      setStages(stageData);
     }
   };
 
+  // Fetch enquiries (sales) and categorize them by stage
   const fetchData = useCallback(async () => {
     let query = supabase.from('enquiries').select('*');
 
     if (selectedPipeline) {
       query = query.eq('pipeline_id', selectedPipeline);
     }
-
     if (selectedStage) {
       query = query.eq('current_stage_id', selectedStage);
     }
-
     if (viewCompletedSales) {
       query = query.eq('stage', 'Customer-Won');
     }
-
     if (selectedUser) {
-      query = query.eq('assignedto', selectedUser); // Corrected field name
+      query = query.eq('assignedto', selectedUser);
     }
-
     if (dateFilter === 'This Month') {
       query = query.gte('created_at', dayjs().startOf('month').toISOString());
     } else if (dateFilter === 'Last 30 Days') {
@@ -177,13 +182,11 @@ const Sales = () => {
     }
 
     const { data: enquiries, error: enquiriesError } = await query;
-
     if (enquiriesError) {
       console.error('Error fetching enquiries:', enquiriesError);
       return;
     }
 
-    // Categorize enquiries
     const categorizedData = [
       { name: 'Lead', color: 'purple', bgColor: 'bg-purple-50', contacts: [] },
       { name: 'Prospect', color: 'blue', bgColor: 'bg-blue-50', contacts: [] },
@@ -192,13 +195,12 @@ const Sales = () => {
       { name: 'Lost/Rejected', color: 'red', bgColor: 'bg-red-50', contacts: [] },
     ];
 
-    enquiries.forEach((contact) => {
-      const category = categorizedData.find((c) => c.name === contact.stage);
+    enquiries.forEach((enquiry) => {
+      const category = categorizedData.find((c) => c.name === enquiry.stage);
       if (category) {
-        category.contacts.push(contact);
+        category.contacts.push(enquiry);
       }
     });
-
     setColumns(categorizedData);
   }, [selectedPipeline, selectedStage, viewCompletedSales, dateFilter, startDate, endDate, selectedUser]);
 
@@ -227,6 +229,7 @@ const Sales = () => {
     const sourceColumn = columns.find((column) => column.name === source.droppableId);
     const destinationColumn = columns.find((column) => column.name === destination.droppableId);
 
+    // Prevent moving items out of Customer-Won if not allowed.
     if (sourceColumn.name === 'Customer-Won' && destinationColumn.name !== 'Customer-Won') {
       return;
     }
@@ -237,7 +240,6 @@ const Sales = () => {
     destinationItems.splice(destination.index, 0, movedItem);
 
     movedItem.stage = destination.droppableId;
-
     setColumns(
       columns.map((column) => {
         if (column.name === source.droppableId) {
@@ -249,22 +251,22 @@ const Sales = () => {
       })
     );
 
+    // If moved to Customer-Won, show print dialog; otherwise update stage.
     if (destination.droppableId === 'Customer-Won') {
       setCustomerDetails(movedItem);
       setPrintDialogOpen(true);
       setDragResult(result);
     } else {
-      const updatedStage = stages.find(stage => stage.stage_name === destination.droppableId);
+      const updatedStage = stages.find((stage) => stage.stage_name === destination.droppableId);
       if (!updatedStage) {
         console.error('Stage not found:', destination.droppableId);
         return;
       }
-
       const { error } = await supabase
         .from('enquiries')
-        .update({ 
+        .update({
           stage: destination.droppableId,
-          current_stage_id: updatedStage.stage_id
+          current_stage_id: updatedStage.stage_id,
         })
         .eq('id', movedItem.id);
       if (error) {
@@ -302,11 +304,10 @@ const Sales = () => {
   const handleFormSubmit = async (updatedEnquiry) => {
     try {
       const { error } = await supabase.from('enquiries').update(updatedEnquiry).eq('id', updatedEnquiry.id);
-
       if (error) throw error;
 
-      setColumns((prevColumns) => {
-        return prevColumns.map((column) => {
+      setColumns((prevColumns) =>
+        prevColumns.map((column) => {
           if (column.name === updatedEnquiry.stage) {
             const updatedContacts = column.contacts.map((contact) =>
               contact.id === updatedEnquiry.id ? updatedEnquiry : contact
@@ -314,8 +315,8 @@ const Sales = () => {
             return { ...column, contacts: updatedContacts };
           }
           return column;
-        });
-      });
+        })
+      );
 
       setSnackbar({
         open: true,
@@ -337,22 +338,19 @@ const Sales = () => {
     if (shouldMove && dragResult) {
       const { destination } = dragResult;
       const movedItem = customerDetails;
-
-      const updatedStage = stages.find(stage => stage.stage_name === destination.droppableId);
+      const updatedStage = stages.find((stage) => stage.stage_name === destination.droppableId);
       if (!updatedStage) {
         console.error('Stage not found:', destination.droppableId);
         return;
       }
-
       const { error } = await supabase
         .from('enquiries')
-        .update({ 
+        .update({
           stage: destination.droppableId,
           current_stage_id: updatedStage.stage_id,
-          won_date: new Date().toISOString()
+          won_date: new Date().toISOString(),
         })
         .eq('id', movedItem.id);
-
       if (error) {
         console.error('Error updating stage:', error);
       } else {
@@ -391,7 +389,6 @@ const Sales = () => {
                     onChange={(e) => setSelectedUser(e.target.value)}
                     label="Assigned To"
                   >
-                    
                     <MenuItem value="">All Users</MenuItem>
                     {Object.values(users).map((user) => (
                       <MenuItem key={user.id} value={user.id}>
@@ -422,48 +419,40 @@ const Sales = () => {
                 }}
               >
                 {/* Pipelines Section */}
-                <MenuItem onClick={() => { setSelectedPipeline(null); setSelectedStage(null); handleMenuClose(); }}>
+                <MenuItem
+                  onClick={() => {
+                    setSelectedPipeline(null);
+                    setSelectedStage(null);
+                    handleMenuClose();
+                  }}
+                >
                   <ListItemText primary="All Pipelines" />
                 </MenuItem>
                 {pipelines.map((pipeline) => (
-                  <MenuItem
-                    key={pipeline.pipeline_id}
-                    onClick={() => handlePipelineSelect(pipeline.pipeline_id)}
-                  >
+                  <MenuItem key={pipeline.pipeline_id} onClick={() => handlePipelineSelect(pipeline.pipeline_id)}>
                     <ListItemText primary={pipeline.pipeline_name} />
-                    {selectedPipeline === pipeline.pipeline_id && (
-                      <ArrowRightIcon />
-                    )}
+                    {selectedPipeline === pipeline.pipeline_id && <ArrowRightIcon />}
                   </MenuItem>
                 ))}
-
-                <Divider /> {/* Divider to separate pipelines from stages */}
-
+                <Divider />
                 {/* Stages Section */}
                 <MenuItem onClick={() => handleStageSelect(null)}>
                   <ListItemText primary="All Stages" />
                 </MenuItem>
-                {selectedPipeline && stages.map((stage) => (
-                  <MenuItem
-                    key={stage.stage_id}
-                    onClick={() => handleStageSelect(stage.stage_id)}
-                    style={{ paddingLeft: '32px' }} // Indent to show it's related to the pipeline
-                  >
-                    <ListItemText primary={stage.stage_name} />
-                  </MenuItem>
-                ))}
+                {selectedPipeline &&
+                  stages.map((stage) => (
+                    <MenuItem key={stage.stage_id} onClick={() => handleStageSelect(stage.stage_id)} style={{ paddingLeft: '32px' }}>
+                      <ListItemText primary={stage.stage_name} />
+                    </MenuItem>
+                  ))}
               </Menu>
-
               <Tooltip title="Settings">
                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={handleSettingsOpen}>
                   <SettingsOutlinedIcon style={{ fontSize: '1.75rem' }} />
                 </button>
               </Tooltip>
               <Tooltip title={view === 'cards' ? 'Table View' : 'Card View'}>
-                <button
-                  className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
-                  onClick={() => setView(view === 'cards' ? 'table' : 'cards')}
-                >
+                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full" onClick={() => setView(view === 'cards' ? 'table' : 'cards')}>
                   {view === 'cards' ? <TableChartOutlinedIcon style={{ fontSize: '1.75rem' }} /> : <ViewListIcon style={{ fontSize: '1.75rem' }} />}
                 </button>
               </Tooltip>
@@ -491,12 +480,7 @@ const Sales = () => {
         </DialogActions>
       </Dialog>
 
-      <PrintBillDialog
-        open={printDialogOpen}
-        handleClose={handlePrintClose}
-        customer={customerDetails}
-        onCustomerUpdate={fetchData}
-      />
+      <PrintBillDialog open={printDialogOpen} handleClose={handlePrintClose} customer={customerDetails} onCustomerUpdate={fetchData} />
 
       <Snackbar
         open={snackbar.open}
@@ -510,19 +494,13 @@ const Sales = () => {
       </Snackbar>
 
       {viewCompletedSales ? (
-        <div>Completed Sales View</div> // Replace with actual completed sales component
+        <div>Completed Sales View</div>
       ) : (
         <div className="flex flex-grow p-4 space-x-4 overflow-x-auto">
           <DragDropContext onDragEnd={onDragEnd}>
             {view === 'cards' ? (
               columns.map((column) => (
-                <Column
-                  key={column.name}
-                  column={column}
-                  users={users}
-                  visibleFields={visibleFields}
-                  onCardUpdate={handleFormSubmit}
-                />
+                <Column key={column.name} column={column} users={users} visibleFields={visibleFields} onCardUpdate={handleFormSubmit} />
               ))
             ) : (
               <TableView columns={columns} users={users} visibleFields={visibleFields} />

@@ -72,7 +72,7 @@ const Column = ({ column, users, visibleFields, onCardUpdate }) => {
                         >
                           <ContactCard
                             contact={contact}
-                            user={users[contact.assignedto]}
+                            user={users[contact.assignedto]} 
                             color={column.color}
                             visibleFields={visibleFields}
                             onUpdate={onCardUpdate}
