@@ -154,7 +154,7 @@ const HomePage = () => {
     <div className="flex min-h-screen bg-gray-100">
       <div
         ref={sidebarRef}
-        className={`fixed left-0 h-screen bg-white shadow-lg flex flex-col py-4 px-3 border-r border-gray-200 transition-all duration-300 ${
+        className={`fixed left-0 h-screen bg-white shadow-lg flex flex-col py-4 px-3 border-r border-gray-200 transition-all duration-300 z-40 ${
           isExpanded ? 'w-48' : 'w-20'
         }`}
       >
