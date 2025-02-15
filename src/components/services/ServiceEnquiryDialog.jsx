@@ -92,16 +92,16 @@ const ServiceEnquiryDialog = ({
     const fetchParts = async () => {
       const { data, error } = await supabase
         .from('products')
-        .select('*, categories(category_id, category_name)')
-        .eq('categories.category_name', 'SERVICE');
-
+        .select('*, categories(category_id, category_name)');
+        // Removed the .eq() filter to get all parts
+      
       if (error) {
         console.error('Error fetching parts:', error);
       } else {
         setPartsOptions(data);
       }
     };
-
+  
     fetchParts();
 
     if (editingEnquiry) {
