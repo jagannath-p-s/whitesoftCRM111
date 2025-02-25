@@ -88,104 +88,145 @@ const ServiceEnquiryDialog = ({
   });
   const [partsOptions, setPartsOptions] = useState([]);
 
-  useEffect(() => {
-    const fetchParts = async () => {
-      const { data, error } = await supabase
+
+  const fetchProductsPaginated = async () => {
+    try {
+      // First get total count
+      const { count, error: countError } = await supabase
         .from('products')
-        .select('*, categories(category_id, category_name)');
-        // Removed the .eq() filter to get all parts
+        .select('*', { count: 'exact', head: true });
       
+      if (countError) {
+        console.error('Error counting products:', countError);
+        return;
+      }
+      console.log(`Total products in database: ${count}`);
+      
+      // Determine how many pages we need if we fetch 1000 items per page
+      const pageSize = 1000;
+      const pages = Math.ceil(count / pageSize);
+      let allProducts = [];
+      
+      // Fetch each page
+      for (let page = 0; page < pages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, categories(category_id, category_name)')
+          .range(from, to);
+        
+        if (error) {
+          console.error(`Error fetching page ${page + 1}:`, error);
+          continue; // Try to continue with other pages
+        }
+        
+        console.log(`Fetched page ${page + 1}/${pages} with ${data.length} products`);
+        allProducts = [...allProducts, ...data];
+      }
+      
+      // Validate the products data before setting state
+      const validProducts = allProducts.filter(product => 
+        product && 
+        product.product_id && 
+        (product.item_name || product.barcode_number)
+      );
+      
+      console.log(`Valid products for display: ${validProducts.length} out of ${allProducts.length} total fetched`);
+      setPartsOptions(validProducts);
+    } catch (error) {
+      console.error('Error fetching parts with pagination:', error);
+    }
+  };
+// Update your useEffect to use the paginated fetch
+useEffect(() => {
+  // Fetch all products with pagination
+  fetchProductsPaginated();
+  
+  // The rest of your effect code for editing an enquiry
+  if (editingEnquiry) {
+    // Your existing code for editing an enquiry
+    const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
+    const parsedComplaints = JSON.parse(editingEnquiry.complaints);
+    const parsedCharges = JSON.parse(editingEnquiry.charges);
+    const mappedCharges = {
+      mistCharges: parsedCharges.oil || 0,
+      oilPetrol: parsedCharges.petrol || 0,
+      labour: parsedCharges.labour || 0,
+    };
+    const repairDate = editingEnquiry.repair_date
+      ? dayjs(editingEnquiry.repair_date)
+      : null;
+    const expectedCompletionDate = editingEnquiry.expected_completion_date
+      ? dayjs(editingEnquiry.expected_completion_date)
+      : null;
+    const expectedDeliveryDate = editingEnquiry.expected_delivery_date
+      ? dayjs(editingEnquiry.expected_delivery_date)
+      : null;
+
+    setFormData({
+      date: dayjs(editingEnquiry.date),
+      jobCardNo: editingEnquiry.job_card_no,
+      customerName: editingEnquiry.customer_name,
+      customerMobile: editingEnquiry.customer_mobile,
+      customerRemarks: editingEnquiry.customer_remarks,
+      companyRemarks: editingEnquiry.company_remarks || '',
+      complaintType: parsedComplaintType,
+      complaints: parsedComplaints,
+      parts: editingEnquiry.service_enquiry_parts.map((part) => ({
+        partId: part.part_id,
+        partName: part.part_name,
+        partNumber: part.part_number,
+        qty: part.qty,
+        rate: part.rate,
+        amount: part.amount,
+      })),
+      technicians: editingEnquiry.technician_name
+        ? editingEnquiry.technician_name
+            .split(', ')
+            .map((name) => {
+              const tech = techniciansOptions.find((t) => t.name === name);
+              return tech ? tech.id : null;
+            })
+            .filter((id) => id !== null)
+        : [],
+      charges: mappedCharges,
+      totalAmount: editingEnquiry.total_amount,
+      repairDate: repairDate,
+      expectedCompletionDate: expectedCompletionDate,
+      expectedDeliveryDate: expectedDeliveryDate,
+      status: editingEnquiry.status,
+    });
+  } else {
+    // Fetch max job card number when adding a new enquiry
+    const fetchMaxJobCardNo = async () => {
+      const { data, error } = await supabase
+        .from('service_enquiries')
+        .select('job_card_no');
+
       if (error) {
-        console.error('Error fetching parts:', error);
+        console.error('Error fetching job card numbers:', error);
+        setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
+      } else if (data && data.length > 0) {
+        const jobCardNos = data
+          .map((item) => parseInt(item.job_card_no, 10))
+          .filter((num) => !isNaN(num));
+        const maxJobCardNo =
+          jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
+        const newJobCardNo = maxJobCardNo + 1;
+        setFormData((prevData) => ({
+          ...prevData,
+          jobCardNo: newJobCardNo.toString(),
+        }));
       } else {
-        setPartsOptions(data);
+        setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
       }
     };
-  
-    fetchParts();
 
-    if (editingEnquiry) {
-      const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
-      const parsedComplaints = JSON.parse(editingEnquiry.complaints);
-      const parsedCharges = JSON.parse(editingEnquiry.charges);
-      const mappedCharges = {
-        mistCharges: parsedCharges.oil || 0,
-        oilPetrol: parsedCharges.petrol || 0,
-        labour: parsedCharges.labour || 0,
-      };
-      const repairDate = editingEnquiry.repair_date
-        ? dayjs(editingEnquiry.repair_date)
-        : null;
-      const expectedCompletionDate = editingEnquiry.expected_completion_date
-        ? dayjs(editingEnquiry.expected_completion_date)
-        : null;
-      const expectedDeliveryDate = editingEnquiry.expected_delivery_date
-        ? dayjs(editingEnquiry.expected_delivery_date)
-        : null;
-
-      setFormData({
-        date: dayjs(editingEnquiry.date),
-        jobCardNo: editingEnquiry.job_card_no,
-        customerName: editingEnquiry.customer_name,
-        customerMobile: editingEnquiry.customer_mobile,
-        customerRemarks: editingEnquiry.customer_remarks,
-        companyRemarks: editingEnquiry.company_remarks || '',
-        complaintType: parsedComplaintType,
-        complaints: parsedComplaints,
-        parts: editingEnquiry.service_enquiry_parts.map((part) => ({
-          partId: part.part_id,
-          partName: part.part_name,
-          partNumber: part.part_number,
-          qty: part.qty,
-          rate: part.rate,
-          amount: part.amount,
-        })),
-        technicians: editingEnquiry.technician_name
-          ? editingEnquiry.technician_name
-              .split(', ')
-              .map((name) => {
-                const tech = techniciansOptions.find((t) => t.name === name);
-                return tech ? tech.id : null;
-              })
-              .filter((id) => id !== null)
-          : [],
-        charges: mappedCharges,
-        totalAmount: editingEnquiry.total_amount,
-        repairDate: repairDate,
-        expectedCompletionDate: expectedCompletionDate,
-        expectedDeliveryDate: expectedDeliveryDate,
-        status: editingEnquiry.status,
-      });
-    } else {
-      // Fetch max job card number when adding a new enquiry
-      const fetchMaxJobCardNo = async () => {
-        const { data, error } = await supabase
-          .from('service_enquiries')
-          .select('job_card_no');
-
-        if (error) {
-          console.error('Error fetching job card numbers:', error);
-          setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
-        } else if (data && data.length > 0) {
-          const jobCardNos = data
-            .map((item) => parseInt(item.job_card_no, 10))
-            .filter((num) => !isNaN(num));
-          const maxJobCardNo =
-            jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
-          const newJobCardNo = maxJobCardNo + 1;
-          setFormData((prevData) => ({
-            ...prevData,
-            jobCardNo: newJobCardNo.toString(),
-          }));
-        } else {
-          setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
-        }
-      };
-
-      fetchMaxJobCardNo();
-    }
-  }, [editingEnquiry, techniciansOptions]);
-
+    fetchMaxJobCardNo();
+  }
+}, [editingEnquiry, techniciansOptions]);
   useEffect(() => {
     calculateTotalAmount();
   }, [formData.parts, formData.charges]);
