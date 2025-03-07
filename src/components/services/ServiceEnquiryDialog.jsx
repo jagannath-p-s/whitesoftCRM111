@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogActions,
@@ -19,7 +19,8 @@ import {
   FormControl,
   InputLabel,
   Chip,
-  Autocomplete, // Import Autocomplete
+  Autocomplete,
+  Tooltip,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -27,8 +28,10 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
+import PrintIcon from '@mui/icons-material/Print';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabaseClient';
+import { useReactToPrint } from 'react-to-print';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -52,6 +55,27 @@ const StyledIconButton = styled(IconButton)(({ theme }) => ({
   color: theme.palette.error.main,
 }));
 
+// Styling for print media
+const printStyles = `
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    .printable-content, .printable-content * {
+      visibility: visible;
+    }
+    .printable-content {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+    .no-print {
+      display: none;
+    }
+  }
+`;
+
 const ServiceEnquiryDialog = ({
   dialogOpen,
   handleDialogClose,
@@ -66,6 +90,7 @@ const ServiceEnquiryDialog = ({
     customerMobile: '',
     customerRemarks: '',
     companyRemarks: '',
+    machineType: '', // New separate field for machine
     complaintType: [],
     complaints: [''],
     parts: [
@@ -80,14 +105,16 @@ const ServiceEnquiryDialog = ({
     ],
     technicians: [],
     charges: { mistCharges: 0, oilPetrol: 0, labour: 0 },
+    advance: 0, // New field for advance payment
     totalAmount: 0,
+    balanceAmount: 0, // New field to calculate balance after advance
     repairDate: null,
     expectedCompletionDate: null,
     expectedDeliveryDate: null,
     status: 'started',
   });
   const [partsOptions, setPartsOptions] = useState([]);
-
+  const printComponentRef = useRef();
 
   const fetchProductsPaginated = async () => {
     try {
@@ -139,97 +166,115 @@ const ServiceEnquiryDialog = ({
       console.error('Error fetching parts with pagination:', error);
     }
   };
-// Update your useEffect to use the paginated fetch
-useEffect(() => {
-  // Fetch all products with pagination
-  fetchProductsPaginated();
-  
-  // The rest of your effect code for editing an enquiry
-  if (editingEnquiry) {
-    // Your existing code for editing an enquiry
-    const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
-    const parsedComplaints = JSON.parse(editingEnquiry.complaints);
-    const parsedCharges = JSON.parse(editingEnquiry.charges);
-    const mappedCharges = {
-      mistCharges: parsedCharges.oil || 0,
-      oilPetrol: parsedCharges.petrol || 0,
-      labour: parsedCharges.labour || 0,
-    };
-    const repairDate = editingEnquiry.repair_date
-      ? dayjs(editingEnquiry.repair_date)
-      : null;
-    const expectedCompletionDate = editingEnquiry.expected_completion_date
-      ? dayjs(editingEnquiry.expected_completion_date)
-      : null;
-    const expectedDeliveryDate = editingEnquiry.expected_delivery_date
-      ? dayjs(editingEnquiry.expected_delivery_date)
-      : null;
 
-    setFormData({
-      date: dayjs(editingEnquiry.date),
-      jobCardNo: editingEnquiry.job_card_no,
-      customerName: editingEnquiry.customer_name,
-      customerMobile: editingEnquiry.customer_mobile,
-      customerRemarks: editingEnquiry.customer_remarks,
-      companyRemarks: editingEnquiry.company_remarks || '',
-      complaintType: parsedComplaintType,
-      complaints: parsedComplaints,
-      parts: editingEnquiry.service_enquiry_parts.map((part) => ({
-        partId: part.part_id,
-        partName: part.part_name,
-        partNumber: part.part_number,
-        qty: part.qty,
-        rate: part.rate,
-        amount: part.amount,
-      })),
-      technicians: editingEnquiry.technician_name
-        ? editingEnquiry.technician_name
-            .split(', ')
-            .map((name) => {
-              const tech = techniciansOptions.find((t) => t.name === name);
-              return tech ? tech.id : null;
-            })
-            .filter((id) => id !== null)
-        : [],
-      charges: mappedCharges,
-      totalAmount: editingEnquiry.total_amount,
-      repairDate: repairDate,
-      expectedCompletionDate: expectedCompletionDate,
-      expectedDeliveryDate: expectedDeliveryDate,
-      status: editingEnquiry.status,
-    });
-  } else {
-    // Fetch max job card number when adding a new enquiry
-    const fetchMaxJobCardNo = async () => {
-      const { data, error } = await supabase
-        .from('service_enquiries')
-        .select('job_card_no');
+  // Update your useEffect to use the paginated fetch
+  useEffect(() => {
+    // Fetch all products with pagination
+    fetchProductsPaginated();
+    
+    // The rest of your effect code for editing an enquiry
+    if (editingEnquiry) {
+      // Your existing code for editing an enquiry
+      const parsedComplaintType = JSON.parse(editingEnquiry.machine_type);
+      // Extract machine type if it exists in the enhanced format
+      const machineTypeName = 
+        typeof parsedComplaintType === 'object' && parsedComplaintType.machineType 
+          ? parsedComplaintType.machineType 
+          : '';
+      // Get the complaint types array, supporting both formats
+      const complaintTypes = 
+        typeof parsedComplaintType === 'object' && Array.isArray(parsedComplaintType.types)
+          ? parsedComplaintType.types
+          : parsedComplaintType;
+          
+      const parsedComplaints = JSON.parse(editingEnquiry.complaints);
+      const parsedCharges = JSON.parse(editingEnquiry.charges);
+      const mappedCharges = {
+        mistCharges: parsedCharges.oil || 0,
+        oilPetrol: parsedCharges.petrol || 0,
+        labour: parsedCharges.labour || 0,
+      };
+      // Get advance from charges if it exists
+      const advanceAmount = parsedCharges.advance || 0;
+      const repairDate = editingEnquiry.repair_date
+        ? dayjs(editingEnquiry.repair_date)
+        : null;
+      const expectedCompletionDate = editingEnquiry.expected_completion_date
+        ? dayjs(editingEnquiry.expected_completion_date)
+        : null;
+      const expectedDeliveryDate = editingEnquiry.expected_delivery_date
+        ? dayjs(editingEnquiry.expected_delivery_date)
+        : null;
 
-      if (error) {
-        console.error('Error fetching job card numbers:', error);
-        setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
-      } else if (data && data.length > 0) {
-        const jobCardNos = data
-          .map((item) => parseInt(item.job_card_no, 10))
-          .filter((num) => !isNaN(num));
-        const maxJobCardNo =
-          jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
-        const newJobCardNo = maxJobCardNo + 1;
-        setFormData((prevData) => ({
-          ...prevData,
-          jobCardNo: newJobCardNo.toString(),
-        }));
-      } else {
-        setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
-      }
-    };
+      setFormData({
+        date: dayjs(editingEnquiry.date),
+        jobCardNo: editingEnquiry.job_card_no,
+        customerName: editingEnquiry.customer_name,
+        customerMobile: editingEnquiry.customer_mobile,
+        customerRemarks: editingEnquiry.customer_remarks,
+        companyRemarks: editingEnquiry.company_remarks || '',
+        machineType: machineTypeName, // Load machine type from the JSON
+        complaintType: complaintTypes,
+        complaints: parsedComplaints,
+        parts: editingEnquiry.service_enquiry_parts.map((part) => ({
+          partId: part.part_id,
+          partName: part.part_name,
+          partNumber: part.part_number,
+          qty: part.qty,
+          rate: part.rate,
+          amount: part.amount,
+        })),
+        technicians: editingEnquiry.technician_name
+          ? editingEnquiry.technician_name
+              .split(', ')
+              .map((name) => {
+                const tech = techniciansOptions.find((t) => t.name === name);
+                return tech ? tech.id : null;
+              })
+              .filter((id) => id !== null)
+          : [],
+        charges: mappedCharges,
+        advance: advanceAmount, // Load advance from charges
+        totalAmount: editingEnquiry.total_amount,
+        balanceAmount: editingEnquiry.total_amount - advanceAmount,
+        repairDate: repairDate,
+        expectedCompletionDate: expectedCompletionDate,
+        expectedDeliveryDate: expectedDeliveryDate,
+        status: editingEnquiry.status,
+      });
+    } else {
+      // Fetch max job card number when adding a new enquiry
+      const fetchMaxJobCardNo = async () => {
+        const { data, error } = await supabase
+          .from('service_enquiries')
+          .select('job_card_no');
 
-    fetchMaxJobCardNo();
-  }
-}, [editingEnquiry, techniciansOptions]);
+        if (error) {
+          console.error('Error fetching job card numbers:', error);
+          setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
+        } else if (data && data.length > 0) {
+          const jobCardNos = data
+            .map((item) => parseInt(item.job_card_no, 10))
+            .filter((num) => !isNaN(num));
+          const maxJobCardNo =
+            jobCardNos.length > 0 ? Math.max(...jobCardNos) : 0;
+          const newJobCardNo = maxJobCardNo + 1;
+          setFormData((prevData) => ({
+            ...prevData,
+            jobCardNo: newJobCardNo.toString(),
+          }));
+        } else {
+          setFormData((prevData) => ({ ...prevData, jobCardNo: '1' }));
+        }
+      };
+
+      fetchMaxJobCardNo();
+    }
+  }, [editingEnquiry, techniciansOptions]);
+
   useEffect(() => {
     calculateTotalAmount();
-  }, [formData.parts, formData.charges]);
+  }, [formData.parts, formData.charges, formData.advance]);
 
   const handleChange = (e, index, field) => {
     const { name, value, type, checked } = e.target;
@@ -263,6 +308,9 @@ useEffect(() => {
           ...prevData.charges,
           [chargeField]: parseFloat(value) || 0,
         };
+      } else if (name === 'advance') {
+        // Handle advance payment specially
+        newData.advance = parseFloat(value) || 0;
       } else {
         newData[name] = value;
       }
@@ -322,10 +370,13 @@ useEffect(() => {
       0
     );
     const total = partsTotal + chargesTotal;
+    const advance = parseFloat(formData.advance) || 0;
+    const balance = total - advance;
 
     setFormData((prevData) => ({
       ...prevData,
       totalAmount: total.toFixed(2),
+      balanceAmount: balance.toFixed(2)
     }));
   };
 
@@ -376,21 +427,48 @@ useEffect(() => {
     return options.includes(value);
   };
 
+  // Setup print handler
+  const handlePrint = useReactToPrint({
+    content: () => printComponentRef.current,
+    documentTitle: `Service_Bill_${formData.jobCardNo}`,
+    onBeforeGetContent: () => {
+      return new Promise((resolve) => {
+        console.log("Preparing print content...");
+        console.log("Print ref exists:", !!printComponentRef.current);
+        resolve();
+      });
+    },
+    onAfterPrint: () => {
+      console.log("Print completed");
+    },
+    onPrintError: (error) => {
+      console.error("Print error:", error);
+    }
+  });
+
   const handleSubmit = async () => {
     try {
       console.log('Submitting form data:', formData);
 
+      // Create an enhanced complaintType that includes the machine name
+      const enhancedComplaintType = {
+        machineType: formData.machineType, // Store machine type in this JSON
+        types: formData.complaintType
+      };
+      const complaintTypeJson = JSON.stringify(enhancedComplaintType);
       const complaintsJson = JSON.stringify(formData.complaints);
-      const complaintTypeJson = JSON.stringify(formData.complaintType);
 
       // Map 'mistCharges' and 'oilPetrol' back to 'oil' and 'petrol' for saving
+      // Also include advance payment within the charges JSON
       const chargesForSave = {
         oil: formData.charges.mistCharges || 0,
         petrol: formData.charges.oilPetrol || 0,
         labour: formData.charges.labour || 0,
+        advance: parseFloat(formData.advance) || 0 // Store advance in charges JSON
       };
       const chargesJson = JSON.stringify(chargesForSave);
 
+      // Prepare service enquiry data object with fields that match your database schema
       const serviceEnquiryData = {
         date: formData.date.toISOString(),
         job_card_no: formData.jobCardNo,
@@ -483,11 +561,14 @@ useEffect(() => {
 
       console.log('Parts inserted:', parts);
 
-      handleFormSubmit();
+      // Call the parent's handleFormSubmit with the complete service enquiry data
+      handleFormSubmit(serviceEnquiry);
       handleDialogClose();
     } catch (error) {
-      console.error('Error submitting form:', error);
-      // Handle the error, e.g., show a notification to the user
+      console.log('Error submitting form:', error);
+      // Handle the error with more detailed logging
+      console.error('Error details:', error.details);
+      alert(`Error submitting form: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -496,6 +577,55 @@ useEffect(() => {
     mistCharges: 'Mist Charges',
     oilPetrol: 'Oil/Petrol',
     labour: 'Labour',
+  };
+
+  // Format a number as currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+  
+  // Simple print fallback method
+  const handlePrintFallback = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow pop-ups to print the bill');
+      return;
+    }
+    
+    const content = printComponentRef.current.innerHTML;
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Service Bill #${formData.jobCardNo}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; }
+          th { background-color: #f2f2f2; }
+          .text-right { text-align: right; }
+          .signature-line { border-top: 1px solid #000; margin-top: 50px; padding-top: 5px; width: 70%; text-align: center; }
+          @media print {
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        ${content}
+        <div style="text-align: center; margin-top: 20px;">
+          <button onclick="window.print()">Print</button>
+          <button onclick="window.close()">Close</button>
+        </div>
+      </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
   };
 
   return (
@@ -532,6 +662,19 @@ useEffect(() => {
           </StyledPaper>
 
           <StyledPaper elevation={3}>
+            {/* New Machine Type field */}
+            <StyledTypography variant="h6">Machine Details</StyledTypography>
+            <TextField
+              name="machineType"
+              label="Machine Type/Model"
+              type="text"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={formData.machineType}
+              onChange={handleChange}
+            />
+
             <StyledTypography variant="h6">Complaint Type</StyledTypography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {[
@@ -561,9 +704,7 @@ useEffect(() => {
               ))}
             </Box>
 
-            <StyledTypography variant="h6">
-              Machine type & Complaints
-            </StyledTypography>
+            <StyledTypography variant="h6">Complaints</StyledTypography>
             {formData.complaints.map((complaint, index) => (
               <Box
                 key={index}
@@ -571,6 +712,7 @@ useEffect(() => {
               >
                 <TextField
                   name={`complaints.${index}`}
+                  label={`Complaint ${index + 1}`}
                   type="text"
                   variant="outlined"
                   fullWidth
@@ -606,68 +748,68 @@ useEffect(() => {
               >
                 {/* Autocomplete for Part Selection */}
                 <Autocomplete
-  options={partsOptions}
-  getOptionLabel={(option) =>
-    `${option?.item_name || ''} (${option?.barcode_number || ''})`
-  }
-  filterOptions={(options, { inputValue }) =>
-    options.filter(
-      (option) =>
-        (option.item_name?.toLowerCase() || '').includes(
-          inputValue?.toLowerCase() || ''
-        ) ||
-        (option.barcode_number?.toLowerCase() || '').includes(
-          inputValue?.toLowerCase() || ''
-        )
-    )
-  }
-  value={
-    partsOptions.find(
-      (option) => option.product_id === part.partId
-    ) || null
-  }
-  onChange={(event, newValue) => {
-    if (newValue) {
-      setFormData((prevData) => {
-        const newParts = [...prevData.parts];
-        newParts[index] = {
-          ...newParts[index],
-          partId: newValue.product_id,
-          partName: newValue.item_name || '',
-          partNumber: newValue.barcode_number || '',
-          rate: newValue.price || 0,
-          amount:
-            (newValue.price || 0) *
-            (parseFloat(newParts[index].qty) || 1),
-        };
-        return { ...prevData, parts: newParts };
-      });
-    } else {
-      setFormData((prevData) => {
-        const newParts = [...prevData.parts];
-        newParts[index] = {
-          ...newParts[index],
-          partId: '',
-          partName: '',
-          partNumber: '',
-          rate: 0,
-          amount: 0,
-        };
-        return { ...prevData, parts: newParts };
-      });
-    }
-  }}
-  renderInput={(params) => (
-    <TextField
-      {...params}
-      label="Part"
-      variant="outlined"
-      margin="dense"
-      fullWidth
-    />
-  )}
-  sx={{ flex: 2 }}
-/>
+                  options={partsOptions}
+                  getOptionLabel={(option) =>
+                    `${option?.item_name || ''} (${option?.barcode_number || ''})`
+                  }
+                  filterOptions={(options, { inputValue }) =>
+                    options.filter(
+                      (option) =>
+                        (option.item_name?.toLowerCase() || '').includes(
+                          inputValue?.toLowerCase() || ''
+                        ) ||
+                        (option.barcode_number?.toLowerCase() || '').includes(
+                          inputValue?.toLowerCase() || ''
+                        )
+                    )
+                  }
+                  value={
+                    partsOptions.find(
+                      (option) => option.product_id === part.partId
+                    ) || null
+                  }
+                  onChange={(event, newValue) => {
+                    if (newValue) {
+                      setFormData((prevData) => {
+                        const newParts = [...prevData.parts];
+                        newParts[index] = {
+                          ...newParts[index],
+                          partId: newValue.product_id,
+                          partName: newValue.item_name || '',
+                          partNumber: newValue.barcode_number || '',
+                          rate: newValue.price || 0,
+                          amount:
+                            (newValue.price || 0) *
+                            (parseFloat(newParts[index].qty) || 1),
+                        };
+                        return { ...prevData, parts: newParts };
+                      });
+                    } else {
+                      setFormData((prevData) => {
+                        const newParts = [...prevData.parts];
+                        newParts[index] = {
+                          ...newParts[index],
+                          partId: '',
+                          partName: '',
+                          partNumber: '',
+                          rate: 0,
+                          amount: 0,
+                        };
+                        return { ...prevData, parts: newParts };
+                      });
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Part"
+                      variant="outlined"
+                      margin="dense"
+                      fullWidth
+                    />
+                  )}
+                  sx={{ flex: 2 }}
+                />
 
                 <TextField
                   name="qty"
@@ -771,6 +913,33 @@ useEffect(() => {
               value={formData.totalAmount}
               InputProps={{ readOnly: true }}
             />
+            
+            {/* New Advance Payment Field */}
+            <TextField
+              name="advance"
+              label="Advance Payment"
+              type="number"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={formData.advance}
+              onChange={handleChange}
+              InputProps={{ inputProps: { min: 0 } }}
+            />
+            
+            {/* Balance Amount Field */}
+            <TextField
+              name="balanceAmount"
+              label="Balance Amount"
+              type="number"
+              variant="outlined"
+              fullWidth
+              margin="dense"
+              value={formData.balanceAmount}
+              InputProps={{ readOnly: true }}
+              sx={{ mb: 2 }}
+            />
+            
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
                 label="Expected Completion Date"
@@ -832,11 +1001,139 @@ useEffect(() => {
             </FormControl>
           </StyledPaper>
         </Box>
+        
+        {/* Printable Content */}
+        <Box 
+          sx={{ 
+            position: 'absolute', 
+            left: '-9999px', 
+            top: 0,
+            width: '100%',
+            maxWidth: '800px',
+            background: '#fff',
+            padding: '20px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div ref={printComponentRef} className="printable-content">
+            <style>
+              {`
+                @media print {
+                  @page { size: auto; margin: 10mm; }
+                  body { margin: 0; padding: 0; }
+                }
+              `}
+            </style>
+            <Box sx={{ textAlign: 'center', mb: 3, p: 5 }}>
+             
+              <Divider sx={{ my: 2 }} />
+            </Box>
+            
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={6}>
+                <Typography variant="body1"><strong>Bill No:</strong> {formData.jobCardNo}</Typography>
+                <Typography variant="body1"><strong>Date:</strong> {formData.date.format('DD/MM/YYYY')}</Typography>
+                <Typography variant="body1"><strong>Status:</strong> {formData.status.toUpperCase()}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="body1"><strong>Customer:</strong> {formData.customerName}</Typography>
+                <Typography variant="body1"><strong>Mobile:</strong> {formData.customerMobile}</Typography>
+                <Typography variant="body1"><strong>Machine:</strong> {formData.machineType}</Typography>
+              </Grid>
+            </Grid>
+            
+            <Typography variant="h6" gutterBottom>Complaints</Typography>
+            <Box sx={{ mb: 3 }}>
+              {formData.complaints.map((complaint, index) => (
+                <Typography key={index} variant="body2">• {complaint}</Typography>
+              ))}
+            </Box>
+            
+            <Typography variant="h6" gutterBottom>Parts & Services</Typography>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Sl. No</th>
+                  <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Item</th>
+                  <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Part No.</th>
+                  <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>Qty</th>
+                  <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>Rate</th>
+                  <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {formData.parts.map((part, index) => (
+                  <tr key={index}>
+                    <td style={{ border: '1px solid #ddd', padding: '8px' }}>{index + 1}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '8px' }}>{part.partName}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '8px' }}>{part.partNumber}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>{part.qty}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>{parseFloat(part.rate).toFixed(2)}</td>
+                    <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>{parseFloat(part.amount).toFixed(2)}</td>
+                  </tr>
+                ))}
+                {/* Additional charges */}
+                {Object.entries(formData.charges).map(([key, value]) => 
+                  parseFloat(value) > 0 ? (
+                    <tr key={key}>
+                      <td style={{ border: '1px solid #ddd', padding: '8px' }} colSpan="4"></td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>{chargeLabels[key]}</td>
+                      <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right' }}>{parseFloat(value).toFixed(2)}</td>
+                    </tr>
+                  ) : null
+                )}
+                {/* Total row */}
+                <tr>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }} colSpan="4"></td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Total</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{parseFloat(formData.totalAmount).toFixed(2)}</td>
+                </tr>
+                {/* Advance payment row */}
+                <tr>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }} colSpan="4"></td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Advance Paid</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{parseFloat(formData.advance).toFixed(2)}</td>
+                </tr>
+                {/* Balance row */}
+                <tr>
+                  <td style={{ border: '1px solid #ddd', padding: '8px' }} colSpan="4"></td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>Balance Due</td>
+                  <td style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'right', fontWeight: 'bold' }}>{parseFloat(formData.balanceAmount).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <Grid container spacing={2} sx={{ mt: 4 }}>
+              <Grid item xs={6}>
+                <Box sx={{ borderTop: '1px solid #000', pt: 1, mt: 5, width: '70%' }}>
+                  <Typography variant="body2" align="center">Customer Signature</Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={6}>
+                <Box sx={{ borderTop: '1px solid #000', pt: 1, mt: 5, width: '70%', ml: 'auto' }}>
+                  <Typography variant="body2" align="center">Authorized Signature</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+            
+            <Typography variant="body2" sx={{ mt: 5, fontStyle: 'italic' }}>
+              Note: This is a computer-generated bill, no signature required.
+            </Typography>
+          </div>
+        </Box>
       </DialogContent>
       <Divider />
       <DialogActions sx={{ p: 3 }}>
         <Button onClick={handleDialogClose} color="primary" variant="outlined">
           Cancel
+        </Button>
+        <Button 
+          onClick={handlePrintFallback} // Using the more reliable fallback as default
+          color="secondary" 
+          variant="outlined" 
+          startIcon={<PrintIcon />}
+        >
+          Print Bill
         </Button>
         <Button onClick={handleSubmit} color="primary" variant="contained">
           {editingEnquiry ? 'Update Service Enquiry' : 'Add Service Enquiry'}
