@@ -196,7 +196,7 @@ const HomePage = () => {
                   <Menu className="h-6 w-6" />
                 </button>
                 
-                <SearchBar onSearch={handleSearchClick} currentUserId={user.id} />
+                {user && <SearchBar onSearch={handleSearchClick} currentUserId={user.id} />}
               </div>
 
               <div className="flex items-center gap-4">

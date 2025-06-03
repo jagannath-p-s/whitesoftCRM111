@@ -45,6 +45,18 @@ const SearchBar = ({ onSearch, currentUserId }) => {
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
+    console.log('Initializing enquiry data with currentUserId:', currentUserId);
+    if (users.length > 0) {
+      // If currentUserId is not in users list, use the first user ID
+      const validUserId = users.some(user => user.id === currentUserId) ? currentUserId : users[0].id;
+      setEnquiryData(prev => ({
+        ...prev,
+        assignedto: validUserId
+      }));
+    }
+  }, [currentUserId, users]);
+
+  useEffect(() => {
     if (dialogOpen && dialogType === 'product') {
       fetchProducts();
     }
@@ -60,11 +72,51 @@ const SearchBar = ({ onSearch, currentUserId }) => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase.from('users').select('id, username');
+      console.log('Fetching users...');
+      // Get current user's email from localStorage
+      const sessionStr = localStorage.getItem('session');
+      const session = JSON.parse(sessionStr);
+      const userEmail = session?.user?.email;
+      console.log('Current user email:', userEmail);
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');  // Select all fields to debug
+      
       if (error) throw error;
+      console.log('Fetched users with full data:', data);
+      
+      // Find the user ID matching the email
+      let assignedUserId;
+      if (userEmail) {
+        const currentUser = data.find(user => user.email === userEmail);
+        console.log('Found user by email:', currentUser);
+        if (currentUser) {
+          assignedUserId = currentUser.id;
+        }
+      }
+      
+      // If no user found by email, use the first available user
+      if (!assignedUserId && data.length > 0) {
+        assignedUserId = data[0].id;
+        console.log('Using default user:', data[0]);
+      }
+
+      if (assignedUserId) {
+        setEnquiryData(prev => ({
+          ...prev,
+          assignedto: assignedUserId
+        }));
+      }
+      
       setUsers(data);
     } catch (error) {
       console.error('Error fetching users:', error.message);
+      setSnackbar({
+        open: true,
+        message: 'Failed to fetch users',
+        severity: 'error'
+      });
     }
   };
 

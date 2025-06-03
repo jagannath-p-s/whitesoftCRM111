@@ -56,74 +56,53 @@ function LoginPage() {
     setError('');
 
     try {
-      // Query the database
-      const { data: user, error: dbError } = await supabase
+      // First get the user from users table using email
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('useremail', email.toLowerCase())
-        .maybeSingle();
+        .eq('email', email)
+        .single();
 
-      if (dbError) {
-        console.error('Database error:', dbError);
-        throw new Error('Login failed. Please try again.');
+      if (userError) throw userError;
+
+      if (!userData) {
+        throw new Error('User not found');
       }
 
-      if (!user) {
-        throw new Error('Invalid email or password');
+      // Verify password and create session
+      const isValid = await bcrypt.compare(password, userData.password);
+      if (!isValid) {
+        throw new Error('Invalid password');
       }
 
-      // Verify password
-      const validPassword = await bcrypt.compare(password, user.password);
-      
-      if (!validPassword) {
-        throw new Error('Invalid email or password');
-      }
-
-      // Create session data
+      // Store session with user ID and email
       const sessionData = {
         user: {
-          email: user.useremail,
-          role: user.role,
-          username: user.username,
-          employee_code: user.employee_code
+          id: userData.id,
+          email: email,
+          username: userData.username,
+          role: userData.role
         },
-        expiresAt: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
       };
 
-      // Create permissions object
-      const permissions = {
-        role: user.role,
-        canEditStaff: user.can_edit_staff || false,
-        canEditPipeline: user.can_edit_pipeline || false,
-        canEditProduct: user.can_edit_product || false,
-        canEditFiles: user.can_edit_files || false,
-        canEditEnquiries: user.can_edit_enquiries || false,
-        canEditStock: user.can_edit_stock || false,
-        canEditProductEnquiry: user.can_edit_product_enquiry || false,
-        canEditServiceEnquiry: user.can_edit_service_enquiry || false,
-        canEditSales: user.can_edit_sales || false,
-        canSeePerformance: user.can_see_performance || false,
-        canViewStaff: user.can_view_staff || false,
-        canViewPipeline: user.can_view_pipeline || false,
-        canViewProduct: user.can_view_product || false,
-        canViewFiles: user.can_view_files || false,
-        canViewEnquiries: user.can_view_enquiries || false,
-        canViewStock: user.can_view_stock || false,
-        canViewProductEnquiry: user.can_view_product_enquiry || false,
-        canViewServiceEnquiry: user.can_view_service_enquiry || false,
-        canViewSales: user.can_view_sales || false
-      };
-
-      // Save to localStorage
       localStorage.setItem('session', JSON.stringify(sessionData));
-      localStorage.setItem('userPermissions', JSON.stringify(permissions));
 
-      // Redirect to intended page or home
-      const redirectTo = location.state?.from || '/';
-      navigate(redirectTo, { replace: true });
+      // Store user permissions
+      const { data: permissionsData, error: permissionsError } = await supabase
+        .from('user_permissions')
+        .select('*')
+        .eq('user_id', userData.id)
+        .single();
 
-    } catch (err) {
-      setError(err.message);
+      if (permissionsError) throw permissionsError;
+
+      localStorage.setItem('userPermissions', JSON.stringify(permissionsData));
+
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message);
     } finally {
       setLoading(false);
     }

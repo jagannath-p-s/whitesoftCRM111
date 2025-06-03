@@ -46,7 +46,10 @@ const AddEnquiryDialog = ({
   currentUserId,
 }) => {
   const [leadSources, setLeadSources] = useState([]);
-  const [localEnquiryData, setLocalEnquiryData] = useState(enquiryData);
+  const [localEnquiryData, setLocalEnquiryData] = useState({
+    ...enquiryData,
+    assignedto: enquiryData?.assignedto || currentUserId
+  });
 
   useEffect(() => {
     console.log('Fetching lead sources...');
@@ -64,8 +67,39 @@ const AddEnquiryDialog = ({
 
   useEffect(() => {
     console.log('Setting enquiry data:', enquiryData);
-    setLocalEnquiryData(enquiryData);
-  }, [enquiryData]);
+    
+    // Get current user's data from session
+    const sessionStr = localStorage.getItem('session');
+    const session = JSON.parse(sessionStr);
+    const loggedInUserEmail = session?.user?.email;
+    
+    console.log('Session user email:', loggedInUserEmail);
+    console.log('Available users:', users);
+
+    // Find the user ID matching the email
+    let validAssignedTo = null;
+    
+    if (loggedInUserEmail && users.length > 0) {
+      // Find the user with matching email - using useremail field
+      const currentUser = users.find(user => user.useremail === loggedInUserEmail);
+      console.log('Looking for user with email:', loggedInUserEmail);
+      console.log('Found user:', currentUser);
+      
+      if (currentUser) {
+        validAssignedTo = currentUser.id;
+        console.log('Setting assigned to user:', currentUser);
+      }
+    }
+    
+    // Only update if we found a valid user
+    if (validAssignedTo) {
+      console.log('Final assigned user ID:', validAssignedTo);
+      setLocalEnquiryData(prev => ({
+        ...prev,
+        assignedto: validAssignedTo
+      }));
+    }
+  }, [enquiryData, users]);
 
   const handleEnquiryDataChange = async (e) => {
     const { name, value } = e.target;
@@ -433,3 +467,4 @@ const AddEnquiryDialog = ({
 };
 
 export default AddEnquiryDialog;
+
