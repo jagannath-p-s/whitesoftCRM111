@@ -18,6 +18,8 @@
     "@mui/x-date-pickers": "^7.24.0",
     "@supabase/supabase-js": "^2.48.0",
     "bcryptjs": "^2.4.3",
+    "crypto-browserify": "^3.12.1",
+    "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "jspdf": "^2.5.2",

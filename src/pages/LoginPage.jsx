@@ -60,7 +60,7 @@ function LoginPage() {
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .eq('useremail', email)
         .single();
 
       if (userError) throw userError;
@@ -88,16 +88,31 @@ function LoginPage() {
 
       localStorage.setItem('session', JSON.stringify(sessionData));
 
-      // Store user permissions
-      const { data: permissionsData, error: permissionsError } = await supabase
-        .from('user_permissions')
-        .select('*')
-        .eq('user_id', userData.id)
-        .single();
+      // Store user permissions from users table
+      const userPermissions = {
+        user_id: userData.id,
+        can_edit_staff: userData.can_edit_staff,
+        can_edit_pipeline: userData.can_edit_pipeline,
+        can_edit_product: userData.can_edit_product,
+        can_edit_files: userData.can_edit_files,
+        can_edit_enquiries: userData.can_edit_enquiries,
+        can_edit_stock: userData.can_edit_stock,
+        can_edit_product_enquiry: userData.can_edit_product_enquiry,
+        can_edit_service_enquiry: userData.can_edit_service_enquiry,
+        can_edit_sales: userData.can_edit_sales,
+        can_see_performance: userData.can_see_performance,
+        can_view_staff: userData.can_view_staff,
+        can_view_pipeline: userData.can_view_pipeline,
+        can_view_product: userData.can_view_product,
+        can_view_files: userData.can_view_files,
+        can_view_enquiries: userData.can_view_enquiries,
+        can_view_stock: userData.can_view_stock,
+        can_view_product_enquiry: userData.can_view_product_enquiry,
+        can_view_service_enquiry: userData.can_view_service_enquiry,
+        can_view_sales: userData.can_view_sales
+      };
 
-      if (permissionsError) throw permissionsError;
-
-      localStorage.setItem('userPermissions', JSON.stringify(permissionsData));
+      localStorage.setItem('userPermissions', JSON.stringify(userPermissions));
 
       navigate('/', { replace: true });
     } catch (error) {

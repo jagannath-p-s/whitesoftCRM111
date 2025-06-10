@@ -89,7 +89,7 @@ const SearchBar = ({ onSearch, currentUserId }) => {
       // Find the user ID matching the email
       let assignedUserId;
       if (userEmail) {
-        const currentUser = data.find(user => user.email === userEmail);
+        const currentUser = data.find(user => user.useremail === userEmail);
         console.log('Found user by email:', currentUser);
         if (currentUser) {
           assignedUserId = currentUser.id;

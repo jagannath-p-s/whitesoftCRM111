@@ -100,32 +100,32 @@ const HomePage = () => {
   }, []);
 
   const navItems = [
-    { icon: <ShoppingBag size={24} />, label: "Sales", component: 'Sales', permission: 'canEditSales' },
+    { icon: <ShoppingBag size={24} />, label: "Sales", component: 'Sales', permission: 'can_edit_sales' },
     { icon: <ClipboardList size={24} />, label: "Activities", component: 'Activities' },
-    { icon: <LayoutDashboard size={24} />, label: "Dashboard", component: 'Dashboard', permission: 'canSeePerformance' },
-    { icon: <Boxes size={24} />, label: "Stock", component: 'Stock', permission: 'canEditStock' },
-    { icon: <Hammer size={24} />, label: "Services", component: 'Services', permission: 'canEditServiceEnquiry' },
-    { icon: <Users size={24} />, label: "Organisation", component: 'Organisation', permission: 'canEditStaff' },
+    { icon: <LayoutDashboard size={24} />, label: "Dashboard", component: 'Dashboard', permission: 'can_see_performance' },
+    { icon: <Boxes size={24} />, label: "Stock", component: 'Stock', permission: 'can_edit_stock' },
+    { icon: <Hammer size={24} />, label: "Services", component: 'Services', permission: 'can_edit_service_enquiry' },
+    { icon: <Users size={24} />, label: "Organisation", component: 'Organisation', permission: 'can_edit_staff' },
     { icon: <Package size={24} />, label: "Batches", component: 'BatchComponent' },
-    { icon: <GitBranch size={24} />, label: "Pipelines", component: 'Pipelines', permission: 'canEditPipeline' },
-    { icon: <FileUp size={24} />, label: "Upload Files", component: 'UploadFiles', permission: 'canEditFiles' },
-    { icon: <History size={24} />, label: "UserTable", component: 'UserTable', permission: 'canEditSales' }
+    { icon: <GitBranch size={24} />, label: "Pipelines", component: 'Pipelines', permission: 'can_edit_pipeline' },
+    { icon: <FileUp size={24} />, label: "Upload Files", component: 'UploadFiles', permission: 'can_edit_files' },
+    { icon: <History size={24} />, label: "UserTable", component: 'UserTable', permission: 'can_edit_sales' }
   ];
 
   const renderComponent = () => {
     if (!user) return null;
 
     const components = {
-      Sales: () => user.permissions.canEditSales ? <Sales userId={user.id} /> : null,
+      Sales: () => user.permissions.can_edit_sales ? <Sales userId={user.id} /> : null,
       Activities: () => <Activities userId={user.id} userRole={user.role} />,
-      Dashboard: () => user.permissions.canSeePerformance ? <Dashboard /> : null,
-      Stock: () => user.permissions.canEditStock ? <Stock userId={user.id} /> : null,
-      Services: () => user.permissions.canEditServiceEnquiry ? <Services userId={user.id} /> : null,
-      Organisation: () => user.permissions.canEditStaff ? <Organisation userId={user.id} /> : null,
+      Dashboard: () => user.permissions.can_see_performance ? <Dashboard /> : null,
+      Stock: () => user.permissions.can_edit_stock ? <Stock userId={user.id} /> : null,
+      Services: () => user.permissions.can_edit_service_enquiry ? <Services userId={user.id} /> : null,
+      Organisation: () => user.permissions.can_edit_staff ? <Organisation userId={user.id} /> : null,
       BatchComponent: () => <BatchComponent userId={user.id} />,
-      Pipelines: () => user.permissions.canEditPipeline ? <Pipelines userId={user.id} /> : null,
-      UploadFiles: () => user.permissions.canEditFiles ? <UploadFiles userId={user.id} /> : null,
-      UserTable: () => user.permissions.canEditSales ? <UserTable userId={user.id} /> : null,
+      Pipelines: () => user.permissions.can_edit_pipeline ? <Pipelines userId={user.id} /> : null,
+      UploadFiles: () => user.permissions.can_edit_files ? <UploadFiles userId={user.id} /> : null,
+      UserTable: () => user.permissions.can_edit_sales ? <UserTable userId={user.id} /> : null,
       SearchComponent: () => <SearchComponent searchTerm={searchTerm} userId={user.id} onBackClick={() => {
         setActiveComponent(previousComponent);
         setSearchTerm('');
